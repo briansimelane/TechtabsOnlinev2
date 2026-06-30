@@ -1,0 +1,287 @@
+{
+  "version": "1.0",
+  "description": "Business logic, calculation formulas, and rules that govern how the simulation progresses from one period to the next",
+  "calculation_sequence": {
+    "description": "Calculations execute in this order each period",
+    "sequence": [
+      "1. Process decisions and validate",
+      "2. Calculate market demand and allocation",
+      "3. Determine actual sales volumes",
+      "4. Calculate revenues",
+      "5. Process production and inventory",
+      "6. Calculate costs of goods sold",
+      "7. Process operating expenses",
+      "8. Calculate cash flows",
+      "9. Update balance sheet accounts",
+      "10. Calculate financial ratios and KPIs",
+      "11. Update customer satisfaction scores",
+      "12. Prepare reports and feedback"
+    ]
+  },
+  "market_mechanics": {
+    "demand_calculation": {
+      "formula": "Base_Demand × (1 + CAGR)^period × (1 + CSAT_Effect) × Market_Conditions",
+      "components": {
+        "base_demand": "From config.json market_demand for each product",
+        "cagr": "Compound annual growth rate from config",
+        "csat_effect": "Customer satisfaction multiplier from config.json csat_effects",
+        "market_conditions": "Random market events or competitor actions"
+      }
+    },
+    "market_share_allocation": {
+      "description": "Teams compete for customers based on buying criteria scores",
+      "formula": "Team_Score = Σ(Criterion_Weight × Team_Performance) for all criteria",
+      "allocation": "Team_Market_Share = (Team_Score / Total_All_Teams_Scores) × 100",
+      "buying_criteria_scoring": {
+        "price": "Lower price = higher score (inverse relationship)",
+        "payment_terms": "More generous terms = higher score",
+        "availability": "Higher inventory levels = higher score",
+        "stores": "More company stores = higher score",
+        "agents": "Higher commission = more agent effort = higher score",
+        "staff_availability": "More customer service staff = higher score",
+        "product_innovation": "Higher feature levels = higher score",
+        "company_advertising": "Higher general advertising spend = higher score",
+        "product_advertising": "Higher product-specific advertising = higher score"
+      },
+      "weights": "From config.json customer_buying_criteria for each product"
+    },
+    "actual_sales": {
+      "formula": "MIN(Demand_Allocated, Available_Inventory)",
+      "constraint": "Cannot sell more than available finished goods inventory"
+    }
+  },
+  "financial_calculations": {
+    "revenue": {
+      "formula": "Units_Sold × Price_Per_Unit",
+      "by_product": "Calculate separately for TechBook, Zroid, iTab",
+      "timing": "Revenue recognized when goods are sold"
+    },
+    "cost_of_goods_sold": {
+      "components": [
+        "Component costs (for manufactured units)",
+        "Production costs (labor, overhead)",
+        "Finished goods purchase costs (for units bought from suppliers)"
+      ],
+      "formula": "COGS = Manufactured_Units × (Component_Cost + Production_Cost) + FG_Units × FG_Purchase_Cost",
+      "inventory_valuation": "FIFO (First In, First Out) method"
+    },
+    "operating_expenses": {
+      "employee_costs": {
+        "formula": "Σ(Employee_Count × REM × (1 + Training_Effect)) for all categories",
+        "training_cost": "Employee_Count × Training_Cost_Per_Level",
+        "timing": "Incurred regardless of production levels"
+      },
+      "advertising": {
+        "formula": "Total_Advertising_Budget as set in marketing decisions",
+        "allocation": "Split per product and general per allocation percentages"
+      },
+      "innovation": {
+        "formula": "Total_Innovation_Budget as set in operations decisions",
+        "feature_upgrade_cost": "Base_Cost × (1.3 ^ Current_Level)",
+        "effect": "Increases product feature score over time"
+      },
+      "distribution": {
+        "store_costs": "Open_Stores × Running_Cost + New_Stores × Setup_Cost + Closed_Stores × Close_Cost",
+        "agent_commission": "Sales_Through_Agents × Price × Commission_Rate"
+      },
+      "depreciation": {
+        "formula": "PPE_Value × Depreciation_Rate",
+        "method": "Straight-line depreciation"
+      }
+    },
+    "cash_flow": {
+      "operating_cash_flow": {
+        "cash_in": "Cash_Collections_From_Debtors (based on payment_timing_factors)",
+        "cash_out": "Supplier_Payments + Payroll + Operating_Expenses + Tax"
+      },
+      "investing_cash_flow": {
+        "capex": "Capacity_Change × CAPEX_Per_Unit",
+        "other": "Store openings/closings, investments"
+      },
+      "financing_cash_flow": {
+        "debt": "New_Debt_Raised - Debt_Repaid - Interest_Paid",
+        "equity": "New_Equity_Raised - Equity_Retired - Dividends_Paid",
+        "interest_income": "Cash_Balance × Interest_Income_Rate"
+      }
+    },
+    "balance_sheet_updates": {
+      "cash": "Previous_Cash + Operating_CF + Investing_CF + Financing_CF",
+      "debtors": {
+        "formula": "Previous_Debtors + Current_Revenue - Cash_Collections",
+        "collection_timing": "Based on payment_timing_factors in config.json by payment terms"
+      },
+      "inventory": {
+        "finished_goods": "Previous_FG + Production + FG_Purchases - Units_Sold",
+        "components": "Previous_Comp + Component_Purchases - Components_Used_in_Production"
+      },
+      "ppe": "Previous_PPE + CAPEX - Depreciation",
+      "creditors": {
+        "formula": "Previous_Creditors + Purchases - Payments",
+        "payment_timing": "Based on supplier_payment_factors in config.json"
+      },
+      "debt": "Previous_Debt + New_Debt - Repayments",
+      "equity": "Previous_Equity + New_Equity - Buybacks",
+      "retained_earnings": "Previous_RE + Net_Income - Dividends"
+    }
+  },
+  "production_mechanics": {
+    "capacity_constraint": {
+      "rule": "Total_Production ≤ Available_Capacity",
+      "capacity_utilization": "(Total_Production / Available_Capacity) × 100"
+    },
+    "component_requirements": {
+      "rule": "Components_Required = Production_Quantity × 1 (assumes 1:1 ratio)",
+      "constraint": "Cannot produce without sufficient component inventory"
+    },
+    "productivity": {
+      "formula": "Total_Capacity = Σ(Employee_Count × Units_Per_Employee × (1 + Training_Effect))",
+      "by_category": "Calculate separately for each employee category",
+      "training_boost": "From config.json training_programs productivity_effect"
+    },
+    "lead_time_effects": {
+      "rule": "Supplier lead time affects when purchased goods arrive",
+      "availability_score": "Shorter lead times increase competitive advantage"
+    }
+  },
+  "supplier_dynamics": {
+    "pricing_negotiation": {
+      "trade_offs": [
+        "Higher quality/innovation typically means higher prices",
+        "Longer payment terms may come with price premiums",
+        "Volume discounts possible at higher capacity levels"
+      ]
+    },
+    "performance_impact": {
+      "quality": "Affects customer satisfaction and returns/defects",
+      "lead_time": "Affects inventory availability and flexibility",
+      "after_sales": "Affects customer satisfaction scores",
+      "capacity": "Limits maximum order volumes",
+      "innovation": "Influences product feature advancement speed",
+      "payment_terms": "Affects cash flow timing"
+    },
+    "payment_timing": {
+      "formula": "Creditors_Balance × Payment_Factor for given payment_terms",
+      "factors": "From config.json supplier_payment_factors"
+    }
+  },
+  "customer_satisfaction": {
+    "calculation": {
+      "formula": "CSAT = f(Quality, Service, Innovation, Availability, Price_Value)",
+      "scale": "1-5 where 1 = Very Dissatisfied, 5 = Very Satisfied",
+      "factors": [
+        "Product quality (from supplier quality scores)",
+        "Staff availability (customer service employees)",
+        "Product features (innovation investment)",
+        "Stock availability (inventory levels)",
+        "Price competitiveness",
+        "Payment terms flexibility"
+      ]
+    },
+    "demand_impact": {
+      "mechanism": "CSAT score applies multiplier to base demand",
+      "multipliers": "From config.json customer_satisfaction_effects",
+      "persistence": "CSAT changes gradually over time based on sustained performance"
+    }
+  },
+  "performance_metrics": {
+    "profitability": {
+      "gross_margin": "(Revenue - COGS) / Revenue × 100",
+      "operating_margin": "(Operating_Income / Revenue) × 100",
+      "net_margin": "(Net_Income / Revenue) × 100",
+      "roe": "(Net_Income / Equity) × 100",
+      "roa": "(Net_Income / Total_Assets) × 100"
+    },
+    "efficiency": {
+      "asset_turnover": "Revenue / Total_Assets",
+      "inventory_turnover": "COGS / Average_Inventory",
+      "debtor_days": "(Debtors / Revenue) × 365",
+      "creditor_days": "(Creditors / COGS) × 365",
+      "cash_conversion_cycle": "Debtor_Days + Inventory_Days - Creditor_Days"
+    },
+    "liquidity": {
+      "current_ratio": "Current_Assets / Current_Liabilities",
+      "quick_ratio": "(Current_Assets - Inventory) / Current_Liabilities",
+      "cash_ratio": "Cash / Current_Liabilities"
+    },
+    "leverage": {
+      "debt_to_equity": "Total_Debt / Total_Equity",
+      "debt_ratio": "Total_Debt / Total_Assets",
+      "interest_coverage": "EBIT / Interest_Expense"
+    },
+    "market": {
+      "market_share": "Team_Units_Sold / Total_Market_Units_Sold × 100",
+      "revenue_growth": "(Current_Revenue - Previous_Revenue) / Previous_Revenue × 100",
+      "customer_satisfaction": "1-5 scale per product"
+    },
+    "dupont_analysis": {
+      "roe_decomposition": "ROE = Net_Margin × Asset_Turnover × Equity_Multiplier",
+      "components": [
+        "Net_Margin = Net_Income / Revenue",
+        "Asset_Turnover = Revenue / Assets",
+        "Equity_Multiplier = Assets / Equity"
+      ]
+    }
+  },
+  "competitive_dynamics": {
+    "relative_performance": {
+      "description": "Teams compete on weighted scoring across multiple dimensions",
+      "zero_sum": "One team's gain in market share is another's loss",
+      "feedback_loops": [
+        "Higher revenue → More cash → More investment → Better performance",
+        "Better CSAT → More demand → Higher revenue",
+        "Innovation investment → Better features → Higher CSAT → More demand"
+      ]
+    },
+    "strategic_trade_offs": {
+      "price_vs_quality": "Lower prices increase competitiveness but reduce margins",
+      "make_vs_buy": "In-house production offers control; outsourcing offers flexibility",
+      "growth_vs_profitability": "Market share gains may require margin sacrifice",
+      "short_term_vs_long_term": "Innovation pays off over time but costs now",
+      "cash_vs_leverage": "Debt provides fuel for growth but increases financial risk"
+    }
+  },
+  "event_system": {
+    "description": "Random events and facilitator interventions can impact gameplay",
+    "event_types": [
+      "Market shocks (demand surge/collapse)",
+      "Supply chain disruptions (supplier issues)",
+      "Regulatory changes (tax rate changes, labor laws)",
+      "Technology breakthroughs (innovation opportunities)",
+      "Competitive actions (new entrant, price wars)",
+      "Economic conditions (interest rate changes, inflation)"
+    ],
+    "facilitator_controls": {
+      "market_conditions": "Can adjust overall market growth rates",
+      "supplier_availability": "Can simulate supply constraints",
+      "cost_inflation": "Can increase input costs over time",
+      "custom_events": "Can create scenario-specific challenges"
+    }
+  },
+  "validation_and_constraints": {
+    "decision_validation": {
+      "budget_constraints": "Total spending cannot exceed available resources",
+      "capacity_constraints": "Production limited by physical capacity and employees",
+      "percentage_sum_rules": "Allocation percentages must sum to 100%",
+      "logical_constraints": "Cannot simultaneously raise and retire same security",
+      "minimum_requirements": "Must maintain minimum cash, employees for operations"
+    },
+    "error_handling": {
+      "insufficient_cash": "Automatically trigger overdraft or prevent action",
+      "over_capacity": "Cap production at available capacity",
+      "inventory_shortage": "Limit sales to available inventory",
+      "invalid_allocations": "Return error message for correction"
+    }
+  },
+  "implementation_notes": [
+    "All calculations run sequentially in the order specified",
+    "Circular references are resolved through iteration or sequential processing",
+    "Financial statements balance (Assets = Liabilities + Equity)",
+    "Cash flow statement reconciles to balance sheet cash",
+    "All monetary values use consistent currency units",
+    "Percentages stored as decimals internally (e.g., 0.25 for 25%)",
+    "Rounding applied consistently at 2 decimal places for currency",
+    "Zero-value decisions are valid (e.g., R0 advertising is allowed)",
+    "Negative capacity changes (reducing capacity) incur exit costs",
+    "Employee counts must be whole numbers (no fractional employees)"
+  ]
+}

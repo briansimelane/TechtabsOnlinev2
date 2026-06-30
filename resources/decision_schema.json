@@ -1,0 +1,690 @@
+{
+  "schema_version": "1.0",
+  "description": "Complete decision schema for business simulation. Defines all decisions teams can make each period across Marketing, Operations, Procurement, HR, and Finance.",
+  "decision_categories": {
+    "marketing": {
+      "description": "Customer-facing decisions about pricing, forecasting, advertising, and distribution",
+      "decisions": {
+        "market_share_target": {
+          "description": "Target market share percentage for each product",
+          "products": {
+            "TechBook": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 18.0,
+              "unit": "%"
+            },
+            "Zroid": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 18.7,
+              "unit": "%"
+            },
+            "iTab": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 21.7,
+              "unit": "%"
+            }
+          }
+        },
+        "demand_forecast": {
+          "description": "Forecasted unit sales for production and procurement planning",
+          "products": {
+            "TechBook": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 33766,
+              "unit": "units"
+            },
+            "Zroid": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 48665,
+              "unit": "units"
+            },
+            "iTab": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 27680,
+              "unit": "units"
+            }
+          }
+        },
+        "pricing": {
+          "description": "Retail price per unit for each product",
+          "products": {
+            "TechBook": {
+              "type": "currency",
+              "min": 0,
+              "max": null,
+              "default": 3150,
+              "unit": "currency"
+            },
+            "Zroid": {
+              "type": "currency",
+              "min": 0,
+              "max": null,
+              "default": 5000,
+              "unit": "currency"
+            },
+            "iTab": {
+              "type": "currency",
+              "min": 0,
+              "max": null,
+              "default": 6800,
+              "unit": "currency"
+            }
+          }
+        },
+        "advertising": {
+          "description": "Marketing spend and allocation across products",
+          "total_budget": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 35000000,
+            "unit": "currency"
+          },
+          "allocation": {
+            "description": "Percentage allocation of advertising budget (must sum to 100%)",
+            "TechBook": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 10,
+              "unit": "%"
+            },
+            "Zroid": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 38,
+              "unit": "%"
+            },
+            "iTab": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 27,
+              "unit": "%"
+            },
+            "General": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 25,
+              "unit": "%",
+              "description": "Company brand advertising not specific to any product"
+            }
+          }
+        },
+        "distribution_channels": {
+          "description": "Retail store operations and agent commission rates",
+          "company_stores": {
+            "open": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 0,
+              "unit": "stores",
+              "description": "Number of new stores to open this period"
+            },
+            "close": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 0,
+              "unit": "stores",
+              "description": "Number of existing stores to close this period"
+            }
+          },
+          "agent_commission": {
+            "type": "percentage",
+            "min": 0,
+            "max": 100,
+            "default": 5,
+            "unit": "%",
+            "description": "Commission rate paid to independent sales agents"
+          }
+        }
+      }
+    },
+    "operations": {
+      "description": "Production, capacity, and innovation decisions",
+      "decisions": {
+        "production_quantity": {
+          "description": "Units to manufacture in-house this period",
+          "products": {
+            "TechBook": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 0,
+              "unit": "units",
+              "constraint": "Limited by production capacity and component inventory"
+            },
+            "Zroid": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 15000,
+              "unit": "units"
+            },
+            "iTab": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 1000,
+              "unit": "units"
+            }
+          }
+        },
+        "finished_goods_purchase": {
+          "description": "Units to purchase as finished goods from suppliers",
+          "products": {
+            "TechBook": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 25000,
+              "unit": "units",
+              "constraint": "Subject to supplier capacity and pricing"
+            },
+            "Zroid": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 31000,
+              "unit": "units"
+            },
+            "iTab": {
+              "type": "integer",
+              "min": 0,
+              "max": null,
+              "default": 33000,
+              "unit": "units"
+            }
+          }
+        },
+        "capacity_change": {
+          "type": "integer",
+          "min": null,
+          "max": null,
+          "default": 45000,
+          "unit": "units",
+          "description": "Net change in annual production capacity (positive = expansion, negative = reduction)"
+        },
+        "innovation_budget": {
+          "description": "R&D spending and allocation",
+          "total_budget": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 33600000,
+            "unit": "currency"
+          },
+          "allocation": {
+            "description": "Percentage allocation of R&D budget (must sum to 100%)",
+            "TechBook": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 9,
+              "unit": "%"
+            },
+            "Zroid": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 35.5,
+              "unit": "%"
+            },
+            "iTab": {
+              "type": "percentage",
+              "min": 0,
+              "max": 100,
+              "default": 55.5,
+              "unit": "%"
+            }
+          }
+        },
+        "product_features": {
+          "description": "Current feature level for each product (1-10 scale)",
+          "products": {
+            "TechBook": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 1,
+              "unit": "level"
+            },
+            "Zroid": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 4,
+              "unit": "level"
+            },
+            "iTab": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 6,
+              "unit": "level"
+            }
+          }
+        }
+      }
+    },
+    "procurement": {
+      "description": "Supplier selection, negotiation, and purchasing decisions for all four suppliers",
+      "suppliers": {
+        "Alpha": {
+          "performance_negotiation": {
+            "description": "Negotiate supplier performance attributes",
+            "quality": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 10,
+              "unit": "score"
+            },
+            "lead_time": {
+              "type": "integer",
+              "min": 1,
+              "max": 30,
+              "default": 3,
+              "unit": "days"
+            },
+            "after_sales": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 8,
+              "unit": "score"
+            },
+            "capacity": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 4,
+              "unit": "score"
+            },
+            "innovation": {
+              "type": "integer",
+              "min": 1,
+              "max": 10,
+              "default": 8,
+              "unit": "score"
+            },
+            "payment_terms": {
+              "type": "integer",
+              "min": 0,
+              "max": 90,
+              "default": 60,
+              "unit": "days",
+              "allowed_values": [0, 15, 30, 45, 60, 90]
+            }
+          },
+          "component_purchases": {
+            "description": "Purchase components for in-house production",
+            "TechBook": {
+              "price": {
+                "type": "currency",
+                "default": 1560,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 0,
+                "unit": "units"
+              }
+            },
+            "Zroid": {
+              "price": {
+                "type": "currency",
+                "default": 1328,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 15000,
+                "unit": "units"
+              }
+            },
+            "iTab": {
+              "price": {
+                "type": "currency",
+                "default": 1065,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 1000,
+                "unit": "units"
+              }
+            }
+          },
+          "finished_goods_purchases": {
+            "description": "Purchase finished products from supplier",
+            "TechBook": {
+              "price": {
+                "type": "currency",
+                "default": 1660,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 25000,
+                "unit": "units"
+              }
+            },
+            "Zroid": {
+              "price": {
+                "type": "currency",
+                "default": 1750,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 0,
+                "unit": "units"
+              }
+            },
+            "iTab": {
+              "price": {
+                "type": "currency",
+                "default": 1700,
+                "unit": "currency"
+              },
+              "volume": {
+                "type": "integer",
+                "min": 0,
+                "default": 0,
+                "unit": "units"
+              }
+            }
+          }
+        },
+        "Neepo": {
+          "performance_negotiation": {
+            "quality": {"type": "integer", "min": 1, "max": 10, "default": 5},
+            "lead_time": {"type": "integer", "min": 1, "max": 30, "default": 10},
+            "after_sales": {"type": "integer", "min": 1, "max": 10, "default": 5},
+            "capacity": {"type": "integer", "min": 1, "max": 10, "default": 10},
+            "innovation": {"type": "integer", "min": 1, "max": 10, "default": 5},
+            "payment_terms": {"type": "integer", "min": 0, "max": 90, "default": 30, "allowed_values": [0, 15, 30, 45, 60, 90]}
+          },
+          "component_purchases": {
+            "TechBook": {"price": 1380, "volume": 0},
+            "Zroid": {"price": 1328, "volume": 0},
+            "iTab": {"price": 1065, "volume": 0}
+          },
+          "finished_goods_purchases": {
+            "TechBook": {"price": 1480, "volume": 0},
+            "Zroid": {"price": 1560, "volume": 0},
+            "iTab": {"price": 1600, "volume": 0}
+          }
+        },
+        "Zen": {
+          "performance_negotiation": {
+            "quality": {"type": "integer", "min": 1, "max": 10, "default": 6},
+            "lead_time": {"type": "integer", "min": 1, "max": 30, "default": 5},
+            "after_sales": {"type": "integer", "min": 1, "max": 10, "default": 10},
+            "capacity": {"type": "integer", "min": 1, "max": 10, "default": 6},
+            "innovation": {"type": "integer", "min": 1, "max": 10, "default": 7},
+            "payment_terms": {"type": "integer", "min": 0, "max": 90, "default": 45, "allowed_values": [0, 15, 30, 45, 60, 90]}
+          },
+          "component_purchases": {
+            "TechBook": {"price": 1200, "volume": 0},
+            "Zroid": {"price": 1328, "volume": 0},
+            "iTab": {"price": 1065, "volume": 0}
+          },
+          "finished_goods_purchases": {
+            "TechBook": {"price": 1300, "volume": 0},
+            "Zroid": {"price": 1860, "volume": 31000},
+            "iTab": {"price": 1800, "volume": 0}
+          }
+        },
+        "Cheng": {
+          "performance_negotiation": {
+            "quality": {"type": "integer", "min": 1, "max": 10, "default": 7},
+            "lead_time": {"type": "integer", "min": 1, "max": 30, "default": 6},
+            "after_sales": {"type": "integer", "min": 1, "max": 10, "default": 5},
+            "capacity": {"type": "integer", "min": 1, "max": 10, "default": 6},
+            "innovation": {"type": "integer", "min": 1, "max": 10, "default": 6},
+            "payment_terms": {"type": "integer", "min": 0, "max": 90, "default": 45, "allowed_values": [0, 15, 30, 45, 60, 90]}
+          },
+          "component_purchases": {
+            "TechBook": {"price": 1160, "volume": 0},
+            "Zroid": {"price": 1328, "volume": 0},
+            "iTab": {"price": 1065, "volume": 33000}
+          },
+          "finished_goods_purchases": {
+            "TechBook": {"price": 1260, "volume": 0},
+            "Zroid": {"price": 1860, "volume": 0},
+            "iTab": {"price": 1850, "volume": 0}
+          }
+        }
+      }
+    },
+    "hr": {
+      "description": "Human resources decisions for all employee categories",
+      "employee_categories": {
+        "Engineers": {
+          "recruitment": {
+            "type": "integer",
+            "min": 0,
+            "max": null,
+            "default": 0,
+            "unit": "employees",
+            "description": "Number of new engineers to hire this period"
+          },
+          "remuneration": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 57750,
+            "unit": "currency per employee",
+            "description": "Annual salary per engineer"
+          },
+          "training": {
+            "type": "enum",
+            "allowed_values": ["None", "Basic", "Moderate", "Advanced"],
+            "default": "Moderate",
+            "description": "Training level for engineers this period"
+          }
+        },
+        "Technicians": {
+          "recruitment": {
+            "type": "integer",
+            "min": 0,
+            "default": 2,
+            "unit": "employees"
+          },
+          "remuneration": {
+            "type": "currency",
+            "min": 0,
+            "default": 40090,
+            "unit": "currency per employee"
+          },
+          "training": {
+            "type": "enum",
+            "allowed_values": ["None", "Basic", "Moderate", "Advanced"],
+            "default": "Advanced"
+          }
+        },
+        "Semi-Skilled": {
+          "recruitment": {
+            "type": "integer",
+            "min": 0,
+            "default": 2,
+            "unit": "employees"
+          },
+          "remuneration": {
+            "type": "currency",
+            "min": 0,
+            "default": 31500,
+            "unit": "currency per employee"
+          },
+          "training": {
+            "type": "enum",
+            "allowed_values": ["None", "Basic", "Moderate", "Advanced"],
+            "default": "Advanced"
+          }
+        },
+        "Admin & Sales": {
+          "recruitment": {
+            "type": "integer",
+            "min": 0,
+            "default": 20,
+            "unit": "employees"
+          },
+          "remuneration": {
+            "type": "currency",
+            "min": 0,
+            "default": 20000,
+            "unit": "currency per employee"
+          },
+          "training": {
+            "type": "enum",
+            "allowed_values": ["None", "Basic", "Moderate", "Advanced"],
+            "default": "Advanced"
+          }
+        },
+        "Customer Service": {
+          "recruitment": {
+            "type": "integer",
+            "min": 0,
+            "default": 98,
+            "unit": "employees"
+          },
+          "remuneration": {
+            "type": "currency",
+            "min": 0,
+            "default": 9250,
+            "unit": "currency per employee"
+          },
+          "training": {
+            "type": "enum",
+            "allowed_values": ["None", "Basic", "Moderate", "Advanced"],
+            "default": "Advanced"
+          }
+        }
+      }
+    },
+    "finance": {
+      "description": "Financial management decisions including working capital and capital structure",
+      "decisions": {
+        "customer_payment_terms": {
+          "description": "Payment terms offered to customers (affects cash collection timing)",
+          "products": {
+            "TechBook": {
+              "type": "enum",
+              "allowed_values": [0, 15, 30, 45, 60, 90],
+              "default": 60,
+              "unit": "days",
+              "description": "Days of credit offered to TechBook customers"
+            },
+            "Zroid": {
+              "type": "enum",
+              "allowed_values": [0, 15, 30, 45, 60, 90],
+              "default": 30,
+              "unit": "days"
+            },
+            "iTab": {
+              "type": "enum",
+              "allowed_values": [0, 15, 30, 45, 60, 90],
+              "default": 30,
+              "unit": "days"
+            }
+          }
+        },
+        "long_term_debt": {
+          "description": "Changes to long-term debt position",
+          "raise": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 0,
+            "unit": "currency",
+            "description": "Amount of new long-term debt to raise this period"
+          },
+          "repay": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 0,
+            "unit": "currency",
+            "description": "Amount of existing debt to repay this period"
+          }
+        },
+        "equity": {
+          "description": "Changes to equity position",
+          "raise": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 0,
+            "unit": "currency",
+            "description": "Amount of new equity to raise this period"
+          },
+          "retire": {
+            "type": "currency",
+            "min": 0,
+            "max": null,
+            "default": 60000000,
+            "unit": "currency",
+            "description": "Amount of equity to retire (buyback) this period"
+          }
+        }
+      }
+    }
+  },
+  "validation_rules": {
+    "advertising_allocation_sum": {
+      "rule": "TechBook + Zroid + iTab + General must equal 100%",
+      "category": "marketing"
+    },
+    "innovation_allocation_sum": {
+      "rule": "TechBook + Zroid + iTab must equal 100%",
+      "category": "operations"
+    },
+    "production_capacity_constraint": {
+      "rule": "Total production quantity cannot exceed available capacity",
+      "category": "operations"
+    },
+    "component_balance": {
+      "rule": "Component purchases must match production requirements",
+      "category": "procurement"
+    },
+    "finished_goods_supplier_capacity": {
+      "rule": "FG purchases limited by supplier capacity scores",
+      "category": "procurement"
+    },
+    "mutual_exclusivity_debt_equity": {
+      "rule": "Cannot simultaneously raise and retire the same security type",
+      "category": "finance"
+    }
+  },
+  "notes": [
+    "All default values represent Period 1 starting decisions",
+    "Teams typically make 100-150 individual decisions per period",
+    "Decisions interact through the game's calculation engine",
+    "Some decisions have delayed effects (e.g., store openings, training)",
+    "Currency values are in simulation currency units",
+    "Percentages are expressed as whole numbers (e.g., 25 = 25%)"
+  ]
+}

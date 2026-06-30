@@ -1,0 +1,414 @@
+{
+  "document_type": "Integration Guide",
+  "version": "1.0",
+  "purpose": "Guide for using the JSON files to build an online business simulation",
+  "overview": {
+    "description": "This simulation is a multi-period, multi-team competitive business strategy game where teams make decisions across Marketing, Operations, Procurement, HR, and Finance to maximize their company's performance.",
+    "json_files": {
+      "config.json": "Static game configuration including suppliers, costs, market parameters, and rules",
+      "initial_state.json": "Starting financial position and operational state for all teams at Period 1",
+      "decision_schema.json": "Complete definition of all decisions teams can make each period",
+      "calculation_rules.json": "Business logic, formulas, and calculation sequence"
+    },
+    "data_flow": "Config → Initial State → Decisions → Calculations → New State → Reports → Next Period"
+  },
+  "architecture_recommendations": {
+    "frontend": {
+      "technology": "React, Vue.js, or similar modern framework",
+      "components": [
+        "Decision input forms (5 modules: Marketing, Operations, Procurement, HR, Finance)",
+        "Dashboard with key metrics and charts",
+        "Financial statements viewer (Income Statement, Balance Sheet, Cash Flow)",
+        "Market data and competitor analysis views",
+        "Reports and feedback displays"
+      ],
+      "state_management": "Use Redux, Vuex, or similar for managing game state",
+      "validation": "Client-side validation using decision_schema.json constraints"
+    },
+    "backend": {
+      "technology": "Node.js, Python (Django/Flask), or similar",
+      "responsibilities": [
+        "Process and validate team decisions",
+        "Execute calculation engine (using calculation_rules.json)",
+        "Manage game state and period progression",
+        "Generate reports and analytics",
+        "Handle multi-team coordination"
+      ],
+      "database": "Store team states, historical data, and audit trail",
+      "api_endpoints": [
+        "GET /api/config - Retrieve game configuration",
+        "GET /api/team/{id}/state/{period} - Get team state for a period",
+        "POST /api/team/{id}/decisions/{period} - Submit decisions",
+        "GET /api/market/demand/{period} - Get market data",
+        "POST /api/game/process-period - Process all decisions and advance period",
+        "GET /api/team/{id}/reports/{period} - Get period reports"
+      ]
+    },
+    "calculation_engine": {
+      "approach": "Implement as a separate module/service",
+      "inputs": [
+        "Current team state",
+        "Team decisions for the period",
+        "Configuration data",
+        "Market conditions"
+      ],
+      "outputs": [
+        "Updated team state",
+        "Financial statements",
+        "Performance metrics",
+        "Feedback and reports"
+      ],
+      "key_functions": [
+        "validateDecisions()",
+        "calculateMarketShare()",
+        "processProduction()",
+        "calculateFinancials()",
+        "updateBalanceSheet()",
+        "generateReports()"
+      ]
+    }
+  },
+  "implementation_phases": {
+    "phase_1_foundation": {
+      "description": "Build core infrastructure and single-team functionality",
+      "tasks": [
+        "Set up project structure and database",
+        "Implement game state management",
+        "Create decision input forms from decision_schema.json",
+        "Build basic calculation engine using calculation_rules.json",
+        "Implement financial statement generation",
+        "Create simple dashboard"
+      ],
+      "deliverable": "Single team can make decisions and see results"
+    },
+    "phase_2_competition": {
+      "description": "Add multi-team competition and market mechanics",
+      "tasks": [
+        "Implement market share allocation algorithm",
+        "Add competitive dynamics",
+        "Build team comparison views",
+        "Create market data displays",
+        "Implement CSAT calculation and effects"
+      ],
+      "deliverable": "Multiple teams can compete for market share"
+    },
+    "phase_3_sophistication": {
+      "description": "Add advanced features and polish",
+      "tasks": [
+        "Implement full DuPont analysis",
+        "Add event system and facilitator controls",
+        "Create comprehensive reporting",
+        "Build period-over-period analytics",
+        "Add data export functionality",
+        "Implement undo/draft decisions"
+      ],
+      "deliverable": "Full-featured simulation with advanced analytics"
+    },
+    "phase_4_polish": {
+      "description": "User experience and facilitation tools",
+      "tasks": [
+        "Add guided tutorials",
+        "Build facilitator control panel",
+        "Create team collaboration features",
+        "Implement decision history and audit trail",
+        "Add visualization and charting",
+        "Build presentation mode for debrief"
+      ],
+      "deliverable": "Production-ready simulation with excellent UX"
+    }
+  },
+  "key_implementation_patterns": {
+    "decision_collection": {
+      "pattern": "Form-based input with real-time validation",
+      "example_workflow": [
+        "1. Load decision schema for the current period",
+        "2. Pre-populate forms with previous period values or defaults",
+        "3. Validate each input against schema constraints",
+        "4. Show warnings for risky decisions (e.g., high debt)",
+        "5. Require confirmation before submission",
+        "6. Save draft decisions for later completion"
+      ],
+      "validation_example": {
+        "field": "marketing.pricing.TechBook",
+        "schema_check": "value >= 0 (from decision_schema.json)",
+        "business_rule": "price should cover COGS + reasonable margin",
+        "competitive_check": "compare to competitor prices (optional warning)"
+      }
+    },
+    "calculation_execution": {
+      "pattern": "Staged calculation with checkpoints",
+      "sequence": [
+        "1. Load all team decisions for the period",
+        "2. Validate all decisions across all teams",
+        "3. Calculate market-level metrics (total demand, shares)",
+        "4. Process each team's operations in parallel",
+        "5. Calculate financial statements",
+        "6. Generate reports and feedback",
+        "7. Save new state and advance period"
+      ],
+      "error_handling": "If any calculation fails, rollback and report error"
+    },
+    "state_management": {
+      "pattern": "Immutable state with versioning",
+      "structure": {
+        "game_state": {
+          "current_period": "integer",
+          "teams": {
+            "team_1": {
+              "states": {
+                "period_1": "initial_state from initial_state.json",
+                "period_2": "calculated_state after period 1 decisions",
+                "...": "..."
+              },
+              "decisions": {
+                "period_1": "decisions_object",
+                "period_2": "decisions_object",
+                "...": "..."
+              }
+            }
+          },
+          "market_history": "array of market conditions by period",
+          "events": "array of game events that occurred"
+        }
+      },
+      "benefits": [
+        "Easy to implement undo/rollback",
+        "Full audit trail of all changes",
+        "Support for what-if analysis",
+        "Debugging and testing support"
+      ]
+    },
+    "market_share_calculation": {
+      "pattern": "Weighted scoring algorithm",
+      "pseudocode": [
+        "FOR each product:",
+        "  FOR each team:",
+        "    score = 0",
+        "    FOR each buying_criterion:",
+        "      weight = config.customer_buying_criteria[product][criterion]",
+        "      performance = evaluate_team_performance(team, criterion)",
+        "      score += weight * performance",
+        "    END FOR",
+        "    team_scores[team] = score",
+        "  END FOR",
+        "  total_scores = sum(team_scores)",
+        "  FOR each team:",
+        "    market_share[team] = (team_scores[team] / total_scores) * 100",
+        "  END FOR",
+        "END FOR"
+      ],
+      "performance_evaluation": {
+        "price": "Inverse scale - lower price = higher score",
+        "payment_terms": "Linear scale - more generous terms = higher score",
+        "availability": "Based on inventory levels",
+        "stores": "Based on number of retail locations",
+        "other_factors": "See calculation_rules.json for details"
+      }
+    },
+    "financial_statement_generation": {
+      "pattern": "Double-entry bookkeeping with automated balancing",
+      "income_statement": {
+        "revenue": "From sales calculation",
+        "cogs": "From production and procurement",
+        "gross_profit": "revenue - cogs",
+        "operating_expenses": "Sum of all OpEx categories",
+        "ebit": "gross_profit - operating_expenses",
+        "interest": "debt * interest_rate",
+        "ebt": "ebit - interest + interest_income",
+        "tax": "ebt * tax_rate",
+        "net_income": "ebt - tax"
+      },
+      "balance_sheet": {
+        "assets": "current_assets + non_current_assets",
+        "liabilities": "current_liabilities + non_current_liabilities",
+        "equity": "share_capital + retained_earnings",
+        "check": "assets must equal liabilities + equity"
+      },
+      "cash_flow": {
+        "operating": "From operating activities",
+        "investing": "CAPEX and other investments",
+        "financing": "Debt, equity changes",
+        "net_change": "sum of all three",
+        "check": "ending_cash - beginning_cash must equal net_change"
+      }
+    }
+  },
+  "data_structures": {
+    "team_state_object": {
+      "description": "Complete state for one team in one period",
+      "structure": {
+        "team_id": "string",
+        "period": "integer",
+        "accounts": "from initial_state.json, updated each period",
+        "operational_state": "employees, capacity, stores, features, CSAT",
+        "performance_metrics": "calculated KPIs and ratios",
+        "market_position": "market share, competitive ranking"
+      }
+    },
+    "decision_object": {
+      "description": "All decisions made by one team for one period",
+      "structure": {
+        "team_id": "string",
+        "period": "integer",
+        "timestamp": "datetime when submitted",
+        "marketing": "decisions object from decision_schema.json",
+        "operations": "decisions object",
+        "procurement": "decisions object",
+        "hr": "decisions object",
+        "finance": "decisions object",
+        "status": "draft | submitted | processed"
+      }
+    },
+    "report_object": {
+      "description": "Generated feedback for one team for one period",
+      "structure": {
+        "team_id": "string",
+        "period": "integer",
+        "financial_statements": "IS, BS, CF",
+        "performance_metrics": "profitability, efficiency, liquidity ratios",
+        "market_analysis": "market share, competitive position",
+        "operational_summary": "production, sales, inventory levels",
+        "feedback": "automated insights and recommendations",
+        "warnings": "array of issues detected (e.g., low cash, high debt)"
+      }
+    }
+  },
+  "testing_strategy": {
+    "unit_tests": [
+      "Test each calculation function in isolation",
+      "Verify decision validation logic",
+      "Test financial statement balancing",
+      "Validate data structure transformations"
+    ],
+    "integration_tests": [
+      "Test full period processing with sample data",
+      "Verify multi-team competition mechanics",
+      "Test state transitions between periods",
+      "Validate API endpoints"
+    ],
+    "simulation_tests": [
+      "Run full 6-period simulation with 8 teams",
+      "Verify all financial statements balance",
+      "Check competitive dynamics work correctly",
+      "Test edge cases (bankruptcy, extreme decisions)"
+    ],
+    "test_scenarios": [
+      "Aggressive growth strategy (high debt, high investment)",
+      "Conservative strategy (low risk, steady growth)",
+      "Market leader strategy (price competition)",
+      "Differentiation strategy (quality, innovation focus)"
+    ]
+  },
+  "facilitator_features": {
+    "game_management": [
+      "Start/pause/reset game",
+      "Control period progression",
+      "Review all team submissions",
+      "Override calculations if needed"
+    ],
+    "intervention_tools": [
+      "Inject market events",
+      "Adjust market conditions",
+      "Modify supplier parameters",
+      "Set custom challenges"
+    ],
+    "monitoring": [
+      "Real-time dashboard of all teams",
+      "Decision submission status",
+      "Performance rankings",
+      "Alert on potential issues"
+    ],
+    "debrief_support": [
+      "Generate comparative reports",
+      "Create presentation slides",
+      "Export data for analysis",
+      "Highlight teaching moments"
+    ]
+  },
+  "performance_considerations": {
+    "optimization_tips": [
+      "Cache configuration data (config.json rarely changes)",
+      "Use database indexing on team_id and period",
+      "Parallelize team calculations when possible",
+      "Pre-calculate common metrics",
+      "Use lazy loading for historical data"
+    ],
+    "scalability": [
+      "Support for 1-20 teams per game",
+      "Handle 1-12 periods typical (extendable)",
+      "Multiple concurrent games (classroom setting)",
+      "Archive completed games for reference"
+    ]
+  },
+  "migration_from_excel": {
+    "equivalences": {
+      "backStart": "→ initial_state.json",
+      "backDecisions": "→ decision_schema.json structure",
+      "backTables": "→ config.json",
+      "backCalculations": "→ calculation_rules.json logic",
+      "frontIS/BS/CF": "→ Generated financial statements",
+      "frontReports": "→ Generated team reports"
+    },
+    "differences": {
+      "excel": "Single file, formula-based, manual period advance",
+      "online": "Distributed, API-based, automated processing",
+      "advantages": [
+        "Better scalability and performance",
+        "Real-time collaboration",
+        "Automated validation and error checking",
+        "Rich analytics and visualization",
+        "Easier facilitation and monitoring",
+        "Mobile-friendly interface"
+      ]
+    }
+  },
+  "next_steps": {
+    "immediate": [
+      "Review and validate JSON structures",
+      "Set up development environment",
+      "Choose technology stack",
+      "Create initial project structure"
+    ],
+    "short_term": [
+      "Implement Phase 1 (foundation)",
+      "Build basic calculation engine",
+      "Create decision input interface",
+      "Test with single team scenarios"
+    ],
+    "medium_term": [
+      "Implement Phase 2 (competition)",
+      "Add multi-team support",
+      "Build market mechanics",
+      "Create facilitator tools"
+    ],
+    "long_term": [
+      "Implement Phases 3-4 (sophistication and polish)",
+      "Add advanced features",
+      "Conduct user testing",
+      "Launch production version"
+    ]
+  },
+  "additional_resources": {
+    "documentation_needed": [
+      "API documentation",
+      "User manual for teams",
+      "Facilitator guide",
+      "Technical architecture document"
+    ],
+    "tools_to_consider": [
+      "Chart.js or D3.js for visualizations",
+      "Jest or similar for testing",
+      "Swagger/OpenAPI for API documentation",
+      "Storybook for UI component development"
+    ]
+  },
+  "notes": [
+    "These JSON files represent the data model and business logic",
+    "Implementation language/framework is flexible",
+    "Focus on separating concerns: UI, business logic, data",
+    "Maintain audit trail for debugging and learning",
+    "Consider building API-first for flexibility",
+    "Plan for incremental development and testing",
+    "Keep facilitator needs in mind throughout development"
+  ]
+}

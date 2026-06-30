@@ -1,0 +1,232 @@
+{
+  "period": 1,
+  "description": "Initial financial position and state for all teams at the start of the simulation",
+  "team_template": {
+    "period": 1,
+    "accounts": {
+      "current_assets": {
+        "cash": {
+          "account_code": "10-0-00",
+          "account_name": "Cash",
+          "value": 10400000,
+          "description": "Available cash and cash equivalents"
+        },
+        "debtors": {
+          "TechBook": {
+            "account_code": "11-1-00",
+            "account_name": "Debtors - TechBook",
+            "value": 23300000,
+            "description": "Receivables from TechBook sales"
+          },
+          "Zroid": {
+            "account_code": "11-2-00",
+            "account_name": "Debtors - Zroid",
+            "value": 8900000,
+            "description": "Receivables from Zroid sales"
+          },
+          "iTab": {
+            "account_code": "11-3-00",
+            "account_name": "Debtors - iTab",
+            "value": 15300000,
+            "description": "Receivables from iTab sales"
+          }
+        },
+        "investments": {
+          "account_code": "12-0-00",
+          "account_name": "Investments",
+          "value": 0,
+          "description": "Short-term investments"
+        },
+        "finished_inventory": {
+          "TechBook": {
+            "account_code": "13-1-00",
+            "account_name": "Finished Inventory - TechBook",
+            "value": 12800000,
+            "units": 0,
+            "description": "Finished goods inventory for TechBook"
+          },
+          "Zroid": {
+            "account_code": "13-2-00",
+            "account_name": "Finished Inventory - Zroid",
+            "value": 13800000,
+            "units": 0,
+            "description": "Finished goods inventory for Zroid"
+          },
+          "iTab": {
+            "account_code": "13-3-00",
+            "account_name": "Finished Inventory - iTab",
+            "value": 0,
+            "units": 0,
+            "description": "Finished goods inventory for iTab"
+          }
+        },
+        "component_inventory": {
+          "TechBook": {
+            "account_code": "14-1-00",
+            "account_name": "Component Inventory - TechBook",
+            "value": 10000000,
+            "units": 0,
+            "description": "Raw materials/components for TechBook"
+          },
+          "Zroid": {
+            "account_code": "14-2-00",
+            "account_name": "Component Inventory - Zroid",
+            "value": 13300000,
+            "units": 0,
+            "description": "Raw materials/components for Zroid"
+          },
+          "iTab": {
+            "account_code": "14-3-00",
+            "account_name": "Component Inventory - iTab",
+            "value": 0,
+            "units": 0,
+            "description": "Raw materials/components for iTab"
+          }
+        }
+      },
+      "non_current_assets": {
+        "ppe": {
+          "account_code": "20-0-00",
+          "account_name": "Property, Plant & Equipment",
+          "value": 295000000,
+          "capacity_units": 0,
+          "description": "Production facilities and equipment"
+        },
+        "accumulated_depreciation": {
+          "account_code": "21-0-00",
+          "account_name": "Accumulated Depreciation",
+          "value": 1500000,
+          "description": "Cumulative depreciation on PPE"
+        }
+      },
+      "current_liabilities": {
+        "bank_overdraft": {
+          "account_code": "30-0-00",
+          "account_name": "Bank Overdraft",
+          "value": 0,
+          "description": "Short-term bank borrowings"
+        },
+        "creditors_suppliers": {
+          "Alpha": {
+            "account_code": "32-1-00",
+            "account_name": "Creditors - Alpha",
+            "value": 0,
+            "description": "Payables to Alpha Corporation"
+          },
+          "Neepo": {
+            "account_code": "32-2-00",
+            "account_name": "Creditors - Neepo",
+            "value": 0,
+            "description": "Payables to Neepo Industries"
+          },
+          "Zen": {
+            "account_code": "32-3-00",
+            "account_name": "Creditors - Zen",
+            "value": 46000000,
+            "description": "Payables to Zen Manufacturing"
+          },
+          "Cheng": {
+            "account_code": "32-4-00",
+            "account_name": "Creditors - Cheng",
+            "value": 53000000,
+            "description": "Payables to Cheng Industries"
+          }
+        },
+        "creditors_other": {
+          "account_code": "33-0-00",
+          "account_name": "Other Creditors",
+          "value": 0,
+          "description": "Other short-term payables"
+        },
+        "tax_payable": {
+          "account_code": "34-0-00",
+          "account_name": "Tax Payable",
+          "value": 0,
+          "description": "Corporate tax liability"
+        }
+      },
+      "non_current_liabilities": {
+        "long_term_debt": {
+          "account_code": "40-0-00",
+          "account_name": "Long-term Debt",
+          "value": 0,
+          "description": "Long-term borrowings"
+        }
+      },
+      "equity": {
+        "share_capital": {
+          "account_code": "50-0-00",
+          "account_name": "Share Capital",
+          "value": 0,
+          "description": "Issued share capital"
+        },
+        "retained_earnings": {
+          "account_code": "51-0-00",
+          "account_name": "Retained Earnings",
+          "value": 0,
+          "description": "Cumulative retained profits"
+        }
+      }
+    },
+    "operational_state": {
+      "employees": {
+        "Engineers": {
+          "count": 0,
+          "rem_per_employee": 57750,
+          "training_level": "Moderate"
+        },
+        "Technicians": {
+          "count": 0,
+          "rem_per_employee": 40090,
+          "training_level": "Advanced"
+        },
+        "Semi-Skilled": {
+          "count": 0,
+          "rem_per_employee": 31500,
+          "training_level": "Advanced"
+        },
+        "Admin & Sales": {
+          "count": 0,
+          "rem_per_employee": 20000,
+          "training_level": "Advanced"
+        },
+        "Customer Service": {
+          "count": 0,
+          "rem_per_employee": 9250,
+          "training_level": "Advanced"
+        }
+      },
+      "production_capacity": {
+        "total_capacity_units": 0,
+        "description": "Total annual production capacity"
+      },
+      "company_stores": {
+        "count": 0,
+        "description": "Number of company-owned retail stores"
+      },
+      "product_features": {
+        "TechBook": 1,
+        "Zroid": 4,
+        "iTab": 6
+      },
+      "market_share": {
+        "TechBook": 18.0,
+        "Zroid": 18.7,
+        "iTab": 21.7
+      },
+      "customer_satisfaction": {
+        "TechBook": 3,
+        "Zroid": 3,
+        "iTab": 3,
+        "description": "CSAT scores on 1-5 scale"
+      }
+    }
+  },
+  "notes": [
+    "All 8 teams start with identical financial positions",
+    "Account codes follow format: XX-Y-ZZ where XX=category, Y=product, ZZ=sub-account",
+    "Values are in currency units (e.g., dollars)",
+    "Operational state includes non-financial starting conditions",
+    "Teams make different decisions which will cause divergence from Period 2 onwards"
+  ]
+}
