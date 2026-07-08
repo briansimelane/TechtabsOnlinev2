@@ -1,14 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { PRODUCTS, MARKET_SIZES, FINANCE_CONSTANTS } from '../../constants';
+import { PRODUCTS, MARKET_SIZES, FINANCE_CONSTANTS, getMarketSize } from '../../constants';
 import { ProductId } from '../../types';
 import { DollarSign, Landmark, PieChart } from 'lucide-react';
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
+import { useFlashOnChange } from '../../utils/useFlashOnChange';
 
 const Finance: React.FC = () => {
-  const { decisions, updateDecisions, currentTeam } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, isReadOnly, currentRole } = useSimulation();
+  const disabled = isReadOnly && currentRole === 'STUDENT';
   const { finance, marketing } = decisions;
+
+  const flashTechbook = useFlashOnChange(finance.debtorsDays.techbook);
+  const flashZroid = useFlashOnChange(finance.debtorsDays.zroid);
+  const flashITab = useFlashOnChange(finance.debtorsDays.itab);
+  const flashDebtChange = useFlashOnChange(finance.debtChange);
+  const flashEquityChange = useFlashOnChange(finance.equityChange);
+
+  const debtorsDaysFlashMap: Record<ProductId, boolean> = {
+    techbook: flashTechbook,
+    zroid: flashZroid,
+    itab: flashITab
+  };
+
+  const [debtInput, setDebtInput] = useState<string>('');
+  const [equityInput, setEquityInput] = useState<string>('');
+
+  // Sync inputs with decisions
+  useEffect(() => {
+    if (parseNumber(debtInput) !== finance.debtChange) {
+      setDebtInput(finance.debtChange === 0 ? '' : formatNumber(finance.debtChange));
+    }
+  }, [finance.debtChange]);
+
+  useEffect(() => {
+    if (parseNumber(equityInput) !== finance.equityChange) {
+      setEquityInput(finance.equityChange === 0 ? '' : formatNumber(finance.equityChange));
+    }
+  }, [finance.equityChange]);
 
   // -- Handlers --
   const handleDebtorsDaysChange = (productId: ProductId, value: string) => {
@@ -20,16 +50,30 @@ const Finance: React.FC = () => {
     });
   };
 
-  const handleDebtChange = (value: string) => {
+  const handleDebtInputChange = (value: string) => {
+      const cleanValue = value.replace(/[^0-9,\s-]/g, '');
+      setDebtInput(cleanValue);
+      const parsed = parseNumber(cleanValue);
       updateDecisions('finance', {
-          debtChange: parseNumber(value)
+          debtChange: parsed
       });
   };
 
-  const handleEquityChange = (value: string) => {
+  const handleDebtInputBlur = () => {
+      setDebtInput(finance.debtChange === 0 ? '' : formatNumber(finance.debtChange));
+  };
+
+  const handleEquityInputChange = (value: string) => {
+      const cleanValue = value.replace(/[^0-9,\s-]/g, '');
+      setEquityInput(cleanValue);
+      const parsed = parseNumber(cleanValue);
       updateDecisions('finance', {
-          equityChange: parseNumber(value)
+          equityChange: parsed
       });
+  };
+
+  const handleEquityInputBlur = () => {
+      setEquityInput(finance.equityChange === 0 ? '' : formatNumber(finance.equityChange));
   };
 
   // -- Calculations --
@@ -91,9 +135,10 @@ const Finance: React.FC = () => {
                              {PRODUCTS.map(p => (
                                  <div key={p.id} className="relative">
                                      <select 
-                                         className="w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1.5 px-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center cursor-pointer appearance-none"
+                                         className={`w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1.5 px-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed ${debtorsDaysFlashMap[p.id] ? 'animate-flash-green' : ''}`}
                                          value={finance.debtorsDays[p.id]}
                                          onChange={(e) => handleDebtorsDaysChange(p.id, e.target.value)}
+                                         disabled={disabled}
                                      >
                                          <option value="0">0</option>
                                          <option value="30">30</option>
@@ -111,7 +156,7 @@ const Finance: React.FC = () => {
                              {PRODUCTS.map(p => {
                                  // Calculate forecasted revenue
                                  const share = marketing.forecastedMarketShare[p.id] || 0;
-                                 const units = (MARKET_SIZES[p.id] * share) / 100;
+                                 const units = (getMarketSize(p.id, currentTeam.currentPeriod) * share) / 100;
                                  const revenue = units * marketing.prices[p.id];
                                  const days = finance.debtorsDays[p.id];
                                  // AR = (Revenue / 365) * Days
@@ -158,10 +203,12 @@ const Finance: React.FC = () => {
                                 <input 
                                     type="text"
                                     inputMode="numeric"
-                                    className="w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1 pl-6 pr-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center placeholder-blue-300"
+                                    className={`w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1 pl-6 pr-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center placeholder-blue-300 disabled:opacity-50 disabled:cursor-not-allowed ${flashDebtChange ? 'animate-flash-green' : ''}`}
                                     placeholder="-"
-                                    value={finance.debtChange === 0 ? '' : formatNumber(finance.debtChange)}
-                                    onChange={(e) => handleDebtChange(e.target.value)}
+                                    value={debtInput}
+                                    onChange={(e) => handleDebtInputChange(e.target.value)}
+                                    onBlur={handleDebtInputBlur}
+                                    disabled={disabled}
                                 />
                              </div>
                         </div>
@@ -184,6 +231,11 @@ const Finance: React.FC = () => {
                         {endingDebt > TOTAL_DEBT_CAPACITY && (
                              <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
                                  Warning: Projected debt exceeds capacity. Loan may be rejected.
+                             </div>
+                        )}
+                        {endingDebt < 0 && (
+                             <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
+                                 Warning: Projected ending debt balance cannot be below zero.
                              </div>
                         )}
                      </div>
@@ -212,10 +264,12 @@ const Finance: React.FC = () => {
                                 <input 
                                     type="text"
                                     inputMode="numeric"
-                                    className="w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1 pl-6 pr-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center placeholder-blue-300"
+                                    className={`w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1 pl-6 pr-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center placeholder-blue-300 disabled:opacity-50 disabled:cursor-not-allowed ${flashEquityChange ? 'animate-flash-green' : ''}`}
                                     placeholder="-"
-                                    value={finance.equityChange === 0 ? '' : formatNumber(finance.equityChange)}
-                                    onChange={(e) => handleEquityChange(e.target.value)}
+                                    value={equityInput}
+                                    onChange={(e) => handleEquityInputChange(e.target.value)}
+                                    onBlur={handleEquityInputBlur}
+                                    disabled={disabled}
                                 />
                              </div>
                         </div>
@@ -231,6 +285,11 @@ const Finance: React.FC = () => {
                              <span className="font-bold text-slate-800">WACC</span>
                                 <span className="text-slate-900 font-bold">{formatPercent(FINANCE_CONSTANTS.wacc, 2)}</span>
                         </div>
+                        {endingEquity < 0 && (
+                              <div className="text-xs text-red-500 bg-red-50 p-2 rounded">
+                                  Warning: Projected ending shareholders' equity cannot be below zero.
+                              </div>
+                        )}
                      </div>
                  </div>
             </div>

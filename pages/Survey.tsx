@@ -181,7 +181,7 @@ const Survey: React.FC = () => {
   }
 
   // If the survey is hidden by the facilitator
-  if (currentClass?.hideSurvey && currentRole === 'STUDENT') {
+  if (!currentClass?.showSurvey && currentRole === 'STUDENT') {
     return (
       <div className="max-w-xl mx-auto py-16 px-6 text-center animate-in fade-in zoom-in-95 duration-300">
         <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-xl relative overflow-hidden flex flex-col items-center">

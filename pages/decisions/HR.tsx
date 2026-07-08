@@ -1,14 +1,43 @@
 import React from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { HR_CONSTANTS } from '../../constants';
-import { HRRole, TrainingLevel } from '../../types';
+import { HR_CONSTANTS, PRODUCTS, getMarketSize } from '../../constants';
+import { HRRole, TrainingLevel, ProductId } from '../../types';
 import { Users, GraduationCap, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
+import { useFlashOnChange } from '../../utils/useFlashOnChange';
 
 const HR: React.FC = () => {
-  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole } = useSimulation();
+  const disabled = isReadOnly && currentRole === 'STUDENT';
   const { hr, operations, marketing } = decisions;
+
+  const flashHiring = {
+      productionLine: useFlashOnChange(hr.hiring.productionLine),
+      qualityControl: useFlashOnChange(hr.hiring.qualityControl),
+      logistics: useFlashOnChange(hr.hiring.logistics),
+      maintenance: useFlashOnChange(hr.hiring.maintenance),
+      adminSales: useFlashOnChange(hr.hiring.adminSales),
+      customerService: useFlashOnChange(hr.hiring.customerService)
+  };
+
+  const flashSalaries = {
+      productionLine: useFlashOnChange(hr.salaries.productionLine),
+      qualityControl: useFlashOnChange(hr.salaries.qualityControl),
+      logistics: useFlashOnChange(hr.salaries.logistics),
+      maintenance: useFlashOnChange(hr.salaries.maintenance),
+      adminSales: useFlashOnChange(hr.salaries.adminSales),
+      customerService: useFlashOnChange(hr.salaries.customerService)
+  };
+
+  const flashTraining = {
+      productionLine: useFlashOnChange(hr.trainingLevels.productionLine),
+      qualityControl: useFlashOnChange(hr.trainingLevels.qualityControl),
+      logistics: useFlashOnChange(hr.trainingLevels.logistics),
+      maintenance: useFlashOnChange(hr.trainingLevels.maintenance),
+      adminSales: useFlashOnChange(hr.trainingLevels.adminSales),
+      customerService: useFlashOnChange(hr.trainingLevels.customerService)
+  };
 
   // -- Helpers --
   
@@ -42,7 +71,7 @@ const HR: React.FC = () => {
       // The screenshot implies a simpler 'Total Costs' which might just be Salary * Staff * Months (likely 6-12 depending on period)
       // We will use: Ending Staff * Salary * 12 months for annual projection
       const endingStaff = getEndingStaff(role);
-      const annualSalaryCost = endingStaff * hr.salaries[role] * 12;
+      const annualSalaryCost = endingStaff * hr.salaries[role] * 8;
       return annualSalaryCost;
   };
 
@@ -53,26 +82,73 @@ const HR: React.FC = () => {
       return endingStaff * HR_CONSTANTS.trainingCosts[level];
   };
 
-  // Utilization Calculations (Mock logic to show progress bars)
-  const totalProduction = (Object.values(operations.production) as number[]).reduce((a, b) => a + b, 0);
-  
+  // Helper to get available inventory for sale
+  const getAvailableInventory = (productId: ProductId) => {
+    const opening = currentTeam.inventory[productId] || 0;
+    const production = decisions.operations.production[productId] || 0;
+    const purchased = Object.values(decisions.procurement.supplierAllocation[productId] || {}).reduce(
+      (sum: number, alloc: any) => sum + (alloc.finishedGoods || 0),
+      0
+    );
+    return opening + production + purchased;
+  };
+
+  const getTrainingEffect = (level: TrainingLevel) => {
+      switch (level) {
+          case 'Basic': return 0.03;
+          case 'Moderate': return 0.055;
+          case 'Advanced': return 0.1;
+          default: return 0.0;
+      }
+  };
+
+  const baseProductivity: Record<HRRole, number> = {
+      engineers: 3420,
+      technicians: 2422.5,
+      semiSkilled: 1870,
+      adminSales: 1840,
+      customerService: 570
+  };
+
   const calculateUtilization = (role: HRRole) => {
       const endingStaff = getEndingStaff(role);
-      if (endingStaff <= 0) return 100;
+      if (endingStaff <= 0) return 0;
 
-      // Mock demand drivers
-      const totalRevenue = lastPeriodKPIs.revenue; // Use last period as proxy for demand
-      
-      let demand = 0;
-      switch(role) {
-          case 'engineers': demand = totalProduction / HR_CONSTANTS.productivity.engineers; break;
-          case 'technicians': demand = totalProduction / HR_CONSTANTS.productivity.technicians; break;
-          case 'semiSkilled': demand = totalProduction / HR_CONSTANTS.productivity.semiSkilled; break;
-          case 'adminSales': demand = totalRevenue / HR_CONSTANTS.productivity.adminSales; break;
-          case 'customerService': demand = (totalRevenue / 10000) / (HR_CONSTANTS.productivity.customerService/1000); break; // Arbitrary scaling
+      const currentPeriod = currentTeam.currentPeriod;
+
+      // 1. Calculate Production Workload
+      const plannedTotalProduction = Object.values(decisions.operations.production).reduce((a, b) => a + (b || 0), 0);
+      const lastPeriodProduction = lastPeriodKPIs.revenue > 0 ? 36094 + 22486 + 11219 : 0;
+      const productionWorkload = plannedTotalProduction > 0 ? plannedTotalProduction : lastPeriodProduction;
+
+      // 2. Calculate Sales Workload
+      let totalForecastedUnitsSold = 0;
+      PRODUCTS.forEach(p => {
+        const share = decisions.marketing.forecastedMarketShare[p.id] || 0;
+        const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
+        const available = getAvailableInventory(p.id);
+        const unitsSold = Math.min(demand, available);
+        totalForecastedUnitsSold += unitsSold;
+      });
+      const lastPeriodUnitsSold = 36094 + 22486 + 11219;
+      const salesWorkload = totalForecastedUnitsSold > 0 ? totalForecastedUnitsSold : lastPeriodUnitsSold;
+
+      // 3. Determine workload for this specific role
+      let workload = 0;
+      if (role === 'engineers' || role === 'technicians' || role === 'semiSkilled') {
+          workload = productionWorkload;
+      } else {
+          workload = salesWorkload;
       }
+
+      // 4. Calculate capacity using the Excel formula logic
+      const prod = baseProductivity[role];
+      const trainingLevel = hr.trainingLevels[role] || 'None';
+      const trainingEffect = getTrainingEffect(trainingLevel);
       
-      return (demand / endingStaff) * 100;
+      const capacity = endingStaff * (prod * (1 + trainingEffect));
+
+      return (workload / capacity) * 100;
   };
 
   const rolesProduction: { id: HRRole; label: string }[] = [
@@ -105,9 +181,10 @@ const HR: React.FC = () => {
             <td className="py-4 px-4">
                 <input 
                     type="number"
-                    className="w-full text-center font-bold text-sm py-1 px-2 border rounded outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50 text-blue-800 border-blue-200"
+                    className={`w-full text-center font-bold text-sm py-1 px-2 border rounded outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50 text-blue-800 border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed ${flashHiring[role] ? 'animate-flash-green' : ''}`}
                     value={recruit}
                     onChange={(e) => handleHiringChange(role, e.target.value)}
+                    disabled={disabled}
                 />
             </td>
             <td className="py-4 px-6 text-center">
@@ -121,9 +198,10 @@ const HR: React.FC = () => {
                     <input 
                         type="text"
                         inputMode="numeric"
-                        className="w-full text-right font-mono font-bold text-sm py-1 px-2 bg-blue-50 border border-blue-200 text-blue-800 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                        className={`w-full text-right font-mono font-bold text-sm py-1 px-2 bg-blue-50 border border-blue-200 text-blue-800 rounded focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed ${flashSalaries[role] ? 'animate-flash-green' : ''}`}
                         value={formatNumber(salary)}
                         onChange={(e) => handleSalaryChange(role, String(parseNumber(e.target.value)))}
+                        disabled={disabled}
                     />
                  </div>
             </td>
@@ -179,9 +257,10 @@ const HR: React.FC = () => {
                                   <label className="text-[11px] font-medium text-slate-500 block">Recruit / (Dismiss)</label>
                                   <input 
                                       type="number"
-                                      className="w-full text-center font-bold text-xs py-1.5 px-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50 text-blue-800 border-blue-200"
+                                      className={`w-full text-center font-bold text-xs py-1.5 px-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-400 bg-blue-50 text-blue-800 border-blue-200 disabled:opacity-50 disabled:cursor-not-allowed ${flashHiring[role] ? 'animate-flash-green' : ''}`}
                                       value={recruit}
                                       onChange={(e) => handleHiringChange(role, e.target.value)}
+                                      disabled={disabled}
                                   />
                               </div>
                               <div className="space-y-1">
@@ -191,9 +270,10 @@ const HR: React.FC = () => {
                                       <input 
                                           type="text"
                                           inputMode="numeric"
-                                          className="w-full text-right font-mono font-bold text-xs py-1.5 px-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                          className={`w-full text-right font-mono font-bold text-xs py-1.5 px-2 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed ${flashSalaries[role] ? 'animate-flash-green' : ''}`}
                                           value={formatNumber(salary)}
                                           onChange={(e) => handleSalaryChange(role, String(parseNumber(e.target.value)))}
+                                          disabled={disabled}
                                       />
                                   </div>
                               </div>
@@ -298,9 +378,10 @@ const HR: React.FC = () => {
                                 </div>
                                 <div className="flex items-center space-x-3">
                                     <select 
-                                        className="text-sm border-blue-200 rounded-md shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-blue-50 text-blue-800 font-bold py-1"
+                                        className={`text-sm border-blue-200 rounded-md shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-blue-50 text-blue-800 font-bold py-1 disabled:opacity-50 disabled:cursor-not-allowed ${flashTraining[r.id] ? 'animate-flash-green' : ''}`}
                                         value={hr.trainingLevels[r.id]}
                                         onChange={(e) => handleTrainingChange(r.id, e.target.value as TrainingLevel)}
+                                        disabled={disabled}
                                     >
                                         <option value="None">None</option>
                                         <option value="Basic">Basic</option>

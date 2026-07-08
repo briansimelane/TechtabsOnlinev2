@@ -51,9 +51,15 @@ const Login: React.FC = () => {
       } else {
         navigate('/dashboard');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Google login failed', err);
-      setError('Google login failed. Please try again.');
+      if (err?.code === 'auth/popup-blocked') {
+        setError('Google login popup was blocked. Please enable popups in your browser settings and try again.');
+      } else if (err?.code === 'auth/operation-not-supported-in-this-environment' || err?.code === 'auth/auth-domain-config-required') {
+        setError('Google Sign-In is not supported in this preview browser. Please use your Access Code instead.');
+      } else {
+        setError(err?.message || 'Google login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +116,25 @@ const Login: React.FC = () => {
             </button>
 
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-slate-500">Or continue with</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex justify-center items-center py-3 px-4 border border-slate-300 rounded-lg shadow-sm text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all hover:scale-[1.02] disabled:opacity-70 disabled:hover:scale-100"
+          >
+            <Chrome className="mr-2 h-5 w-5 text-red-500" />
+            Sign in with Google
+          </button>
 
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-400 leading-relaxed">

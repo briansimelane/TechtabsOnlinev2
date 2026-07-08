@@ -1,4 +1,4 @@
-import { Product, SimulationState, TurnDecisions, HRRole, TrainingLevel, Facilitator, SurveyConfig } from './types';
+import { Product, SimulationState, TurnDecisions, HRRole, TrainingLevel, Facilitator, SurveyConfig, PeriodRecord, ProductId } from './types';
 
 
 export const PRODUCTS: Product[] = [
@@ -69,10 +69,16 @@ const initialProcurement = PRODUCTS.reduce((acc, p) => {
 // Set some defaults based on previous logic (simplified)
 initialProcurement.techbook.Alpha.components = 10000;
 initialProcurement.techbook.Neepo.components = 5000;
-initialProcurement.zroid.Alpha.components = 8000;
+initialProcurement.techbook.Cheng.finishedGoods = 8500;
+
+initialProcurement.zroid.Alpha.components = 8500;
 initialProcurement.zroid.Neepo.components = 5000;
+initialProcurement.zroid.Cheng.components = 2000;
+initialProcurement.zroid.Cheng.finishedGoods = 20000;
+
 initialProcurement.itab.Alpha.components = 5000;
 initialProcurement.itab.Zen.components = 5000;
+initialProcurement.itab.Cheng.finishedGoods = 12500;
 
 export const INITIAL_DECISIONS: TurnDecisions = {
   marketing: {
@@ -81,24 +87,23 @@ export const INITIAL_DECISIONS: TurnDecisions = {
     advertisingBudget: 25000000,
     adSplits: { techbook: 0.25, zroid: 0.25, itab: 0.25 },
     generalAdSplit: 0.25,
-    promoBudget: 5000000,
     openCloseStores: 0,
     agentCommission: 0.015,
   },
   operations: {
     production: { techbook: 15000, zroid: 15000, itab: 10000 },
-    reqFinishedGoods: { techbook: 46304, zroid: 39258, itab: 18043 }, // Initialized consistent with Op + Prod
+    reqFinishedGoods: { techbook: 8500, zroid: 20000, itab: 12500 }, // Updated to match start of year 1 defaults
     capacityChange: 0,
     rdBudget: 15055857,
     rdSplits: { techbook: 0.25, zroid: 0.25, itab: 0.50 },
   },
   hr: {
     hiring: {
-        engineers: 15,
-        technicians: 15,
-        semiSkilled: 15,
-        adminSales: 60,
-        customerService: 180
+        engineers: 0,
+        technicians: 0,
+        semiSkilled: 0,
+        adminSales: 0,
+        customerService: 0
     },
     salaries: {
         engineers: 55000,
@@ -129,7 +134,19 @@ export const INITIAL_DECISIONS: TurnDecisions = {
     status: 'NOT_STARTED',
     agreedDiscount: 0,
     agreedPaymentTerms: 0,
-    transcript: []
+    transcript: [],
+    roundCount: 0,
+    maxRounds: 10,
+    sessionScores: {
+      preparation: 0,
+      interests: 0,
+      trading: 0,
+      concessions: 0,
+      professionalism: 0
+    },
+    debriefFeedback: '',
+    contractPeriods: 1,
+    extras: []
   }
 };
 
@@ -139,6 +156,74 @@ const MOCK_FACILITATORS: Facilitator[] = [
   { id: '3', name: 'Mike Johnson', email: 'mike@techtabs.com', organization: 'Techtabs Internal', status: 'Inactive', joinedDate: '2023-01-10', licenseType: 'Trial' },
 ];
 
+export const YEAR_0_RECORD: PeriodRecord = {
+  period: 0,
+  revenue: {
+    total: 289138300,
+    byProduct: { techbook: 108282000, zroid: 107932800, itab: 72923500 }
+  },
+  cogs: {
+    total: 123170388,
+    byProduct: { techbook: 57998802, zroid: 44113220, itab: 21058366 }
+  },
+  grossProfit: {
+    total: 165967912,
+    byProduct: { techbook: 50283198, zroid: 63819580, itab: 51865134 }
+  },
+  opex: {
+    marketing: 25051494,
+    store: 40082390,
+    agents: 2255279,
+    payroll: 19696818,
+    training: 2958080,
+    rd: 15055857,
+    other: 15800800,
+    total: 120900718
+  },
+  ebitda: 45067194,
+  depreciation: 1535965,
+  interest: 0,
+  ebt: 43531229,
+  tax: 12188743,
+  netProfit: 31342486,
+  balanceSheet: {
+    cash: 147305847,
+    receivables: 18547918,
+    inventory: 112334926,
+    fixedAssets: 299459535,
+    totalAssets: 577648226,
+    equity: 341050070,
+    longTermDebt: 0,
+    currentLiabilities: 236598156,
+    totalLiabilitiesAndEquity: 577648226
+  },
+  cashFlow: {
+    operating: 55989632,
+    investing: -15000000,
+    financing: 0,
+    net: 40989632
+  },
+  debtorDays: { techbook: 30, zroid: 45, itab: 30 },
+  creditorDays: 45,
+  interestCoverage: 114.5,
+  kpis: {
+    revenue: 289138300,
+    netProfit: 31342486,
+    marketShare: { techbook: 0.125, zroid: 0.125, itab: 0.125 },
+    customerSatisfaction: 0.70,
+    employeeSatisfaction: 0.70
+  },
+  prices: { techbook: 3000, zroid: 4800, itab: 6500 },
+  salaries: {
+    engineers: 45000,
+    technicians: 20000,
+    semiSkilled: 15000,
+    adminSales: 15000,
+    customerService: 10000
+  },
+  features: { techbook: 0, zroid: 0, itab: 0 }
+};
+
 export const INITIAL_STATE: SimulationState = {
   isAuthenticated: false,
   currentRole: 'STUDENT',
@@ -146,31 +231,30 @@ export const INITIAL_STATE: SimulationState = {
   currentClassId: null,
   currentTeam: {
     id: 'team_01',
-    name: 'Alpha Innovations',
+    name: 'Techtabs Ltd',
+    ceoName: 'CEO Name',
     universeId: 'uni_001',
-    currentPeriod: 2,
-    cashBalance: 45000000,
+    currentPeriod: 1,
+    cashBalance: 147305847,
     storeCount: 8,
     factoryCapacity: 40000,
-    inventory: { techbook: 31304, zroid: 24258, itab: 8043 },
+    inventory: { techbook: 8533, zroid: 9200, itab: 0 },
     staffCounts: {
-        engineers: 27,
-        technicians: 40,
-        semiSkilled: 53,
-        adminSales: 64,
-        customerService: 208
+        engineers: 22,
+        technicians: 28,
+        semiSkilled: 37,
+        adminSales: 29,
+        customerService: 58
     },
-    longTermDebt: 10000000,
-    shareholdersEquity: 203355740
+    longTermDebt: 0,
+    shareholdersEquity: 341050070,
+    history: {
+      0: YEAR_0_RECORD
+    },
+    features: { techbook: 0, zroid: 0, itab: 0 }
   },
   decisions: INITIAL_DECISIONS,
-  lastPeriodKPIs: {
-    revenue: 582869074,
-    netProfit: 101800696,
-    marketShare: { techbook: 0.167, zroid: 0.167, itab: 0.167 },
-    customerSatisfaction: 0.78,
-    employeeSatisfaction: 0.82,
-  },
+  lastPeriodKPIs: YEAR_0_RECORD.kpis,
   classes: [],
   facilitators: MOCK_FACILITATORS
 };
@@ -186,14 +270,46 @@ export const OPERATIONS_CONSTANTS = {
 };
 
 export const MARKET_SIZES: Record<string, number> = {
-    techbook: 337000,
-    zroid: 389600,
-    itab: 152800
+    techbook: 187588,
+    zroid: 260242,
+    itab: 127559
+};
+
+export const PRODUCT_DEMAND_SCHEDULE: Record<ProductId, Record<number, number>> = {
+  techbook: {
+    0: 288750, // Year 0 (from user request)
+    1: 187588, // Year 1 (from config.json)
+    2: 197905, // Year 2
+    3: 208790, // Year 3
+    4: 220274  // Year 4
+  },
+  zroid: {
+    0: 179888, // Year 0 (from user request)
+    1: 260242, // Year 1 (from config.json)
+    2: 279760, // Year 2
+    3: 300742, // Year 3
+    4: 323298  // Year 4
+  },
+  itab: {
+    0: 89750,  // Year 0 (from user request)
+    1: 127559, // Year 1 (from config.json)
+    2: 140953, // Year 2
+    3: 155753, // Year 3
+    4: 172107  // Year 4
+  }
+};
+
+export const getMarketSize = (productId: ProductId, period: number): number => {
+  const schedule = PRODUCT_DEMAND_SCHEDULE[productId];
+  if (schedule && schedule[period] !== undefined) {
+    return schedule[period];
+  }
+  return MARKET_SIZES[productId] || 0;
 };
 
 export const LAST_YEAR_DATA = {
-    marketShare: { techbook: 16.5, zroid: 16.9, itab: 16.0 },
-    unitsSold: { techbook: 30988, zroid: 43958, itab: 20456 }
+    marketShare: { techbook: 12.5, zroid: 12.5, itab: 12.5 },
+    unitsSold: { techbook: 36094, zroid: 22486, itab: 11219 }
 };
 
 export const DEFAULT_SURVEY_CONFIG: SurveyConfig = {

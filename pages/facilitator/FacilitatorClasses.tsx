@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal } from 'lucide-react';
+import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2 } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass } = useSimulation();
+  const { classes, createClass, selectClass, deleteClass } = useSimulation();
   const navigate = useNavigate();
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -151,6 +151,17 @@ const FacilitatorClasses: React.FC = () => {
                                             title="View Access Codes"
                                         >
                                             <KeyRound size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                                if (window.confirm("Are you sure you want to delete this class? This will permanently delete all class data and team decisions.")) {
+                                                    deleteClass(simClass.id);
+                                                }
+                                            }}
+                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Delete Class"
+                                        >
+                                            <Trash2 size={18} />
                                         </button>
                                         <button 
                                             onClick={() => handleEnterClass(simClass.id)}

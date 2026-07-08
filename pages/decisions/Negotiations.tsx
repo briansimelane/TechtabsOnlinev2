@@ -6,7 +6,7 @@ import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatPercent } from '../../utils/numberFormat';
 
 const Negotiations: React.FC = () => {
-  const { decisions, startNegotiation, sendNegotiationMessage } = useSimulation();
+  const { decisions, startNegotiation, sendNegotiationMessage, isReadOnly, currentRole } = useSimulation();
   const { negotiation } = decisions;
   const [inputMessage, setInputMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -259,23 +259,23 @@ const Negotiations: React.FC = () => {
                            <span className="font-bold">Negotiation Closed. Terms finalized for this period.</span>
                        </div>
                    ) : (
-                       <form onSubmit={handleSendMessage} className="relative">
-                           <input 
-                               type="text" 
-                               value={inputMessage}
-                               onChange={(e) => setInputMessage(e.target.value)}
-                               placeholder="Type your offer or response..."
-                               className="w-full pl-4 pr-12 py-4 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-blue-300"
-                               disabled={isSending}
-                           />
-                           <button 
-                               type="submit" 
-                               disabled={!inputMessage.trim() || isSending}
-                               className="absolute right-2 top-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors"
-                           >
-                               <Send size={20} />
-                           </button>
-                       </form>
+                        <form onSubmit={handleSendMessage} className="relative">
+                            <input 
+                                type="text" 
+                                value={inputMessage}
+                                onChange={(e) => setInputMessage(e.target.value)}
+                                placeholder={isReadOnly && currentRole === 'STUDENT' ? "Only the CEO can send messages..." : "Type your offer or response..."}
+                                className="w-full pl-4 pr-12 py-4 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-xl focus:ring-2 focus:ring-blue-500 outline-none placeholder-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isSending || (isReadOnly && currentRole === 'STUDENT')}
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={!inputMessage.trim() || isSending || (isReadOnly && currentRole === 'STUDENT')}
+                                className="absolute right-2 top-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:hover:bg-blue-600 transition-colors"
+                            >
+                                <Send size={20} />
+                            </button>
+                        </form>
                    )}
                </div>
 

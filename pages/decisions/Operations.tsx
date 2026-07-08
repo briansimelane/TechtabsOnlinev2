@@ -1,15 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { PRODUCTS, OPERATIONS_CONSTANTS, MARKET_SIZES } from '../../constants';
+import { PRODUCTS, OPERATIONS_CONSTANTS, MARKET_SIZES, getMarketSize, SUPPLIERS, SUPPLIER_METRICS } from '../../constants';
 import { ProductId } from '../../types';
 import { Box, Layers, Zap, TrendingUp, AlertTriangle, Hammer, Link as LinkIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
+import { useFlashOnChange } from '../../utils/useFlashOnChange';
 
 const Operations: React.FC = () => {
-  const { decisions, updateDecisions, currentTeam } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, isReadOnly, currentRole } = useSimulation();
+  const disabled = isReadOnly && currentRole === 'STUDENT';
   const { operations, marketing } = decisions;
+
+  const flashProduction = {
+      techbook: useFlashOnChange(operations.production.techbook),
+      zroid: useFlashOnChange(operations.production.zroid),
+      itab: useFlashOnChange(operations.production.itab)
+  };
+
+  const flashFinishedGoods = {
+      techbook: useFlashOnChange(operations.reqFinishedGoods?.techbook),
+      zroid: useFlashOnChange(operations.reqFinishedGoods?.zroid),
+      itab: useFlashOnChange(operations.reqFinishedGoods?.itab)
+  };
+
+  const flashCapacity = useFlashOnChange(operations.capacityChange);
+  const flashRDBudget = useFlashOnChange(operations.rdBudget);
+
+  const flashRDSplits = {
+      techbook: useFlashOnChange(operations.rdSplits.techbook),
+      zroid: useFlashOnChange(operations.rdSplits.zroid),
+      itab: useFlashOnChange(operations.rdSplits.itab)
+  };
 
   const [rdSplitInputs, setRdSplitInputs] = useState<Record<ProductId, string>>({
     techbook: formatNumber((operations.rdSplits.techbook || 0) * 100, 2),
@@ -106,11 +129,16 @@ const Operations: React.FC = () => {
 
   const handleRDSplitChange = (productId: ProductId, value: string) => {
       const newVal = parseNumber(value) / 100; // Convert 25 to 0.25
+      const updatedSplits = {
+          ...operations.rdSplits,
+          [productId]: newVal
+      };
+      
+      const balancedITab = Math.max(0, 1 - (updatedSplits.techbook || 0) - (updatedSplits.zroid || 0));
+      updatedSplits.itab = balancedITab;
+
       updateDecisions('operations', {
-          rdSplits: {
-              ...operations.rdSplits,
-              [productId]: newVal
-          }
+          rdSplits: updatedSplits
       });
   };
 
@@ -127,6 +155,18 @@ const Operations: React.FC = () => {
           [productId]: formatNumber(numericValue, 2)
       }));
   };
+
+  useEffect(() => {
+      const balancedITab = Math.max(0, 1 - (operations.rdSplits.techbook || 0) - (operations.rdSplits.zroid || 0));
+      if (Math.abs((operations.rdSplits.itab || 0) - balancedITab) > 0.0001) {
+          updateDecisions('operations', {
+              rdSplits: {
+                  ...operations.rdSplits,
+                  itab: balancedITab
+              }
+          });
+      }
+  }, [operations.rdSplits.techbook, operations.rdSplits.zroid, operations.rdSplits.itab, updateDecisions]);
 
   useEffect(() => {
       setRdSplitInputs({
@@ -233,7 +273,7 @@ const Operations: React.FC = () => {
                     <tbody className="divide-y divide-slate-100">
                         {PRODUCTS.map((product) => {
                             // Calculate Planned Sales from Marketing Forecast
-                            const marketSize = MARKET_SIZES[product.id];
+                            const marketSize = getMarketSize(product.id, currentTeam.currentPeriod);
                             const forecastedShare = marketing.forecastedMarketShare[product.id] || 0;
                             const plannedSales = Math.round((marketSize * forecastedShare) / 100);
 
@@ -261,7 +301,7 @@ const Operations: React.FC = () => {
                                          <input 
                                             type="text"
                                             inputMode="numeric"
-                                            className="w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded px-2 py-1 bg-blue-50 transition-colors outline-none font-bold text-blue-800"
+                                            className={`w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded px-2 py-1 bg-blue-50 transition-colors outline-none font-bold text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed ${flashProduction[product.id] ? 'animate-flash-green' : ''}`}
                                             value={productionInputs[product.id] ?? ''}
                                             onChange={(e) => handleProductionInputChange(product.id, e.target.value)}
                                             onBlur={() => handleProductionCommit(product.id)}
@@ -270,13 +310,14 @@ const Operations: React.FC = () => {
                                                     handleProductionCommit(product.id);
                                                 }
                                             }}
+                                            disabled={disabled}
                                          />
                                     </td>
                                     <td className="py-4 px-4">
                                          <input 
                                             type="text"
                                             inputMode="numeric"
-                                            className="w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded px-2 py-1 bg-blue-50 transition-colors outline-none font-bold text-blue-800"
+                                            className={`w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded px-2 py-1 bg-blue-50 transition-colors outline-none font-bold text-blue-800 disabled:opacity-50 disabled:cursor-not-allowed ${flashFinishedGoods[product.id] ? 'animate-flash-green' : ''}`}
                                             value={finishedGoodsInputs[product.id] ?? ''}
                                             onChange={(e) => handleFinishedGoodsInputChange(product.id, e.target.value)}
                                             onBlur={() => handleFinishedGoodsCommit(product.id)}
@@ -285,6 +326,7 @@ const Operations: React.FC = () => {
                                                     handleFinishedGoodsCommit(product.id);
                                                 }
                                             }}
+                                            disabled={disabled}
                                          />
                                     </td>
                                     <td className={`py-4 text-right font-mono pr-2 font-bold ${stockPosition < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
@@ -311,7 +353,7 @@ const Operations: React.FC = () => {
             {/* Mobile Card View */}
             <div className="block lg:hidden space-y-4 p-4">
                 {PRODUCTS.map((product) => {
-                    const marketSize = MARKET_SIZES[product.id];
+                    const marketSize = getMarketSize(product.id, currentTeam.currentPeriod);
                     const forecastedShare = marketing.forecastedMarketShare[product.id] || 0;
                     const plannedSales = Math.round((marketSize * forecastedShare) / 100);
                     const openingInv = (currentTeam.inventory[product.id] as number) || 0;
@@ -346,7 +388,7 @@ const Operations: React.FC = () => {
                                     <input 
                                         type="text"
                                         inputMode="numeric"
-                                        className="w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg px-2.5 py-1.5 bg-blue-50 font-bold text-blue-800 text-xs"
+                                        className={`w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg px-2.5 py-1.5 bg-blue-50 font-bold text-blue-800 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${flashProduction[product.id] ? 'animate-flash-green' : ''}`}
                                         value={productionInputs[product.id] ?? ''}
                                         onChange={(e) => handleProductionInputChange(product.id, e.target.value)}
                                         onBlur={() => handleProductionCommit(product.id)}
@@ -355,6 +397,7 @@ const Operations: React.FC = () => {
                                                 handleProductionCommit(product.id);
                                             }
                                         }}
+                                        disabled={disabled}
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -362,7 +405,7 @@ const Operations: React.FC = () => {
                                     <input 
                                         type="text"
                                         inputMode="numeric"
-                                        className="w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg px-2.5 py-1.5 bg-blue-50 font-bold text-blue-800 text-xs"
+                                        className={`w-full text-right font-mono border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-lg px-2.5 py-1.5 bg-blue-50 font-bold text-blue-800 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${flashFinishedGoods[product.id] ? 'animate-flash-green' : ''}`}
                                         value={finishedGoodsInputs[product.id] ?? ''}
                                         onChange={(e) => handleFinishedGoodsInputChange(product.id, e.target.value)}
                                         onBlur={() => handleFinishedGoodsCommit(product.id)}
@@ -371,6 +414,7 @@ const Operations: React.FC = () => {
                                                 handleFinishedGoodsCommit(product.id);
                                             }
                                         }}
+                                        disabled={disabled}
                                     />
                                 </div>
                             </div>
@@ -416,7 +460,7 @@ const Operations: React.FC = () => {
                                 <input 
                                     type="text"
                                     inputMode="numeric"
-                                    className="w-full pl-3 pr-16 py-2 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    className={`w-full pl-3 pr-16 py-2 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed ${flashCapacity ? 'animate-flash-green' : ''}`}
                                     placeholder="0"
                                     value={capacityChangeInput}
                                     onChange={(e) => handleCapacityChangeInputChange(e.target.value)}
@@ -426,6 +470,7 @@ const Operations: React.FC = () => {
                                             handleCapacityChangeCommit();
                                         }
                                     }}
+                                    disabled={disabled}
                                 />
                                 <span className="absolute right-3 top-2 text-xs text-blue-400 mt-0.5">Units</span>
                              </div>
@@ -469,22 +514,20 @@ const Operations: React.FC = () => {
                </h3>
 
                <div className="space-y-6">
-                    <div className="bg-slate-900 text-white p-4 rounded-lg flex justify-between items-center shadow-lg shadow-slate-200">
-                        <div>
-                            <label className="text-xs text-slate-400 uppercase font-bold tracking-wider block">Total Innovation Budget</label>
-                            <div className="flex items-center mt-1">
-                                <span className="text-slate-400 mr-1">R</span>
-                                <input 
-                                    type="text" 
-                                    inputMode="numeric"
-                                    className="bg-transparent text-xl font-bold font-mono outline-none w-40 placeholder-slate-600"
-                                    value={formatNumber(operations.rdBudget)}
-                                    onChange={(e) => handleRDBudgetChange(String(parseNumber(e.target.value)))}
-                                />
-                            </div>
-                        </div>
-                        <TrendingUp className="text-emerald-400" />
-                    </div>
+                     <div className="space-y-2 max-w-md">
+                          <label className="text-sm font-medium text-slate-700 block">Total Innovation Budget</label>
+                          <div className="relative">
+                               <span className="absolute left-3 top-2.5 text-blue-400 font-bold">R</span>
+                               <input 
+                                   type="text" 
+                                   inputMode="numeric"
+                                   className={`w-full pl-8 pr-4 py-2 bg-blue-50 border border-blue-200 text-blue-800 font-bold rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono disabled:opacity-50 disabled:cursor-not-allowed ${flashRDBudget ? 'animate-flash-green' : ''}`}
+                                   value={formatNumber(operations.rdBudget)}
+                                   onChange={(e) => handleRDBudgetChange(String(parseNumber(e.target.value)))}
+                                   disabled={disabled}
+                               />
+                          </div>
+                     </div>
 
                     <div className="space-y-4">
                         <div className="flex justify-between items-center text-xs font-semibold text-slate-500 uppercase border-b border-slate-100 pb-2">
@@ -495,39 +538,65 @@ const Operations: React.FC = () => {
                         {PRODUCTS.map((p, i) => {
                             const splitVal = Number(operations.rdSplits[p.id]);
                             const investment = operations.rdBudget * splitVal;
-                            // Mock feature level calculation based on cumulative investment simulation
-                            // In a real app this would come from backend state
-                            const features = i === 2 ? 2 : 1; 
+                            
+                            // Cumulative features from last year
+                            const currentFeatures = currentTeam.history?.[currentTeam.currentPeriod - 1]?.features?.[p.id] ?? 0;
+                            
+                            // Calculate supplier innovation score based on allocation
+                            const alloc = decisions.procurement.supplierAllocation[p.id] || {};
+                            let totalAlloc = 0;
+                            let sumInnov = 0;
+                            SUPPLIERS.forEach(s => {
+                                const compVal = Number(alloc[s]?.components) || 0;
+                                const fgVal = Number(alloc[s]?.finishedGoods) || 0;
+                                const totalVal = compVal + fgVal;
+                                if (totalVal > 0) {
+                                    const supplierInnov = SUPPLIER_METRICS[s as keyof typeof SUPPLIER_METRICS]?.innovation || 5.0;
+                                    sumInnov += supplierInnov * totalVal;
+                                    totalAlloc += totalVal;
+                                }
+                            });
+                            const supplierInnovScore = totalAlloc > 0 ? (sumInnov / totalAlloc) : 6.0;
+                            
+                            // Features developed this period (capped at 10)
+                            const baseFeatures = investment / 2000000;
+                            const featuresDeveloped = baseFeatures * (supplierInnovScore / 6.0);
+                            const forecastedNewFeatures = Math.min(10, Math.ceil(featuresDeveloped));
 
                             return (
                                 <div key={p.id} className="flex items-center justify-between">
                                     <div>
                                         <p className="font-bold text-slate-800">{p.name}</p>
-                                        <div className="flex space-x-1 mt-1">
-                                            {[...Array(3)].map((_, idx) => (
-                                                <div 
-                                                    key={idx} 
-                                                    className={`w-2 h-2 rounded-full ${idx < features ? 'bg-emerald-500' : 'bg-slate-200'}`} 
-                                                />
-                                            ))}
-                                        </div>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Features: <span className="font-semibold text-slate-700">{Math.ceil(currentFeatures + forecastedNewFeatures)}</span> 
+                                            <span className="text-slate-400 font-medium ml-1">
+                                                ({Math.ceil(currentFeatures)} last year)
+                                            </span>
+                                        </p>
                                     </div>
                                     <div className="flex items-center space-x-4">
                                         <div className="relative w-24">
-                                            <input 
-                                                type="text"
-                                                inputMode="decimal"
-                                                className="w-full text-right pr-6 py-1 bg-blue-50 border border-blue-200 rounded text-blue-800 font-bold focus:ring-2 focus:ring-blue-500 outline-none"
-                                                value={rdSplitInputs[p.id] ?? ''}
-                                                onChange={(e) => handleRDSplitInputChange(p.id, e.target.value)}
-                                                onBlur={() => handleRDSplitCommit(p.id)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        handleRDSplitCommit(p.id);
-                                                    }
-                                                }}
-                                            />
-                                            <span className="absolute right-2 top-1.5 text-xs text-blue-400">%</span>
+                                            {p.id === 'itab' ? (
+                                                <div className="w-full text-right pr-6 py-1 bg-slate-100 border border-slate-300 rounded text-slate-700 font-bold font-mono select-none">
+                                                    {formatNumber(splitVal * 100, 2)}
+                                                </div>
+                                            ) : (
+                                                <input 
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    className={`w-full text-right pr-6 py-1 bg-blue-50 border border-blue-200 rounded text-blue-800 font-bold focus:ring-2 focus:ring-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed ${flashRDSplits[p.id] ? 'animate-flash-green' : ''}`}
+                                                    value={rdSplitInputs[p.id] ?? ''}
+                                                    onChange={(e) => handleRDSplitInputChange(p.id, e.target.value)}
+                                                    onBlur={() => handleRDSplitCommit(p.id)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            handleRDSplitCommit(p.id);
+                                                        }
+                                                    }}
+                                                    disabled={disabled}
+                                                />
+                                            )}
+                                            <span className={`absolute right-2 top-1 text-xs ${p.id === 'itab' ? 'text-slate-400' : 'text-blue-400'}`}>%</span>
                                         </div>
                                         <div className="w-28 text-right font-mono text-sm text-slate-600">
                                             {formatCurrency(investment)}

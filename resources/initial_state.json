@@ -171,27 +171,27 @@
     "operational_state": {
       "employees": {
         "Engineers": {
-          "count": 0,
+          "count": 22,
           "rem_per_employee": 57750,
           "training_level": "Moderate"
         },
         "Technicians": {
-          "count": 0,
+          "count": 28,
           "rem_per_employee": 40090,
           "training_level": "Advanced"
         },
         "Semi-Skilled": {
-          "count": 0,
+          "count": 37,
           "rem_per_employee": 31500,
           "training_level": "Advanced"
         },
         "Admin & Sales": {
-          "count": 0,
+          "count": 29,
           "rem_per_employee": 20000,
           "training_level": "Advanced"
         },
         "Customer Service": {
-          "count": 0,
+          "count": 58,
           "rem_per_employee": 9250,
           "training_level": "Advanced"
         }
@@ -201,18 +201,18 @@
         "description": "Total annual production capacity"
       },
       "company_stores": {
-        "count": 0,
+        "count": 8,
         "description": "Number of company-owned retail stores"
       },
       "product_features": {
-        "TechBook": 1,
-        "Zroid": 4,
-        "iTab": 6
+        "TechBook": 0,
+        "Zroid": 0,
+        "iTab": 0
       },
       "market_share": {
-        "TechBook": 18.0,
-        "Zroid": 18.7,
-        "iTab": 21.7
+        "TechBook": 12.5,
+        "Zroid": 12.5,
+        "iTab": 12.5
       },
       "customer_satisfaction": {
         "TechBook": 3,

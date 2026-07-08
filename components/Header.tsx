@@ -6,12 +6,16 @@ import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
+  isSidebarCollapsed?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
-  const { currentRole, setRole, originalRole, currentTeam, currentUser, login, logout } = useSimulation();
+const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarCollapsed = false }) => {
+  const { currentRole, setRole, originalRole, currentTeam, currentUser, login, logout, isDemoMode } = useSimulation();
   const navigate = useNavigate();
   
+  const localPin = localStorage.getItem('techtabs_ceo_pin');
+  const isCeo = isDemoMode || (currentRole === 'STUDENT' && currentTeam.ceoPin && localPin === currentTeam.ceoPin);
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [accessCode, setAccessCode] = useState('');
@@ -60,7 +64,9 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 fixed top-0 right-0 left-0 md:left-64 z-40">
+      <header className={`h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 fixed top-0 right-0 left-0 transition-all duration-300 ${
+        isSidebarCollapsed ? 'md:left-16' : 'md:left-64'
+      } z-40`}>
         <div className="flex items-center space-x-3">
           {onToggleSidebar && (
             <button 
@@ -109,9 +115,15 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
               className="flex items-center space-x-3 border-l border-slate-200 pl-6 hover:opacity-80 transition-opacity outline-none"
             >
               <div className="text-right hidden md:block">
-                <p className="text-sm font-medium text-slate-900">{currentUser?.displayName || 'John Doe'}</p>
+                <p className="text-sm font-medium text-slate-900 font-bold">
+                  {currentRole === 'STUDENT' 
+                    ? (isCeo ? (currentTeam.ceoName || 'CEO') : 'Director')
+                    : (currentUser?.displayName || 'John Doe')}
+                </p>
                 <p className="text-xs text-slate-500">
-                  {currentRole === 'STUDENT' ? `${currentTeam.name} CEO` : currentRole === 'FACILITATOR' ? 'Course Instructor' : 'Super Admin'}
+                  {currentRole === 'STUDENT' 
+                    ? (isCeo ? `${currentTeam.name} CEO` : `${currentTeam.name} Viewing Director`)
+                    : (currentRole === 'FACILITATOR' ? 'Course Instructor' : 'Super Admin')}
                 </p>
               </div>
               <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 border border-blue-200">

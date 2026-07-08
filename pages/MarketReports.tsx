@@ -3,13 +3,16 @@ import {
   BarChart2, 
   Layers, 
   TrendingUp, 
-  Table 
+  Table,
+  Info
 } from 'lucide-react';
+import { useSimulation } from '../contexts/SimulationContext';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 
 type Tab = 'decisions' | 'performance' | 'marketData';
 
 const MarketReports: React.FC = () => {
+  const { currentTeam, currentRole, classes, currentClassId } = useSimulation();
   const [activeTab, setActiveTab] = useState<Tab>('decisions');
   const [selectedMobileTeam, setSelectedMobileTeam] = useState<number>(0);
 
@@ -222,9 +225,31 @@ const MarketReports: React.FC = () => {
       </div>
   );
 
+  const currentClass = classes.find(c => c.id === currentClassId);
+  const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
+  const isStudent = currentRole === 'STUDENT';
+  const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+  const shouldHideReports = isStudent && currentPeriod === 1 && !showReportsSetting;
+
   return (
     <div className="space-y-6 max-w-[1400px] mx-auto pb-24">
       
+      {/* Facilitator Warning Banner */}
+      {!isStudent && currentPeriod === 1 && (
+        <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-r-xl shadow-sm">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Info className="h-5 w-5 text-indigo-500" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-indigo-700">
+                <strong>Facilitator View:</strong> These reports are currently hidden from students during Year 1. Students see a note indicating reports are only available from Year 2. You can enable them for students in the class configurations.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -233,30 +258,45 @@ const MarketReports: React.FC = () => {
         </div>
         
         {/* Tab Navigation */}
-        <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
-            {[
-                { id: 'decisions', label: 'Industry Decisions', icon: Layers },
-                { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
-                { id: 'marketData', label: 'Market Data', icon: Table },
-            ].map((tab) => (
-                <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as Tab)}
-                    className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                        activeTab === tab.id 
-                        ? 'bg-blue-600 text-white shadow-sm' 
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                    <tab.icon className="w-4 h-4 mr-2" />
-                    {tab.label}
-                </button>
-            ))}
-        </div>
+        {!shouldHideReports && (
+          <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
+              {[
+                  { id: 'decisions', label: 'Industry Decisions', icon: Layers },
+                  { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
+                  { id: 'marketData', label: 'Market Data', icon: Table },
+              ].map((tab) => (
+                  <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as Tab)}
+                      className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                          activeTab === tab.id 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                  >
+                      <tab.icon className="w-4 h-4 mr-2" />
+                      {tab.label}
+                  </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="min-h-[600px] bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className={`${shouldHideReports ? '' : 'min-h-[600px] bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden'}`}>
+        
+        {shouldHideReports ? (
+          <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm space-y-4">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-full">
+              <BarChart2 size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800">Market Reports Unavailable</h2>
+            <p className="text-slate-500 max-w-md text-sm leading-relaxed">
+              Market Reports and competitive industry intelligence are only available from **Year 2** onwards once the initial decisions have been processed.
+            </p>
+          </div>
+        ) : (
+          <>
         
         {/* --- TAB 1: INDUSTRY DECISIONS --- */}
         {activeTab === 'decisions' && (
@@ -535,6 +575,8 @@ const MarketReports: React.FC = () => {
                       </div>
                   ))}
              </div>
+        )}
+          </>
         )}
 
       </div>

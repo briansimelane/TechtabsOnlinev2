@@ -26,3 +26,7 @@ dist-ssr
 # Firebase
 .firebase/
 
+# Test output
+test_output.json
+
+

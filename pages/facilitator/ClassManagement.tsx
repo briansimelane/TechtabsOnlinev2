@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { SUPPLIERS } from '../../constants';
-import { MarketEvent } from '../../types';
+import { SUPPLIERS, PRODUCTS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../../constants';
+import { MarketEvent, Team, HRRole } from '../../types';
 import { 
   Users, 
   Search, 
@@ -21,15 +21,17 @@ import {
   Check,
   Wrench,
   Award,
-  FileText
+  FileText,
+  Shield
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { DEFAULT_SURVEY_CONFIG } from '../../constants';
 import { SurveyConfig, SurveyQuestion } from '../../types';
+import { formatNumber, formatPercent } from '../../utils/numberFormat';
 
 const ClassManagement: React.FC = () => {
-  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassHideSurvey } = useSimulation();
-  const [activeTab, setActiveTab] = useState<'students' | 'ai' | 'godmode' | 'survey'>('students');
+  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions } = useSimulation();
+  const [activeTab, setActiveTab] = useState<'students' | 'ai' | 'godmode' | 'survey' | 'teams'>('students');
 
   // AI Config State
   const [selectedSupplier, setSelectedSupplier] = useState(SUPPLIERS[0]);
@@ -46,6 +48,7 @@ const ClassManagement: React.FC = () => {
 
   // DDF Survey State
   const [surveyTab, setSurveyTab] = useState<'analytics' | 'config'>('analytics');
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
   const [editingConfig, setEditingConfig] = useState<SurveyConfig | null>(null);
   const [editingSaveStatus, setEditingSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -294,6 +297,9 @@ const ClassManagement: React.FC = () => {
           <button onClick={() => setActiveTab('students')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'students' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               <Users size={16} className="mr-2" /> Student Roster
           </button>
+          <button onClick={() => setActiveTab('teams')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'teams' ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <Shield size={16} className="mr-2" /> Teams & Decisions
+          </button>
           <button onClick={() => setActiveTab('ai')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'ai' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
               <Bot size={16} className="mr-2" /> AI Tuning
           </button>
@@ -327,6 +333,336 @@ const ClassManagement: React.FC = () => {
                                 <td className="px-6 py-4 text-slate-500">{student.lastActive}</td>
                             </tr>
                         ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'teams' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-200">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h3 className="font-bold text-slate-800 text-lg">Teams, Access Codes & Decisions</h3>
+                    <p className="text-sm text-slate-500 mt-0.5">Manage submissions, view live decisions snapshot, and track active sessions.</p>
+                </div>
+            </div>
+            
+            <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                        <tr>
+                            <th className="px-6 py-3.5">Team Name</th>
+                            <th className="px-6 py-3.5">Access Code</th>
+                            <th className="px-6 py-3.5">Status</th>
+                            <th className="px-6 py-3.5">Claimed CEO</th>
+                            <th className="px-6 py-3.5">Last Active</th>
+                            <th className="px-6 py-3.5 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {(currentClass.teams || []).map((team) => {
+                            const isExpanded = !!expandedTeams[team.id];
+                            const teamCode = currentClass.teamCodes?.[team.id] || 'N/A';
+                            
+                            const formatLastActive = (t: Team) => {
+                                if (!t.updatedAt) return 'Never';
+                                try {
+                                    const date = (t.updatedAt as any).toDate ? (t.updatedAt as any).toDate() : new Date(t.updatedAt as any);
+                                    return date.toLocaleString();
+                                } catch (e) {
+                                    return 'Invalid Date';
+                                }
+                            };
+
+                            const handleReopenClick = async (teamId: string) => {
+                                if (confirm(`Are you sure you want to reopen decisions for ${team.name}? This will change their status back to InProgress and allow editing.`)) {
+                                    try {
+                                        await reopenTeamDecisions(currentClass.id, teamId);
+                                        alert("Decisions successfully reopened!");
+                                    } catch (err: any) {
+                                        alert("Failed to reopen decisions: " + err.message);
+                                    }
+                                }
+                            };
+
+                            const decs = team.draftDecisions;
+
+                            return (
+                                <React.Fragment key={team.id}>
+                                    <tr className="hover:bg-slate-50/50 transition-colors">
+                                        <td className="px-6 py-4 font-bold text-slate-800">
+                                            <button 
+                                                onClick={() => setExpandedTeams(prev => ({ ...prev, [team.id]: !prev[team.id] }))}
+                                                className="text-left hover:text-blue-600 focus:outline-none flex items-center gap-1.5"
+                                            >
+                                                <ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90 text-blue-500' : ''}`} />
+                                                {team.name}
+                                            </button>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className="font-mono bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded select-all font-semibold border border-slate-200">
+                                                {teamCode}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse' :
+                                                team.status === 'Saved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                                'bg-slate-100 text-slate-800 border border-slate-200'
+                                            }`}>
+                                                {team.status || 'InProgress'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 font-medium text-slate-700">
+                                            {team.ceoName || <span className="text-slate-400 italic text-xs">Not Claimed</span>}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs font-mono text-slate-500">
+                                            {formatLastActive(team)}
+                                        </td>
+                                        <td className="px-6 py-4 text-center">
+                                            {team.status === 'Submitted' ? (
+                                                <div className="space-y-1.5 flex flex-col items-center">
+                                                    {team.reopenRequested && (
+                                                        <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-800 font-extrabold px-2 py-0.5 rounded-full border border-red-200 animate-pulse">
+                                                            ⚠️ Reopen Requested
+                                                        </span>
+                                                    )}
+                                                    <button 
+                                                        onClick={() => handleReopenClick(team.id)}
+                                                        className={`px-3 py-1 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center justify-center mx-auto ${
+                                                            team.reopenRequested 
+                                                                ? 'bg-red-600 hover:bg-red-700 animate-bounce' 
+                                                                : 'bg-amber-500 hover:bg-amber-600'
+                                                        }`}
+                                                    >
+                                                        Reopen Decisions
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-400 italic">No action needed</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                    
+                                    {isExpanded && (
+                                        <tr>
+                                            <td colSpan={6} className="bg-slate-50/70 px-8 py-4 border-t border-b border-slate-100">
+                                                <div className="space-y-4">
+                                                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Live Turn Decisions Snapshot</h4>
+                                                    
+                                                    {decs ? (() => {
+                                                        const getForecastedFeatures = (pId: 'techbook' | 'zroid' | 'itab') => {
+                                                            const currentFeatures = team.history?.[team.currentPeriod - 1]?.features?.[pId] ?? 0;
+                                                            const splitVal = Number(decs.operations?.rdSplits?.[pId]) || 0;
+                                                            const investment = (decs.operations?.rdBudget || 0) * splitVal;
+                                                            
+                                                            const alloc = decs.procurement?.supplierAllocation?.[pId] || {};
+                                                            let totalAlloc = 0;
+                                                            let sumInnov = 0;
+                                                            
+                                                            SUPPLIERS.forEach(s => {
+                                                                const compVal = Number(alloc[s]?.components) || 0;
+                                                                const fgVal = Number(alloc[s]?.finishedGoods) || 0;
+                                                                const totalVal = compVal + fgVal;
+                                                                if (totalVal > 0) {
+                                                                    const supplierInnov = (SUPPLIER_METRICS as any)[s]?.innovation || 5.0;
+                                                                    sumInnov += supplierInnov * totalVal;
+                                                                    totalAlloc += totalVal;
+                                                                }
+                                                            });
+                                                            const supplierInnovScore = totalAlloc > 0 ? (sumInnov / totalAlloc) : 6.0;
+                                                            const baseFeatures = investment / 2000000;
+                                                            const featuresDeveloped = baseFeatures * (supplierInnovScore / 6.0);
+                                                            const forecastedNewFeatures = Math.min(10, Math.ceil(featuresDeveloped));
+                                                            return Math.ceil(currentFeatures + forecastedNewFeatures);
+                                                        };
+
+                                                        const getNegotiatedCost = (baseCost: number, supplierId: string) => {
+                                                            if (decs.negotiation?.status === 'AGREED' && decs.negotiation?.selectedSupplierId === supplierId) {
+                                                                return baseCost * (1 - (decs.negotiation?.agreedDiscount || 0));
+                                                            }
+                                                            return baseCost;
+                                                        };
+
+                                                        return (
+                                                            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 text-xs bg-white p-4 rounded-xl border border-slate-200 shadow-sm font-mono text-slate-700">
+                                                                <div className="space-y-1.5">
+                                                                    <p className="font-bold text-blue-800 uppercase tracking-wider text-[10px] border-b pb-1">Marketing</p>
+                                                                    <p><span className="text-slate-400">T Price:</span> R {formatNumber(decs.marketing?.prices?.techbook || 0)}</p>
+                                                                    <p><span className="text-slate-400">Z Price:</span> R {formatNumber(decs.marketing?.prices?.zroid || 0)}</p>
+                                                                    <p><span className="text-slate-400">I Price:</span> R {formatNumber(decs.marketing?.prices?.itab || 0)}</p>
+                                                                    <p><span className="text-slate-400">Ad Budget:</span> R {formatNumber(decs.marketing?.advertisingBudget || 0)}</p>
+                                                                    <p><span className="text-slate-400">Commission:</span> {formatPercent((decs.marketing?.agentCommission || 0), 2)}</p>
+                                                                    
+                                                                    <div className="pt-1.5 border-t border-slate-100 mt-1.5">
+                                                                        <p className="font-bold text-blue-900 uppercase text-[9px]">Ad Splits</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">T Split:</span> {formatPercent(decs.marketing?.adSplits?.techbook || 0, 1)}</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">Z Split:</span> {formatPercent(decs.marketing?.adSplits?.zroid || 0, 1)}</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">I Split:</span> {formatPercent(decs.marketing?.adSplits?.itab || 0, 1)}</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">Gen Split:</span> {formatPercent(decs.marketing?.generalAdSplit || 0, 1)}</p>
+                                                                    </div>
+                                                                    
+                                                                    <div className="pt-1.5 border-t border-slate-100 mt-1.5">
+                                                                        <p><span className="text-slate-400">Stores:</span> {decs.marketing?.openCloseStores > 0 ? `+${decs.marketing.openCloseStores}` : decs.marketing?.openCloseStores || 0} stores</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <p className="font-bold text-indigo-800 uppercase tracking-wider text-[10px] border-b pb-1">Operations</p>
+                                                                    <p><span className="text-slate-400">T Prod:</span> {formatNumber(decs.operations?.production?.techbook || 0)}</p>
+                                                                    <p><span className="text-slate-400">Z Prod:</span> {formatNumber(decs.operations?.production?.zroid || 0)}</p>
+                                                                    <p><span className="text-slate-400">I Prod:</span> {formatNumber(decs.operations?.production?.itab || 0)}</p>
+                                                                    <p><span className="text-slate-400">R&D Budget:</span> R {formatNumber(decs.operations?.rdBudget || 0)}</p>
+                                                                    <p><span className="text-slate-400">CAPEX:</span> {formatNumber(decs.operations?.capacityChange || 0)} units</p>
+                                                                    
+                                                                    <div className="pt-1.5 border-t border-slate-100 mt-1.5">
+                                                                        <p className="font-bold text-indigo-900 uppercase text-[9px]">FG Purchase</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">T FG:</span> {formatNumber(decs.operations?.reqFinishedGoods?.techbook || 0)}</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">Z FG:</span> {formatNumber(decs.operations?.reqFinishedGoods?.zroid || 0)}</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">I FG:</span> {formatNumber(decs.operations?.reqFinishedGoods?.itab || 0)}</p>
+                                                                    </div>
+
+                                                                    <div className="pt-1.5 border-t border-slate-100 mt-1.5">
+                                                                        <p className="font-bold text-indigo-900 uppercase text-[9px]">R&D Split & Feat.</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">T:</span> {formatPercent(decs.operations?.rdSplits?.techbook || 0, 1)} (F: {getForecastedFeatures('techbook')})</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">Z:</span> {formatPercent(decs.operations?.rdSplits?.zroid || 0, 1)} (F: {getForecastedFeatures('zroid')})</p>
+                                                                        <p className="pl-1"><span className="text-slate-400">I:</span> {formatPercent(decs.operations?.rdSplits?.itab || 0, 1)} (F: {getForecastedFeatures('itab')})</p>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <p className="font-bold text-teal-800 uppercase tracking-wider text-[10px] border-b pb-1">Procurement</p>
+                                                                    
+                                                                    <div className="pb-1.5 border-b border-slate-100">
+                                                                        <p className="font-bold text-teal-900 uppercase text-[9px]">Negotiation Deal</p>
+                                                                        {decs.negotiation?.selectedSupplierId ? (
+                                                                            <div className="pl-1 space-y-0.5 text-[10px]">
+                                                                                <p><span className="text-slate-400">Partner:</span> {decs.negotiation.selectedSupplierId}</p>
+                                                                                <p><span className="text-slate-400">Status:</span> <span className={decs.negotiation.status === 'AGREED' ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>{decs.negotiation.status}</span></p>
+                                                                                {decs.negotiation.status === 'AGREED' && (
+                                                                                    <>
+                                                                                        <p><span className="text-slate-400">Discount:</span> {formatPercent(decs.negotiation.agreedDiscount || 0, 2)}</p>
+                                                                                        <p><span className="text-slate-400">Terms:</span> {decs.negotiation.agreedPaymentTerms} Days</p>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="pl-1 text-slate-400 italic text-[10px]">No supplier selected</p>
+                                                                        )}
+                                                                    </div>
+
+                                                                    {decs.negotiation?.sessionScores && (
+                                                                        <div className="py-1.5 border-b border-slate-100 text-[10px]">
+                                                                            <p className="font-bold text-teal-900 uppercase text-[9px]">Negotiation KPIs</p>
+                                                                            <div className="pl-1 space-y-0.5">
+                                                                                <p><span className="text-slate-400">Prep:</span> {decs.negotiation.sessionScores.preparation}/5</p>
+                                                                                <p><span className="text-slate-400">Interests:</span> {decs.negotiation.sessionScores.interests}/5</p>
+                                                                                <p><span className="text-slate-400">Trading:</span> {decs.negotiation.sessionScores.trading}/5</p>
+                                                                                <p><span className="text-slate-400">Concessions:</span> {decs.negotiation.sessionScores.concessions}/5</p>
+                                                                                <p><span className="text-slate-400">Professionalism:</span> {decs.negotiation.sessionScores.professionalism}/5</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+
+                                                                    <div className="py-1.5 border-b border-slate-100">
+                                                                        <p className="font-bold text-teal-900 uppercase text-[9px] mb-1">Negotiated Prices</p>
+                                                                        <div className="space-y-1">
+                                                                            {SUPPLIERS.map(s => {
+                                                                                const isAgreed = decs.negotiation?.status === 'AGREED' && decs.negotiation?.selectedSupplierId === s;
+                                                                                const m = (SUPPLIER_METRICS as any)[s] || {};
+                                                                                
+                                                                                const tb_cp = getNegotiatedCost(COMPONENT_COSTS.techbook[s], s);
+                                                                                const zr_cp = getNegotiatedCost(COMPONENT_COSTS.zroid[s], s);
+                                                                                const it_cp = getNegotiatedCost(COMPONENT_COSTS.itab[s], s);
+                                                                                
+                                                                                const tb_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.techbook[s], s);
+                                                                                const zr_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.zroid[s], s);
+                                                                                const it_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.itab[s], s);
+                                                                                
+                                                                                return (
+                                                                                    <div key={s} className={`p-1 rounded text-[10px] ${isAgreed ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50/50'}`}>
+                                                                                        <p className="font-bold text-[9px] text-slate-800 flex justify-between items-center">
+                                                                                            <span>{s} {isAgreed && '✓'}</span>
+                                                                                            <span className="text-[7.5px] font-normal text-slate-400">Terms:{m.terms}d</span>
+                                                                                        </p>
+                                                                                        <p className="text-[7.5px] text-slate-500 font-semibold leading-none mb-0.5">
+                                                                                            Q:{m.quality} LT:{m.leadTime}d S:{m.service} C:{m.capacity} I:{m.innovation}
+                                                                                        </p>
+                                                                                        <div className="pl-1 text-[9px] space-y-0.5 leading-tight">
+                                                                                            <p><span className="text-slate-400 font-semibold text-[8px]">Comp:</span> TB:R{tb_cp} / ZR:R{zr_cp} / IT:R{it_cp}</p>
+                                                                                            <p><span className="text-slate-400 font-semibold text-[8px]">FinG:</span> TB:R{tb_fg} / ZR:R{zr_fg} / IT:R{it_fg}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="pt-1.5">
+                                                                        <p className="font-bold text-teal-900 uppercase text-[9px]">Allocations</p>
+                                                                        {decs.procurement?.supplierAllocation ? (
+                                                                            Object.entries(decs.procurement?.supplierAllocation || {}).map(([prod, suppliers]: any) => (
+                                                                                <div key={prod} className="text-[10px] space-y-0.5">
+                                                                                    <p className="font-semibold text-slate-500 uppercase text-[9px]">{prod}:</p>
+                                                                                    {Object.entries(suppliers || {}).map(([supp, alloc]: any) => (
+                                                                                        <p key={supp} className="pl-1.5">
+                                                                                            {supp}: C:{alloc.components || 0} / FG:{alloc.finishedGoods || 0}
+                                                                                        </p>
+                                                                                    ))}
+                                                                                </div>
+                                                                            ))
+                                                                        ) : (
+                                                                            <p className="text-slate-400 italic">No allocations</p>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <p className="font-bold text-pink-800 uppercase tracking-wider text-[10px] border-b pb-1">HR & Staffing</p>
+                                                                    {decs.hr ? (
+                                                                        Object.keys(decs.hr.hiring || {}).map((roleKey) => {
+                                                                            const role = roleKey as HRRole;
+                                                                            const hiringVal = decs.hr.hiring?.[role] || 0;
+                                                                            const salaryVal = decs.hr.salaries?.[role] || 0;
+                                                                            const trainingVal = decs.hr.trainingLevels?.[role] || 'None';
+                                                                            const roleName = role.replace(/([A-Z])/g, ' $1').trim();
+                                                                            return (
+                                                                                <div key={role} className="text-[10px] space-y-0.5 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
+                                                                                    <p className="font-bold text-slate-800 uppercase text-[9px]">{roleName}</p>
+                                                                                    <p className="pl-1.5"><span className="text-slate-400">Hiring:</span> {hiringVal > 0 ? `+${hiringVal}` : hiringVal}</p>
+                                                                                    <p className="pl-1.5"><span className="text-slate-400">Salary:</span> R {formatNumber(salaryVal)}</p>
+                                                                                    <p className="pl-1.5"><span className="text-slate-400">Training:</span> {trainingVal}</p>
+                                                                                </div>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <p className="text-slate-400 italic">No staffing info</p>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="space-y-1.5">
+                                                                    <p className="font-bold text-amber-800 uppercase tracking-wider text-[10px] border-b pb-1">Finance</p>
+                                                                    <p><span className="text-slate-400">Debt Change:</span> R {formatNumber(decs.finance?.debtChange || 0)}</p>
+                                                                    <p><span className="text-slate-400">Equity Change:</span> R {formatNumber(decs.finance?.equityChange || 0)}</p>
+                                                                    <p><span className="text-slate-400">T Debtors Days:</span> {decs.finance?.debtorsDays?.techbook || 0} days</p>
+                                                                    <p><span className="text-slate-400">Z Debtors Days:</span> {decs.finance?.debtorsDays?.zroid || 0} days</p>
+                                                                    <p><span className="text-slate-400">I Debtors Days:</span> {decs.finance?.debtorsDays?.itab || 0} days</p>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })() : (
+                                                        <div className="text-slate-400 text-xs italic bg-white p-3 rounded-lg border border-slate-200">
+                                                            No decision snapshots saved yet. Values will display once the team interacts with the simulation.
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -692,7 +1028,7 @@ const ClassManagement: React.FC = () => {
                    </div>
 
                    {/* Scoring & Visibility Config */}
-                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
+                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
                        <div>
                            <label className="block text-sm font-bold text-slate-700 mb-1">Scoring Method</label>
                            <select 
@@ -709,15 +1045,32 @@ const ClassManagement: React.FC = () => {
                            <label className="flex items-center gap-3 bg-white p-2.5 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors select-none font-medium">
                                <input 
                                    type="checkbox"
-                                   checked={currentClass.hideSurvey || false}
+                                   checked={currentClass.showSurvey || false}
                                    onChange={async (e) => {
-                                       await updateClassHideSurvey(e.target.checked);
+                                       await updateClassShowSurvey(e.target.checked);
                                    }}
                                    className="rounded h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
                                />
                                <div>
-                                   <span className="text-sm font-bold text-slate-800">Hide Survey from Delegates</span>
-                                   <p className="text-xs text-slate-400 mt-0.5">When checked, delegates will not see or be able to take the survey.</p>
+                                   <span className="text-sm font-bold text-slate-800">Show Survey to Delegates</span>
+                                   <p className="text-xs text-slate-400 mt-0.5">When checked, delegates will see and be able to take the survey (hidden by default).</p>
+                               </div>
+                           </label>
+                       </div>
+                       <div>
+                           <label className="block text-sm font-bold text-slate-700 mb-1">Reports Visibility</label>
+                           <label className="flex items-center gap-3 bg-white p-2.5 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors select-none font-medium">
+                               <input 
+                                   type="checkbox"
+                                   checked={currentClass.showMarketReportsYear1 || false}
+                                   onChange={async (e) => {
+                                       await updateClassShowMarketReportsYear1(e.target.checked);
+                                   }}
+                                   className="rounded h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                               />
+                               <div>
+                                   <span className="text-sm font-bold text-slate-800">Show Year 1 Market Reports</span>
+                                   <p className="text-xs text-slate-400 mt-0.5">When checked, students can view Market Reports during Year 1.</p>
                                </div>
                            </label>
                        </div>

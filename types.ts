@@ -13,9 +13,59 @@ export interface Product {
   segment: 'Entry' | 'Mid' | 'Premium';
 }
 
+export interface PeriodRecord {
+  period: number;
+  revenue: { total: number; byProduct: Record<ProductId, number> };
+  cogs: { total: number; byProduct: Record<ProductId, number> };
+  grossProfit: { total: number; byProduct: Record<ProductId, number> };
+  opex: {
+    marketing: number;
+    store: number;
+    agents: number;
+    payroll: number;
+    training: number;
+    rd: number;
+    other: number;
+    total: number;
+  };
+  ebitda: number;
+  depreciation: number;
+  interest: number;
+  ebt: number;
+  tax: number;
+  netProfit: number;
+  balanceSheet: {
+    cash: number;
+    receivables: number;
+    inventory: number;
+    fixedAssets: number;
+    totalAssets: number;
+    equity: number;
+    longTermDebt: number;
+    currentLiabilities: number;
+    totalLiabilitiesAndEquity: number;
+  };
+  cashFlow: {
+    operating: number;
+    investing: number;
+    financing: number;
+    net: number;
+  };
+  debtorDays: Record<ProductId, number>;
+  creditorDays: number;
+  interestCoverage: number;
+  kpis: KPI;
+  prices?: Record<ProductId, number>;
+  salaries?: Record<HRRole, number>;
+  features?: Record<ProductId, number>;
+}
+
 export interface Team {
   id: string;
   name: string;
+  ceoName?: string;
+  ceoPin?: string;
+  draftDecisions?: TurnDecisions;
   universeId: string;
   currentPeriod: number;
   cashBalance: number;
@@ -26,7 +76,13 @@ export interface Team {
   longTermDebt: number;
   shareholdersEquity: number;
   isComputer?: boolean; // To distinguish AI teams
+  history?: Record<number, PeriodRecord>; // period -> PeriodRecord
+  features?: Record<ProductId, number>;
+  status?: string;
+  updatedAt?: any;
+  reopenRequested?: boolean;
 }
+
 
 export interface MarketEvent {
   id: string;
@@ -50,7 +106,8 @@ export interface SimulationClass {
   activeEvents?: MarketEvent[];
   surveyConfig?: SurveyConfig;
   surveyResponses?: SurveyResponse[];
-  hideSurvey?: boolean;
+  showSurvey?: boolean;
+  showMarketReportsYear1?: boolean;
 }
 
 
@@ -62,6 +119,15 @@ export interface Facilitator {
   status: 'Active' | 'Inactive';
   joinedDate: string;
   licenseType: 'Standard' | 'Enterprise' | 'Trial';
+  accessCode?: string;
+}
+
+export interface Administrator {
+  id: string;
+  name: string;
+  email: string;
+  accessCode: string;
+  joinedDate: string;
 }
 
 // Decision Types
@@ -71,7 +137,6 @@ export interface MarketingDecisions {
   advertisingBudget: number;
   adSplits: Record<ProductId, number>; // Percentage 0-1
   generalAdSplit: number; // Percentage 0-1
-  promoBudget: number;
   openCloseStores: number; // +/- integer
   agentCommission: number; // Percentage 0-1
 }
@@ -113,6 +178,18 @@ export interface NegotiationDecision {
   agreedDiscount: number; // Percentage (e.g., 0.05)
   agreedPaymentTerms: number; // Days
   transcript: NegotiationMessage[];
+  roundCount?: number;
+  maxRounds?: number;
+  sessionScores?: {
+    preparation: number;
+    interests: number;
+    trading: number;
+    concessions: number;
+    professionalism: number;
+  };
+  debriefFeedback?: string;
+  contractPeriods?: number;
+  extras?: string[];
 }
 
 export interface TurnDecisions {
@@ -144,6 +221,7 @@ export interface SimulationState {
   // Global State for Facilitator/Admin
   classes: SimulationClass[];
   facilitators: Facilitator[];
+  administrators?: Administrator[];
 }
 
 // Survey Types

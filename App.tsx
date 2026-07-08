@@ -10,7 +10,6 @@ import Operations from './pages/decisions/Operations';
 import Procurement from './pages/decisions/Procurement';
 import HR from './pages/decisions/HR';
 import Finance from './pages/decisions/Finance';
-import Negotiations from './pages/decisions/Negotiations';
 import FinancialReports from './pages/FinancialReports';
 import MarketReports from './pages/MarketReports';
 import FacilitatorDashboard from './pages/facilitator/FacilitatorDashboard';
@@ -51,6 +50,7 @@ const AppLayout: React.FC = () => {
   const { isAuthenticated } = useSimulation();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   if (!isAuthenticated && location.pathname !== '/login' && location.pathname !== '/survey') {
       return <Navigate to="/login" replace />;
@@ -72,9 +72,19 @@ const AppLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      <Header onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-      <main className="flex-1 md:ml-64 mt-16 p-4 md:p-8 overflow-y-auto w-full max-w-full overflow-x-hidden">
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onClose={() => setSidebarOpen(false)} 
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+      />
+      <Header 
+        onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+        isSidebarCollapsed={sidebarCollapsed}
+      />
+      <main className={`flex-1 mt-16 p-4 md:p-8 overflow-y-auto w-full max-w-full overflow-x-hidden transition-all duration-300 ${
+        sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
+      }`}>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -85,7 +95,6 @@ const AppLayout: React.FC = () => {
           <Route path="/decisions/procurement" element={<Procurement />} />
           <Route path="/decisions/hr" element={<HR />} />
           <Route path="/decisions/finance" element={<Finance />} />
-          <Route path="/decisions/negotiations" element={<Negotiations />} />
           
           <Route path="/reports" element={<FinancialReports />} />
           <Route path="/market-reports" element={<MarketReports />} />

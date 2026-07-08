@@ -4,7 +4,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Search, Plus, Trash2, ExternalLink, Calendar, Users, KeyRound } from 'lucide-react';
 
 const GlobalClassManagement: React.FC = () => {
-  const { classes, createClass, deleteClass, selectClass } = useSimulation();
+  const { classes, createClass, deleteClass, selectClass, resetClassToYear1 } = useSimulation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -38,6 +38,13 @@ const GlobalClassManagement: React.FC = () => {
   const handleDelete = (classId: string) => {
       if (confirm('WARNING: Are you sure you want to delete this class? This action cannot be undone and all student progress will be lost.')) {
           deleteClass(classId);
+      }
+  };
+
+  const handleResetToYear1 = async (classId: string) => {
+      if (confirm('WARNING: Are you sure you want to reset this class to Year 1? This will clear all team decisions, transactions, and calculated results for Year 1 onward. Year 0 history will remain intact. This action cannot be undone.')) {
+          await resetClassToYear1(classId);
+          alert('Class reset to Year 1 successfully.');
       }
   };
 
@@ -123,6 +130,13 @@ const GlobalClassManagement: React.FC = () => {
                                         title="Access Facilitator Console for this class"
                                       >
                                           Enter Console <ExternalLink size={12} className="ml-1" />
+                                      </button>
+                                      <button 
+                                        onClick={() => handleResetToYear1(c.id)}
+                                        className="flex items-center px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded shadow-sm transition-colors animate-pulse"
+                                        title="Reset Class to Year 1"
+                                      >
+                                          Reset to Year 1
                                       </button>
                                       <button 
                                         onClick={() => handleDelete(c.id)}
