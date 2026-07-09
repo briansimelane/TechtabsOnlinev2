@@ -14,6 +14,7 @@ import {
   Presentation,
   GraduationCap,
   Library,
+  Table,
   ShieldAlert,
   Globe,
   X,
@@ -214,6 +215,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               <NavLink to="/facilitator/class" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Class Management" : undefined}>
                 <GraduationCap size={iconSize} />
                 {!isCollapsed && <span>Class Management</span>}
+              </NavLink>
+              <NavLink to="/facilitator/decision-table" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Decision Table" : undefined}>
+                <Table size={iconSize} />
+                {!isCollapsed && <span>Decision Table</span>}
               </NavLink>
 
               {!isCollapsed && (

@@ -9,6 +9,8 @@ export const PRODUCTS: Product[] = [
 
 export const SUPPLIERS = ['Alpha', 'Neepo', 'Zen', 'Cheng'];
 
+export const HR_ROLES: HRRole[] = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'];
+
 export const SUPPLIER_METRICS = {
     Alpha: { quality: 10.0, leadTime: 3.0, service: 8.0, capacity: 4.0, innovation: 8.0, terms: 60, desc: "Premium quality, rigid terms. Difficult to negotiate with." },
     Neepo: { quality: 5.0, leadTime: 10.0, service: 5.0, capacity: 10.0, innovation: 5.0, terms: 30, desc: "Budget option, high capacity. Very flexible on price." },
