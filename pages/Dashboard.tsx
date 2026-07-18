@@ -346,8 +346,9 @@ const Dashboard: React.FC = () => {
 
   const salaryEffect = weightedSalaryChange >= 0 ? 0.15 * weightedSalaryChange : 0.50 * weightedSalaryChange;
   const utilizationEffect = weightedUtilization > 1.0 ? 0.30 * (weightedUtilization - 1.0) : 0.0;
+  const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
 
-  const targetESAT = 0.70 + salaryEffect + (0.33 * weightedTrainingFactor) - utilizationEffect;
+  const targetESAT = 0.70 + salaryEffect + (0.33 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
   const calculatedESAT = prevESAT * 0.8 + targetESAT * 0.2;
 
   const esatChangeVal = calculatedESAT - prevESAT;
