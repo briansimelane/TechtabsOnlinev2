@@ -20,14 +20,16 @@ import {
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { SimulationConfig } from './SimulationConfig';
 import { ParameterTweaker } from './ParameterTweaker';
-import { formatNumber, formatPercent } from '../../utils/numberFormat';
+import { formatNumber, formatPercent, formatCurrency } from '../../utils/numberFormat';
 import { Team, HRRole } from '../../types';
 import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../../constants';
+import { computeMarketShareBackModel } from '../../utils/marketShareBackModel';
 
 const FacilitatorDashboard: React.FC = () => {
   const { currentClassId, classes, runClassSimulation, selectClass, reopenTeamDecisions } = useSimulation();
   const [processing, setProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'config' | 'tweaker' | 'teams'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'config' | 'tweaker' | 'teams' | 'marketModel'>('overview');
+  const [selectedMarketProduct, setSelectedMarketProduct] = useState<'techbook' | 'zroid' | 'itab'>('techbook');
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
 
   const currentClass = classes.find(c => c.id === currentClassId);
@@ -200,6 +202,17 @@ const FacilitatorDashboard: React.FC = () => {
         >
           <Sliders size={18} />
           Parameter Tweaker
+        </button>
+        <button
+          onClick={() => setActiveTab('marketModel')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'marketModel'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <TrendingUp size={18} />
+          Market Model (Actual)
         </button>
       </div>
 
@@ -676,8 +689,333 @@ const FacilitatorDashboard: React.FC = () => {
 
       {/* Parameter Tweaker */}
       {activeTab === 'tweaker' && <ParameterTweaker />}
+
+      {/* Market Model (Actual) backModel Viewer */}
+      {activeTab === 'marketModel' && (() => {
+        const results = computeMarketShareBackModel(currentClass.teams, currentClass.currentPeriod);
+        const productResult = results.find(r => r.productId === selectedMarketProduct);
+        const sortedTeams = [...currentClass.teams].sort((a, b) => a.id.localeCompare(b.id));
+
+        if (!productResult) return null;
+
+        return (
+          <div className="space-y-6 mt-6">
+            {/* Product selection sub-tabs */}
+            <div className="flex gap-2 border-b border-slate-200 pb-px">
+              {PRODUCTS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedMarketProduct(p.id)}
+                  className={`px-4 py-2 border-b-2 font-semibold text-sm transition-all ${
+                    selectedMarketProduct === p.id
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Explanatory banner */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex gap-3 items-start">
+              <AlertCircle size={18} className="text-slate-500 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-slate-500 space-y-1">
+                <p>
+                  This view recreates the Excel-based <strong>backModel</strong> market share engine. It standardises team inputs using population standard deviation (&sigma;) across all slots to compute a Normal Cumulative distribution (z-score-style relative performance score in 0–1).
+                </p>
+                <p>
+                  Price is scaled as <em>lower-is-better</em>, other criteria as <em>higher-is-better</em>.
+                  Inactive teams (market share forecast &lt; 0.000001) are excluded and score 0.
+                </p>
+              </div>
+            </div>
+
+            {/* Criteria Scores Table */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm max-w-full">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-xs border-collapse">
+                <thead className="bg-slate-50">
+                  <tr className="border-b border-slate-200 text-[10px] uppercase text-slate-400 font-bold tracking-wider">
+                    <th scope="col" className="py-2.5 px-4 font-semibold text-slate-600 sticky left-0 z-30 bg-slate-50 min-w-[240px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                      Customer buying criteria
+                    </th>
+                    <th scope="col" className="py-2.5 px-3 font-semibold text-slate-600 text-center w-20 border-r border-slate-200 bg-slate-50">
+                      Mean (&mu;)
+                    </th>
+                    <th scope="col" className="py-2.5 px-3 font-semibold text-slate-600 text-center w-20 border-r border-slate-200 bg-slate-50">
+                      Std Dev (&sigma;)
+                    </th>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <th key={t.id} scope="col" className={`py-2.5 px-4 font-semibold border-r border-slate-200 min-w-[150px] ${!isActive ? 'bg-slate-50 text-slate-400' : 'text-slate-800 bg-white'}`}>
+                          <div className="flex flex-col">
+                            <span className="font-bold">{t.name}</span>
+                            {!isActive && <span className="text-[9px] text-amber-600 font-medium">(Inactive)</span>}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {productResult.criteria.map(c => {
+                    const winnerIdx = getCriterionWinnerIndex(c.id, c.rawByTeam, productResult.activeByTeam);
+                    
+                    return (
+                      <React.Fragment key={c.id}>
+                        {/* 1. Raw Input Row */}
+                        <tr className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-1.5 px-4 font-medium text-slate-700 sticky left-0 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                            {c.name} (Raw)
+                          </td>
+                          <td className="py-1.5 px-3 text-center border-r border-slate-200 font-mono text-slate-500 bg-slate-50/30">
+                            {getFormattedRaw(c.id, c.mu)}
+                          </td>
+                          <td className="py-1.5 px-3 text-center border-r border-slate-200 font-mono text-slate-500 bg-slate-50/30">
+                            {getFormattedSigma(c.id, c.sigma)}
+                          </td>
+                          {sortedTeams.map((t, idx) => {
+                            const isActive = productResult.activeByTeam[idx];
+                            const isWinner = winnerIdx === idx;
+                            return (
+                              <td
+                                key={t.id}
+                                className={`py-1.5 px-4 border-r border-slate-200 font-mono ${
+                                  !isActive 
+                                    ? 'text-slate-300 bg-slate-50/40' 
+                                    : (isWinner ? 'bg-yellow-50/80 text-slate-900 font-bold' : 'text-slate-600')
+                                }`}
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span>{getFormattedRaw(c.id, c.rawByTeam[idx])}</span>
+                                  {isActive && isWinner && <span className="text-[10px] text-amber-600">👑</span>}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* 2. NormCdf Score Row */}
+                        <tr className="bg-slate-50/20 text-slate-500 hover:bg-slate-50/50 transition-colors">
+                          <td className="py-1 px-4 text-slate-400 pl-6 sticky left-0 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] border-r">
+                            &bull; Score (0-1)
+                          </td>
+                          <td className="py-1 px-3 text-center border-r border-slate-200 bg-slate-50/50 font-mono">—</td>
+                          <td className="py-1 px-3 text-center border-r border-slate-200 bg-slate-50/50 font-mono">—</td>
+                          {sortedTeams.map((t, idx) => {
+                            const isActive = productResult.activeByTeam[idx];
+                            return (
+                              <td
+                                key={t.id}
+                                className={`py-1 px-4 border-r border-slate-200 font-mono text-[10px] ${
+                                  !isActive ? 'text-slate-300 bg-slate-50/40' : 'text-slate-500'
+                                }`}
+                              >
+                                {isActive ? c.scoreByTeam[idx].toFixed(3) : '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  {/* Divider section for Weighted calculations */}
+                  <tr className="bg-slate-100 font-bold text-slate-800 border-t border-slate-200">
+                    <td colSpan={sortedTeams.length + 3} className="py-1.5 px-4 sticky left-0 bg-slate-100 text-[10px] uppercase tracking-wider text-slate-500">
+                      Weighted Score Calculations
+                    </td>
+                  </tr>
+
+                  {productResult.criteria.map(c => (
+                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors text-slate-600">
+                      <td className="py-1.5 px-4 sticky left-0 z-10 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-medium">
+                        {c.name}
+                      </td>
+                      <td className="py-1.5 px-3 text-center border-r border-slate-200 font-mono text-slate-500 bg-slate-50/30">
+                        Weight: {c.rating}
+                      </td>
+                      <td className="py-1.5 px-3 text-center border-r border-slate-200 bg-slate-50/30 font-mono text-slate-400">—</td>
+                      {sortedTeams.map((t, idx) => {
+                        const isActive = productResult.activeByTeam[idx];
+                        return (
+                          <td
+                            key={t.id}
+                            className={`py-1.5 px-4 border-r border-slate-200 font-mono ${
+                              !isActive ? 'text-slate-300 bg-slate-50/40' : 'text-slate-700'
+                            }`}
+                          >
+                            {isActive ? c.weightedByTeam[idx].toFixed(3) : '—'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+
+                  {/* Summary calculations section */}
+                  <tr className="bg-slate-100 font-bold text-slate-800 border-t-2 border-slate-200">
+                    <td colSpan={3} className="py-2 px-4 sticky left-0 bg-slate-100 text-sm">
+                      Total Buying Score
+                    </td>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <td
+                          key={t.id}
+                          className={`py-2 px-4 border-r border-slate-200 font-mono font-bold text-sm bg-slate-100 ${
+                            !isActive ? 'text-slate-400' : 'text-slate-900'
+                          }`}
+                        >
+                          {isActive ? productResult.totalScoreByTeam[idx].toFixed(3) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-indigo-50 font-bold text-indigo-900 border-t border-indigo-200">
+                    <td colSpan={3} className="py-2 px-4 sticky left-0 bg-indigo-50 text-sm">
+                      Calculated Market Share (%)
+                    </td>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <td
+                          key={t.id}
+                          className={`py-2 px-4 border-r border-indigo-200 font-mono font-extrabold text-sm bg-indigo-50 ${
+                            !isActive ? 'text-indigo-400' : 'text-indigo-900'
+                          }`}
+                        >
+                          {isActive ? formatPercent(productResult.marketShareByTeam[idx], 1, true) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  {/* Demand distribution working */}
+                  <tr className="hover:bg-slate-50/50 transition-colors">
+                    <td colSpan={3} className="py-2 px-4 sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-semibold text-slate-700">
+                      Market Demand (Units: {formatNumber(productResult.marketDemand, 0)})
+                    </td>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <td
+                          key={t.id}
+                          className={`py-2 px-4 border-r border-slate-200 font-mono font-semibold text-slate-600 ${
+                            !isActive ? 'text-slate-300 bg-slate-50/40' : ''
+                          }`}
+                        >
+                          {isActive ? formatNumber(productResult.demandUnitsByTeam[idx], 0) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="hover:bg-slate-50/50 transition-colors">
+                    <td colSpan={3} className="py-2 px-4 sticky left-0 bg-white shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] font-semibold text-slate-700">
+                      Available for Sale
+                    </td>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <td
+                          key={t.id}
+                          className={`py-2 px-4 border-r border-slate-200 font-mono font-semibold text-slate-600 ${
+                            !isActive ? 'text-slate-300 bg-slate-50/40' : ''
+                          }`}
+                        >
+                          {isActive ? formatNumber(productResult.availableByTeam[idx], 0) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+
+                  <tr className="bg-emerald-50 border-y border-emerald-200 font-bold text-emerald-950">
+                    <td colSpan={3} className="py-2.5 px-4 sticky left-0 bg-emerald-50 text-sm">
+                      Units Sold (Min(Demand, Available))
+                    </td>
+                    {sortedTeams.map((t, idx) => {
+                      const isActive = productResult.activeByTeam[idx];
+                      return (
+                        <td
+                          key={t.id}
+                          className={`py-2.5 px-4 border-r border-emerald-200 font-mono font-bold text-sm bg-emerald-50 ${
+                            !isActive ? 'text-emerald-400 bg-slate-50/40 border-r-slate-200' : 'text-emerald-950'
+                          }`}
+                        >
+                          {isActive ? formatNumber(productResult.unitsSoldByTeam[idx], 0) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
+};
+
+// Helper functions for market model actual z-score engine calculations
+const getCriterionWinnerIndex = (criterionId: number, rawValues: number[], activeByTeam: boolean[]) => {
+  let winnerIdx = -1;
+  let bestVal = criterionId === 1 ? Infinity : -Infinity;
+  rawValues.forEach((val, idx) => {
+    if (!activeByTeam[idx]) return;
+    if (criterionId === 1) { // Price - lower is better
+      if (val > 0 && val < bestVal) {
+        bestVal = val;
+        winnerIdx = idx;
+      }
+    } else { // higher is better
+      if (val > bestVal) {
+        bestVal = val;
+        winnerIdx = idx;
+      }
+    }
+  });
+  return winnerIdx;
+};
+
+const getFormattedRaw = (criterionId: number, value: number) => {
+  if (value === 0 || value === null || value === undefined) return '—';
+  switch (criterionId) {
+    case 1: // Price
+      return formatNumber(value, 0);
+    case 2: // Payment Terms
+      return `${value} days`;
+    case 3: // Availability
+    case 4: // Stores
+      return formatNumber(value, 0);
+    case 5: // Agents
+      return formatPercent(value, 2, true);
+    case 6: // CS Headcount
+      return formatNumber(value, 0);
+    case 7: // Features
+      return formatNumber(value, 0);
+    case 8: // Company Ad
+    case 9: // Product Ad
+      return formatCurrency(value, 0);
+    case 10: // Other
+      return formatNumber(value, 0);
+    default:
+      return String(value);
+  }
+};
+
+const getFormattedSigma = (criterionId: number, value: number) => {
+  if (value === 0 || value === null || value === undefined) return '0.000';
+  switch (criterionId) {
+    case 5: // Agents
+      return formatPercent(value, 3, true);
+    case 8: // Ad
+    case 9: // Ad
+      return formatCurrency(value, 0);
+    default:
+      return formatNumber(value, 3);
+  }
 };
 
 export default FacilitatorDashboard;

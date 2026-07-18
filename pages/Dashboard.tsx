@@ -282,16 +282,19 @@ const Dashboard: React.FC = () => {
   let sumTrainingFactor = 0;
   let sumUtilization = 0;
 
-  const oldSalaries = pastPeriodRecord?.kpis?.salaries || {};
-  const DEFAULT_SALARIES = { engineers: 20000, technicians: 12000, semiSkilled: 8000, adminSales: 11000, customerService: 7000 };
+  const DEFAULT_SALARIES: Record<HRRole, number> = {
+    engineers: 45000,
+    technicians: 20000,
+    semiSkilled: 15000,
+    adminSales: 15000,
+    customerService: 10000
+  };
+  const oldSalaries = pastPeriodRecord?.salaries ?? DEFAULT_SALARIES;
 
-  const requiredEngineers = Math.ceil(decisions.operations.rdBudget / 100000) || 5;
-  const maxCap = currentTeam.factoryCapacity;
-  const requiredTechnicians = Math.ceil(totalProductionUnits / 1000);
-  const requiredSemiSkilled = Math.ceil(totalProductionUnits / 500);
-  const prodWorkload = Math.max(requiredTechnicians, requiredSemiSkilled) / Math.max(1, staffCountsForecast.technicians + staffCountsForecast.semiSkilled);
+  const prodWorkload = staffBasedCapacity > 0 ? (totalProductionUnits / staffBasedCapacity) : (totalProductionUnits > 0 ? 2.0 : 1.0);
 
-  const requiredAdmin = Math.ceil((staffCountsForecast.engineers + staffCountsForecast.technicians + staffCountsForecast.semiSkilled) / 10) || 10;
+  const requiredEngineers = Math.ceil(decisions.operations.rdBudget / 200000 + Math.abs(decisions.operations.capacityChange) / 1000) || 1;
+  const requiredAdmin = Math.ceil(forecastedRevenue / 10000000) || 10;
   
   let totalSalesUnits = 0;
   PRODUCTS.forEach(p => {

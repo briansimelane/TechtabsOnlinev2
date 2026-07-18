@@ -8,6 +8,16 @@ import {
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
+import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, HR_ROLES, getMarketSize } from '../constants';
+import { computeMarketShareBackModel, getClosingFeatures } from '../utils/marketShareBackModel';
+
+const HR_ROLE_LABELS: Record<string, string> = {
+  engineers: 'Engineers',
+  technicians: 'Technicians',
+  semiSkilled: 'Semi-Skilled Workers',
+  adminSales: 'Admin & Sales',
+  customerService: 'Customer Service'
+};
 
 type Tab = 'decisions' | 'performance' | 'marketData';
 
@@ -16,6 +26,11 @@ const MarketReports: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('decisions');
   const [selectedMobileTeam, setSelectedMobileTeam] = useState<number>(0);
 
+  const currentClass = classes.find(c => c.id === currentClassId);
+  const realTeams = React.useMemo(() => {
+    return currentClass?.teams ? [...currentClass.teams].sort((a, b) => a.id.localeCompare(b.id)) : [];
+  }, [currentClass]);
+
   const teams = [
     "Till the end of Chart",
     "The Vault",
@@ -23,6 +38,499 @@ const MarketReports: React.FC = () => {
     "The Exchange",
     "Maverick Minds"
   ];
+
+  const activeTeams = realTeams.length > 0 ? realTeams.map(t => t.name) : teams;
+
+  // Dynamic Market Data calculation from actual backModel
+  const dynamicMarketData = React.useMemo(() => {
+    if (!currentClass || !realTeams || realTeams.length === 0) {
+      return null;
+    }
+    
+    const period = currentClass.currentPeriod;
+    const results = computeMarketShareBackModel(realTeams, period);
+    
+    // Map results to the structure expected by the render code
+    const productKeys: Record<string, 'techbook' | 'zroid' | 'itab'> = {
+      'TechBook': 'techbook',
+      'Zroid': 'zroid',
+      'iTab': 'itab'
+    };
+    
+    return ['TechBook', 'Zroid', 'iTab'].map(pName => {
+      const pId = productKeys[pName];
+      const result = results.find(r => r.productId === pId);
+      
+      if (!result) {
+        return { product: pName, data: [] };
+      }
+      
+      const criteriaRows = result.criteria.map(c => {
+        return {
+          criteria: c.name,
+          rating: c.rating,
+          scores: realTeams.map((_, tIdx) => {
+            const isActive = result.activeByTeam[tIdx];
+            if (!isActive) return '0.00';
+            return c.weightedByTeam[tIdx].toFixed(2);
+          })
+        };
+      });
+      
+      const totalScoresRow = {
+        criteria: 'Total Scores',
+        rating: null as number | null,
+        scores: realTeams.map((_, tIdx) => {
+          const isActive = result.activeByTeam[tIdx];
+          if (!isActive) return '0.00';
+          return result.totalScoreByTeam[tIdx].toFixed(2);
+        }),
+        bold: true
+      };
+      
+      const shareColor = pId === 'techbook' ? 'bg-blue-50' : (pId === 'zroid' ? 'bg-emerald-50' : 'bg-purple-50');
+      const shareRow = {
+        criteria: 'Market Share Earned',
+        rating: null as number | null,
+        scores: realTeams.map((_, tIdx) => {
+          const isActive = result.activeByTeam[tIdx];
+          if (!isActive) return '0.0%';
+          return formatPercent(result.marketShareByTeam[tIdx], 1, true);
+        }),
+        bold: true,
+        bg: shareColor
+      };
+      
+      return {
+        product: pName,
+        data: [...criteriaRows, totalScoresRow, shareRow]
+      };
+    });
+  }, [currentClass, realTeams]);
+
+  // Dynamic Decisions Data mapping from actual team draftDecisions
+  const dynamicDecisionsData = React.useMemo(() => {
+    if (!currentClass || !realTeams || realTeams.length === 0) {
+      return null;
+    }
+
+    const marketingRows = [
+      {
+        label: 'Price : TechBook',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatCurrency(dec.marketing?.prices?.techbook ?? 0, 0);
+        })
+      },
+      {
+        label: 'Price : Zroid',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatCurrency(dec.marketing?.prices?.zroid ?? 0, 0);
+        })
+      },
+      {
+        label: 'Price : iTab',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatCurrency(dec.marketing?.prices?.itab ?? 0, 0);
+        })
+      },
+      {
+        label: 'Market Share : TechBook',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${(dec.marketing?.forecastedMarketShare?.techbook ?? 0).toFixed(1)}%`;
+        })
+      },
+      {
+        label: 'Market Share : Zroid',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${(dec.marketing?.forecastedMarketShare?.zroid ?? 0).toFixed(1)}%`;
+        })
+      },
+      {
+        label: 'Market Share : iTab',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${(dec.marketing?.forecastedMarketShare?.itab ?? 0).toFixed(1)}%`;
+        })
+      },
+      {
+        label: 'Forecasted Units : TechBook',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const share = dec.marketing?.forecastedMarketShare?.techbook ?? 0;
+          const period = currentClass?.currentPeriod || 1;
+          const units = Math.round((getMarketSize('techbook', period) * share) / 100);
+          return formatNumber(units, 0);
+        })
+      },
+      {
+        label: 'Forecasted Units : Zroid',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const share = dec.marketing?.forecastedMarketShare?.zroid ?? 0;
+          const period = currentClass?.currentPeriod || 1;
+          const units = Math.round((getMarketSize('zroid', period) * share) / 100);
+          return formatNumber(units, 0);
+        })
+      },
+      {
+        label: 'Forecasted Units : iTab',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const share = dec.marketing?.forecastedMarketShare?.itab ?? 0;
+          const period = currentClass?.currentPeriod || 1;
+          const units = Math.round((getMarketSize('itab', period) * share) / 100);
+          return formatNumber(units, 0);
+        })
+      },
+      {
+        label: 'Advertising Budget',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatCurrency(dec.marketing?.advertisingBudget ?? 0, 0);
+        })
+      },
+      {
+        label: 'Advertising : TechBook',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.marketing?.adSplits?.techbook ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'Advertising : Zroid',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.marketing?.adSplits?.zroid ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'Advertising : iTab',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.marketing?.adSplits?.itab ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'Advertising : General',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.marketing?.generalAdSplit ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'Company stores (Open / Close)',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const openClose = dec.marketing?.openCloseStores ?? 0;
+          return openClose > 0 ? `+${openClose}` : `${openClose}`;
+        })
+      },
+      {
+        label: 'Agent Commission',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.marketing?.agentCommission ?? 0) * 100).toFixed(1)}%`;
+        })
+      }
+    ];
+
+    const operationsRows = [
+      {
+        label: 'TechBook : Units produced',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(dec.operations?.production?.techbook ?? 0, 0);
+        })
+      },
+      {
+        label: 'Zroid : Units produced',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(dec.operations?.production?.zroid ?? 0, 0);
+        })
+      },
+      {
+        label: 'iTab : Units produced',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(dec.operations?.production?.itab ?? 0, 0);
+        })
+      },
+      {
+        label: 'Production Capacity Change',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const change = dec.operations?.capacityChange ?? 0;
+          return change > 0 ? `+${formatNumber(change, 0)}` : change < 0 ? `-${formatNumber(Math.abs(change), 0)}` : '0';
+        })
+      },
+      {
+        label: 'Innovation Budget',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatCurrency(dec.operations?.rdBudget ?? 0, 0);
+        })
+      },
+      {
+        label: 'TechBook : Innovation Split',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.operations?.rdSplits?.techbook ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'Zroid : Innovation Split',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.operations?.rdSplits?.zroid ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'iTab : Innovation Split',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${((dec.operations?.rdSplits?.itab ?? 0) * 100).toFixed(0)}%`;
+        })
+      },
+      {
+        label: 'TechBook : Closing Features',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(getClosingFeatures(t, dec, 'techbook'), 0);
+        })
+      },
+      {
+        label: 'Zroid : Closing Features',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(getClosingFeatures(t, dec, 'zroid'), 0);
+        })
+      },
+      {
+        label: 'iTab : Closing Features',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return formatNumber(getClosingFeatures(t, dec, 'itab'), 0);
+        })
+      }
+    ];
+
+    const hrRows: { label: string; values: string[] }[] = [];
+    HR_ROLES.forEach(role => {
+      hrRows.push({
+        label: `${HR_ROLE_LABELS[role] || role} : Recruit/(Dismiss)`,
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const val = dec.hr?.hiring?.[role] ?? 0;
+          return val > 0 ? `+${val}` : `${val}`;
+        })
+      });
+      hrRows.push({
+        label: `${HR_ROLE_LABELS[role] || role} : Salary`,
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const val = dec.hr?.salaries?.[role] ?? 0;
+          return formatCurrency(val, 0);
+        })
+      });
+      hrRows.push({
+        label: `${HR_ROLE_LABELS[role] || role} : Training`,
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return dec.hr?.trainingLevels?.[role] ?? 'Basic';
+        })
+      });
+    });
+
+    const procurementRows: { label: string; values: string[] }[] = [];
+
+    // Negotiation details
+    procurementRows.push({
+      label: 'Preferred Supplier (Negotiation)',
+      values: realTeams.map(t => {
+        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        return dec.negotiation?.selectedSupplierId || '—';
+      })
+    });
+    procurementRows.push({
+      label: 'Negotiation Status',
+      values: realTeams.map(t => {
+        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        return dec.negotiation?.status || 'NOT_STARTED';
+      })
+    });
+    procurementRows.push({
+      label: 'Agreed Negotiation Discount',
+      values: realTeams.map(t => {
+        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        return dec.negotiation?.status === 'AGREED' ? `${((dec.negotiation.agreedDiscount ?? 0) * 100).toFixed(1)}%` : '—';
+      })
+    });
+    procurementRows.push({
+      label: 'Agreed Negotiation Terms',
+      values: realTeams.map(t => {
+        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        return dec.negotiation?.status === 'AGREED' ? `${dec.negotiation.agreedPaymentTerms} days` : '—';
+      })
+    });
+
+    // Supplier allocations
+    PRODUCTS.forEach(p => {
+      SUPPLIERS.forEach(s => {
+        procurementRows.push({
+          label: `${s} : ${p.name} Components`,
+          values: realTeams.map(t => {
+            const dec = t.draftDecisions || INITIAL_DECISIONS;
+            return formatNumber(dec.procurement?.supplierAllocation?.[p.id]?.[s]?.components ?? 0, 0);
+          })
+        });
+        procurementRows.push({
+          label: `${s} : ${p.name} Finished Goods`,
+          values: realTeams.map(t => {
+            const dec = t.draftDecisions || INITIAL_DECISIONS;
+            return formatNumber(dec.procurement?.supplierAllocation?.[p.id]?.[s]?.finishedGoods ?? 0, 0);
+          })
+        });
+      });
+    });
+
+    const financeRows = [
+      {
+        label: 'TechBook : Debtor Days',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${dec.finance?.debtorsDays?.techbook ?? 0} days`;
+        })
+      },
+      {
+        label: 'Zroid : Debtor Days',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${dec.finance?.debtorsDays?.zroid ?? 0} days`;
+        })
+      },
+      {
+        label: 'iTab : Debtor Days',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          return `${dec.finance?.debtorsDays?.itab ?? 0} days`;
+        })
+      },
+      {
+        label: 'Debt (Raise / Pay)',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const debt = dec.finance?.debtChange ?? 0;
+          return debt > 0 ? `+${formatCurrency(debt, 0)}` : debt < 0 ? `-${formatCurrency(Math.abs(debt), 0)}` : 'R 0';
+        })
+      },
+      {
+        label: 'Equity (Raise / Retire)',
+        values: realTeams.map(t => {
+          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const equity = dec.finance?.equityChange ?? 0;
+          return equity > 0 ? `+${formatCurrency(equity, 0)}` : equity < 0 ? `-${formatCurrency(Math.abs(equity), 0)}` : 'R 0';
+        })
+      }
+    ];
+
+    return {
+      marketing: marketingRows,
+      operations: operationsRows,
+      hr: hrRows,
+      procurement: procurementRows,
+      finance: financeRows
+    };
+  }, [currentClass, realTeams]);
+
+  const activeMarketData = dynamicMarketData || [
+      {
+          product: 'TechBook',
+          data: [
+              { criteria: 'Price', rating: 10, scores: ['5.38', '4.31', '6.42', '4.57', '4.31'] },
+              { criteria: 'Payment Terms', rating: 9, scores: ['1.60', '2.77', '6.97', '6.97', '4.20'] },
+              { criteria: 'Availability', rating: 7, scores: ['2.89', '2.89', '2.89', '6.18', '2.07'] },
+              { criteria: 'Stores', rating: 8, scores: ['3.84', '3.84', '4.62', '3.84', '3.84'] },
+              { criteria: 'Agents', rating: 4, scores: ['1.44', '2.27', '2.60', '2.27', '1.44'] },
+              { criteria: 'Staff Availability', rating: 3, scores: ['1.52', '1.66', '1.86', '1.29', '1.18'] },
+              { criteria: 'Product Innovation', rating: 8, scores: ['1.45', '4.00', '4.00', '6.55', '4.00'] },
+              { criteria: 'Company Advertising', rating: 6, scores: ['2.87', '0.00', '3.55', '5.51', '2.87'] },
+              { criteria: 'Product Advertising', rating: 5, scores: ['3.70', '3.70', '1.50', '3.09', '0.72'] },
+              { criteria: 'Other', rating: 0, scores: ['0.00', '0.00', '0.00', '0.00', '0.00'] },
+              { criteria: 'Total Scores', rating: null, scores: ['24.69', '25.44', '34.41', '40.28', '24.62'], bold: true },
+              { criteria: 'Market Share Earned', rating: null, scores: ['16.5%', '17.0%', '23.0%', '27.0%', '16.5%'], bold: true, bg: 'bg-blue-50' }
+          ]
+      },
+      {
+        product: 'Zroid',
+        data: [
+            { criteria: 'Price', rating: 5, scores: ['2.87', '2.63', '2.15', '2.55', '2.31'] },
+            { criteria: 'Payment Terms', rating: 3, scores: ['1.65', '2.34', '0.37', '1.65', '1.65'] },
+            { criteria: 'Availability', rating: 6, scores: ['2.48', '2.48', '2.48', '5.30', '1.78'] },
+            { criteria: 'Stores', rating: 8, scores: ['3.84', '3.84', '4.62', '3.84', '3.84'] },
+            { criteria: 'Agents', rating: 7, scores: ['2.51', '3.97', '4.54', '3.97', '2.51'] },
+            { criteria: 'Staff Availability', rating: 4, scores: ['2.02', '2.21', '2.48', '1.72', '1.57'] },
+            { criteria: 'Product Innovation', rating: 8, scores: ['1.45', '4.00', '6.55', '4.00', '4.00'] },
+            { criteria: 'Company Advertising', rating: 9, scores: ['4.30', '0.00', '5.32', '8.26', '4.30'] },
+            { criteria: 'Product Advertising', rating: 10, scores: ['4.05', '4.05', '8.45', '2.22', '5.92'] },
+            { criteria: 'Other', rating: 0, scores: ['0.00', '0.00', '0.00', '0.00', '0.00'] },
+            { criteria: 'Total Scores', rating: null, scores: ['25.18', '25.52', '36.96', '33.52', '27.88'], bold: true },
+            { criteria: 'Market Share Earned', rating: null, scores: ['16.9%', '17.1%', '24.8%', '22.5%', '18.7%'], bold: true, bg: 'bg-emerald-50' }
+        ]
+      },
+      {
+        product: 'iTab',
+        data: [
+            { criteria: 'Price', rating: 3, scores: ['1.58', '2.17', '1.09', '1.73', '1.58'] },
+            { criteria: 'Payment Terms', rating: 2, scores: ['1.07', '1.85', '0.24', '1.07', '1.07'] },
+            { criteria: 'Availability', rating: 9, scores: ['3.72', '3.72', '3.72', '7.94', '2.67'] },
+            { criteria: 'Stores', rating: 5, scores: ['2.40', '2.40', '2.89', '2.40', '2.40'] },
+            { criteria: 'Agents', rating: 6, scores: ['2.15', '3.40', '3.89', '3.40', '2.15'] },
+            { criteria: 'Staff Availability', rating: 8, scores: ['4.04', '4.43', '4.96', '3.44', '3.14'] },
+            { criteria: 'Product Innovation', rating: 10, scores: ['1.81', '5.00', '5.00', '8.19', '5.00'] },
+            { criteria: 'Company Advertising', rating: 4, scores: ['1.91', '0.00', '2.37', '3.67', '1.91'] },
+            { criteria: 'Product Advertising', rating: 7, scores: ['3.41', '5.26', '3.87', '4.57', '4.57'] },
+            { criteria: 'Other', rating: 0, scores: ['0.00', '0.00', '0.00', '0.00', '0.00'] },
+            { criteria: 'Total Scores', rating: null, scores: ['22.09', '28.25', '29.18', '37.99', '24.49'], bold: true },
+            { criteria: 'Market Share Earned', rating: null, scores: ['15.6%', '19.9%', '20.5%', '26.8%', '17.2%'], bold: true, bg: 'bg-purple-50' }
+        ]
+      }
+  ];
+
+  const getDecisionRefValue = (productName: string, field: string, teamIdx: number) => {
+    if (!currentClass || !realTeams[teamIdx]) return '—';
+    const t = realTeams[teamIdx];
+    const dec = t.draftDecisions || INITIAL_DECISIONS;
+    const pId = productName.toLowerCase() === 'techbook' ? 'techbook' : (productName.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
+
+    switch (field) {
+      case 'Price':
+        return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
+      case 'Payment Terms':
+        return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
+      case 'Availability':
+        return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
+      case 'Stores':
+        return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
+      case 'Agents':
+        return formatPercent(dec.marketing?.agentCommission ?? 0, 2, true);
+      case 'CS Headcount':
+        return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
+      case 'Cumulative Features':
+        return formatNumber(getClosingFeatures(t, dec, pId), 0);
+      case 'Company Advertising':
+        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
+      case 'Product Advertising':
+        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
+      default:
+        return '—';
+    }
+  };
 
   // --- Mock Data Helpers ---
 
@@ -59,6 +567,23 @@ const MarketReports: React.FC = () => {
           { label: 'Zroid : Features', values: ['1', '2', '3', '2', '2'] },
           { label: 'iTab : Features', values: ['2', '1', '6', '4', '3'] },
       ],
+      hr: [
+          { label: 'Engineers : Recruit/(Dismiss)', values: ['0', '0', '0', '0', '0'] },
+          { label: 'Engineers : Salary', values: ['R 55 000', 'R 55 000', 'R 55 000', 'R 55 000', 'R 55 000'] },
+          { label: 'Engineers : Training', values: ['Basic', 'Basic', 'Basic', 'Basic', 'Basic'] },
+          { label: 'Technicians : Recruit/(Dismiss)', values: ['0', '0', '0', '0', '0'] },
+          { label: 'Technicians : Salary', values: ['R 38 000', 'R 38 000', 'R 38 000', 'R 38 000', 'R 38 000'] },
+          { label: 'Technicians : Training', values: ['Basic', 'Basic', 'Basic', 'Basic', 'Basic'] },
+          { label: 'Semi-Skilled Workers : Recruit/(Dismiss)', values: ['0', '0', '0', '0', '0'] },
+          { label: 'Semi-Skilled Workers : Salary', values: ['R 30 000', 'R 30 000', 'R 30 000', 'R 30 000', 'R 30 000'] },
+          { label: 'Semi-Skilled Workers : Training', values: ['Basic', 'Basic', 'Basic', 'Basic', 'Basic'] },
+          { label: 'Admin & Sales : Recruit/(Dismiss)', values: ['0', '0', '0', '0', '0'] },
+          { label: 'Admin & Sales : Salary', values: ['R 20 000', 'R 20 000', 'R 20 000', 'R 20 000', 'R 20 000'] },
+          { label: 'Admin & Sales : Training', values: ['Basic', 'Basic', 'Basic', 'Basic', 'Basic'] },
+          { label: 'Customer Service : Recruit/(Dismiss)', values: ['0', '0', '0', '0', '0'] },
+          { label: 'Customer Service : Salary', values: ['R 9 250', 'R 9 250', 'R 9 250', 'R 9 250', 'R 9 250'] },
+          { label: 'Customer Service : Training', values: ['Basic', 'Basic', 'Basic', 'Basic', 'Basic'] }
+      ],
       procurement: [
           { label: 'Alpha : Quality', values: ['10', '10', '10', '10', '10'] },
           { label: 'Alpha : Lead Time', values: ['3', '3', '8', '3', '3'] },
@@ -75,6 +600,8 @@ const MarketReports: React.FC = () => {
           { label: 'Equity (Raise / Retire)', values: ['-', '-', '-', '-', '(40 000 000)'] },
       ]
   };
+
+  const activeDecisionsData = dynamicDecisionsData || decisionsData;
 
   // INDUSTRY PERFORMANCE DATA
   const performanceData = {
@@ -165,7 +692,6 @@ const MarketReports: React.FC = () => {
       }
   ];
 
-  // Helper to render a multi-team row
   const formatCellValue = (value: string) => {
       const trimmed = value.trim();
 
@@ -174,13 +700,28 @@ const MarketReports: React.FC = () => {
           return formatPercent(numeric, 2, false);
       }
 
-      if (trimmed.startsWith('R')) {
-          const numeric = parseNumber(trimmed.replace('R', ''));
-          return formatCurrency(numeric);
+      if (trimmed.startsWith('R') || trimmed.startsWith('+R') || trimmed.startsWith('-R')) {
+          const clean = trimmed.replace('+', '').replace('-', '').replace('R', '').trim();
+          const numeric = parseNumber(clean);
+          const formatted = formatCurrency(numeric, 0);
+          return trimmed.startsWith('-') ? `-${formatted}` : (trimmed.startsWith('+') ? `+${formatted}` : formatted);
+      }
+
+      if (trimmed.endsWith('days')) {
+          return trimmed; // Already formatted
+      }
+
+      if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+          const rest = trimmed.slice(1).trim();
+          if (/^\d+$/.test(rest.replace(/\s/g, ''))) {
+              const numeric = parseNumber(rest.replace(/\s/g, ''));
+              return trimmed.startsWith('+') ? `+${formatNumber(numeric, 0)}` : `-${formatNumber(numeric, 0)}`;
+          }
+          return value;
       }
 
       const numeric = parseNumber(trimmed.replace(/\s/g, ''));
-      if (!Number.isNaN(numeric) && /\d/.test(trimmed)) {
+      if (!Number.isNaN(numeric) && /^\d+$/.test(trimmed.replace(/\s/g, ''))) {
           return formatNumber(numeric, 0);
       }
 
@@ -200,7 +741,7 @@ const MarketReports: React.FC = () => {
 
   const renderTeamTabs = () => (
       <div className="flex overflow-x-auto gap-2 p-4 bg-slate-50 border-b border-slate-100 scrollbar-none">
-          {teams.map((team, idx) => (
+          {activeTeams.map((team, idx) => (
               <button
                   key={idx}
                   onClick={() => setSelectedMobileTeam(idx)}
@@ -225,7 +766,6 @@ const MarketReports: React.FC = () => {
       </div>
   );
 
-  const currentClass = classes.find(c => c.id === currentClassId);
   const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
   const isStudent = currentRole === 'STUDENT';
   const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
@@ -296,46 +836,48 @@ const MarketReports: React.FC = () => {
             </p>
           </div>
         ) : (
-          <>
-        
-        {/* --- TAB 1: INDUSTRY DECISIONS --- */}
-        {activeTab === 'decisions' && (
-             <div className="p-0 lg:p-6">
-                 {/* Desktop Matrix View */}
-                 <div className="hidden lg:block overflow-x-auto">
-                     <table className="w-full text-sm min-w-[1000px]">
-                         <thead>
-                             <tr className="bg-slate-50 border-b-2 border-slate-200 text-slate-600">
-                                 <th className="py-3 px-4 text-left font-bold w-64">Metric</th>
-                                 {teams.map((team, i) => (
-                                     <th key={i} className="py-3 px-2 text-center font-bold w-40">
-                                         <div className="flex flex-col items-center">
-                                             <span className="text-xs text-slate-400 uppercase tracking-wider mb-1">Team {i + 1}</span>
-                                             <span className="text-slate-800">{team}</span>
-                                         </div>
-                                     </th>
-                                 ))}
-                             </tr>
-                         </thead>
-                         <tbody>
-                             {/* Marketing Section */}
-                             <tr className="bg-blue-600 text-white"><td colSpan={6} className="py-2 px-4 font-bold">Marketing & Sales Decisions</td></tr>
-                             {decisionsData.marketing.map((row) => renderMultiTeamRow(row.label, row.values))}
+          <>         {/* --- TAB 1: INDUSTRY DECISIONS --- */}
+         {activeTab === 'decisions' && (
+              <div className="p-0 lg:p-6">
+                  {/* Desktop Matrix View */}
+                  <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full text-sm min-w-[1000px]">
+                          <thead>
+                              <tr className="bg-slate-50 border-b-2 border-slate-200 text-slate-600">
+                                  <th className="py-3 px-4 text-left font-bold w-64">Metric</th>
+                                  {activeTeams.map((team, i) => (
+                                      <th key={i} className="py-3 px-2 text-center font-bold w-40">
+                                          <div className="flex flex-col items-center">
+                                              <span className="text-xs text-slate-400 uppercase tracking-wider mb-1">Team {i + 1}</span>
+                                              <span className="text-slate-800">{team}</span>
+                                          </div>
+                                      </th>
+                                  ))}
+                              </tr>
+                          </thead>
+                          <tbody>
+                              {/* Marketing Section */}
+                              <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Marketing & Sales Decisions</td></tr>
+                              {activeDecisionsData.marketing.map((row) => renderMultiTeamRow(row.label, row.values))}
 
-                             {/* Operations Section */}
-                             <tr className="bg-blue-600 text-white"><td colSpan={6} className="py-2 px-4 font-bold">Operations Decisions</td></tr>
-                             {decisionsData.operations.map((row) => renderMultiTeamRow(row.label, row.values))}
+                              {/* Operations Section */}
+                              <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Operations Decisions</td></tr>
+                              {activeDecisionsData.operations.map((row) => renderMultiTeamRow(row.label, row.values))}
 
-                             {/* Procurement Section */}
-                             <tr className="bg-blue-600 text-white"><td colSpan={6} className="py-2 px-4 font-bold">Procurement Decisions</td></tr>
-                             {decisionsData.procurement.map((row) => renderMultiTeamRow(row.label, row.values))}
+                              {/* HR Section */}
+                              <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Human Resources Decisions</td></tr>
+                              {activeDecisionsData.hr.map((row) => renderMultiTeamRow(row.label, row.values))}
 
-                             {/* Finance Section */}
-                             <tr className="bg-blue-600 text-white"><td colSpan={6} className="py-2 px-4 font-bold">Finance Decisions</td></tr>
-                             {decisionsData.finance.map((row) => renderMultiTeamRow(row.label, row.values))}
-                         </tbody>
-                     </table>
-                 </div>
+                              {/* Procurement Section */}
+                              <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Procurement Decisions</td></tr>
+                              {activeDecisionsData.procurement.map((row) => renderMultiTeamRow(row.label, row.values))}
+
+                              {/* Finance Section */}
+                              <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Finance Decisions</td></tr>
+                              {activeDecisionsData.finance.map((row) => renderMultiTeamRow(row.label, row.values))}
+                          </tbody>
+                      </table>
+                  </div>
 
                  {/* Mobile Tabbed View */}
                  <div className="block lg:hidden">
@@ -343,33 +885,41 @@ const MarketReports: React.FC = () => {
                      <div className="p-4 space-y-6">
                          {/* Marketing Section */}
                          <div className="space-y-2">
-                             <h4 className="bg-blue-600 text-white py-1.5 px-3 rounded font-bold text-sm">Marketing & Sales Decisions</h4>
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Marketing & Sales Decisions</h4>
                              <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                                 {decisionsData.marketing.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                                 {activeDecisionsData.marketing.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
                              </div>
                          </div>
 
                          {/* Operations Section */}
                          <div className="space-y-2">
-                             <h4 className="bg-blue-600 text-white py-1.5 px-3 rounded font-bold text-sm">Operations Decisions</h4>
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Operations Decisions</h4>
                              <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                                 {decisionsData.operations.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                                 {activeDecisionsData.operations.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                             </div>
+                         </div>
+
+                         {/* HR Section */}
+                         <div className="space-y-2">
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Human Resources Decisions</h4>
+                             <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                 {activeDecisionsData.hr.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
                              </div>
                          </div>
 
                          {/* Procurement Section */}
                          <div className="space-y-2">
-                             <h4 className="bg-blue-600 text-white py-1.5 px-3 rounded font-bold text-sm">Procurement Decisions</h4>
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Procurement Decisions</h4>
                              <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                                 {decisionsData.procurement.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                                 {activeDecisionsData.procurement.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
                              </div>
                          </div>
 
                          {/* Finance Section */}
                          <div className="space-y-2">
-                             <h4 className="bg-blue-600 text-white py-1.5 px-3 rounded font-bold text-sm">Finance Decisions</h4>
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Finance Decisions</h4>
                              <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                                 {decisionsData.finance.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                                 {activeDecisionsData.finance.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
                              </div>
                          </div>
                      </div>
@@ -458,121 +1008,256 @@ const MarketReports: React.FC = () => {
                  <div className="block lg:hidden">
                      {renderTeamTabs()}
                  </div>
-
-                 {marketData.map((productData) => (
-                      <div key={productData.product} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-                          <div className="bg-slate-100 px-6 py-3 font-bold text-lg text-slate-800 border-b border-slate-200">
-                              {productData.product} - Market Share Calculation
-                          </div>
-                          
-                          {/* Desktop View */}
-                          <div className="hidden lg:block overflow-x-auto">
-                             <table className="w-full text-sm">
-                                 <thead>
-                                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                                         <th className="py-2 px-4 text-left font-bold w-48">Criteria</th>
-                                         <th className="py-2 px-4 text-center font-bold w-20">Rating</th>
-                                         {teams.map((team, i) => (
-                                             <th key={i} className="py-2 px-2 text-center font-bold truncate max-w-[150px]" title={team}>
-                                                 {team}
-                                             </th>
-                                         ))}
-                                     </tr>
-                                 </thead>
-                                 <tbody>
-                                     {productData.data.map((row, idx) => (
-                                         <tr key={idx} className={`border-b border-slate-100 hover:bg-slate-50 ${row.bg || ''} ${row.bold ? 'font-bold' : ''}`}>
-                                             <td className="py-2 px-4 text-slate-700">{row.criteria}</td>
-                                             <td className="py-2 px-4 text-center text-slate-500">{row.rating ?? ''}</td>
-                                             {row.scores.map((score, sIdx) => (
-                                                 <td key={sIdx} className="py-2 px-2 text-center font-mono text-slate-600">
-                                                     {score}
-                                                 </td>
-                                             ))}
-                                         </tr>
-                                     ))}
-                                 </tbody>
-                             </table>
-                             
-                             {/* Decisions Snapshot Section */}
-                             <div className="bg-slate-50 p-4 border-t border-slate-200">
-                                 <h4 className="font-bold text-slate-700 text-xs uppercase mb-3">{productData.product} : Decisions Reference</h4>
-                                 <div className="grid grid-cols-1 overflow-x-auto">
-                                      <table className="w-full text-xs">
-                                          <tbody>
-                                              <tr className="border-b border-slate-200">
-                                                  <td className="py-1 px-4 font-semibold text-slate-600 w-68">Price</td>
-                                                  {decisionsData.marketing.find(d => d.label === `Price : ${productData.product}`)?.values.map((v, i) => (
-                                                      <td key={i} className="py-1 px-2 text-center font-mono">{v}</td>
-                                                  ))}
-                                              </tr>
-                                              <tr className="border-b border-slate-200">
-                                                  <td className="py-1 px-4 font-semibold text-slate-600">Payment Terms</td>
-                                                  {teams.map((_, i) => <td key={i} className="py-1 px-2 text-center font-mono">60</td>)}
-                                              </tr>
-                                              <tr className="border-b border-slate-200">
-                                                  <td className="py-1 px-4 font-semibold text-slate-600">Availability</td>
-                                                  {teams.map((_, i) => <td key={i} className="py-1 px-2 text-center font-mono">10 000</td>)}
-                                              </tr>
-                                               <tr className="border-b border-slate-200">
-                                                  <td className="py-1 px-4 font-semibold text-slate-600">Agents</td>
-                                                  {decisionsData.marketing.find(d => d.label === `Agent Commission`)?.values.map((v, i) => (
-                                                      <td key={i} className="py-1 px-2 text-center font-mono">{v}</td>
-                                                  ))}
-                                              </tr>
-                                               <tr className="border-b border-slate-200">
-                                                  <td className="py-1 px-4 font-semibold text-slate-600">Company Advertising</td>
-                                                  {teams.map((_, i) => <td key={i} className="py-1 px-2 text-center font-mono">R 2 505 149</td>)}
-                                              </tr>
-                                          </tbody>
-                                      </table>
-                                 </div>
-                             </div>
-                          </div>
-
-                          {/* Mobile View */}
-                          <div className="block lg:hidden">
-                              <div className="divide-y divide-slate-100 p-4 space-y-4">
-                                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 divide-y divide-slate-100">
+                 {activeMarketData.map((productData) => (
+                       <div key={productData.product} className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                           <div className="bg-slate-100 px-6 py-3 font-bold text-lg text-slate-800 border-b border-slate-200">
+                               {productData.product} - Market Share Calculation
+                           </div>
+                           
+                           {/* Desktop View */}
+                           <div className="hidden lg:block overflow-x-auto">
+                              <table className="w-full text-sm">
+                                  <thead>
+                                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                          <th className="py-2 px-4 text-left font-bold w-48">Criteria</th>
+                                          <th className="py-2 px-4 text-center font-bold w-20">Rating</th>
+                                          {activeTeams.map((team, i) => (
+                                              <th key={i} className="py-2 px-2 text-center font-bold truncate max-w-[150px]" title={team}>
+                                                  {team}
+                                              </th>
+                                          ))}
+                                      </tr>
+                                  </thead>
+                                  <tbody>
                                       {productData.data.map((row, idx) => (
-                                          <div key={idx} className={`flex justify-between items-center py-2 px-2 text-xs rounded ${row.bg || ''} ${row.bold ? 'font-bold bg-slate-100/50' : ''}`}>
-                                              <div>
-                                                  <span className="text-slate-800 font-medium block">{row.criteria}</span>
-                                                  {row.rating !== null && <span className="text-[10px] text-slate-400">Rating Weight: {row.rating}</span>}
-                                              </div>
-                                              <span className="font-mono text-slate-800">{row.scores[selectedMobileTeam]}</span>
-                                          </div>
+                                          <tr key={idx} className={`border-b border-slate-100 hover:bg-slate-50 ${row.bg || ''} ${row.bold ? 'font-bold' : ''}`}>
+                                              <td className="py-2 px-4 text-slate-700">{row.criteria}</td>
+                                              <td className="py-2 px-4 text-center text-slate-500">{row.rating ?? ''}</td>
+                                              {row.scores.map((score, sIdx) => (
+                                                  <td key={sIdx} className="py-2 px-2 text-center font-mono text-slate-600">
+                                                      {score}
+                                                  </td>
+                                              ))}
+                                          </tr>
                                       ))}
-                                  </div>
-
-                                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                                      <h4 className="font-bold text-slate-700 text-xs uppercase mb-2">{productData.product} : Decisions Reference</h4>
-                                      <div className="space-y-1.5 text-xs">
-                                          <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                              <span className="text-slate-500">Price</span>
-                                              <span className="font-mono font-semibold">{decisionsData.marketing.find(d => d.label === `Price : ${productData.product}`)?.values[selectedMobileTeam]}</span>
-                                          </div>
-                                          <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                              <span className="text-slate-500">Payment Terms</span>
-                                              <span className="font-mono font-semibold">60</span>
-                                          </div>
-                                          <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                              <span className="text-slate-500">Availability</span>
-                                              <span className="font-mono font-semibold">10 000</span>
-                                          </div>
-                                          <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                              <span className="text-slate-500">Agents</span>
-                                              <span className="font-mono font-semibold">{decisionsData.marketing.find(d => d.label === `Agent Commission`)?.values[selectedMobileTeam]}</span>
-                                          </div>
-                                          <div className="flex justify-between py-1">
-                                              <span className="text-slate-500">Company Advertising</span>
-                                              <span className="font-mono font-semibold">R 2 505 149</span>
-                                          </div>
-                                      </div>
+                                  </tbody>
+                              </table>
+                              
+                              {/* Decisions Snapshot Section */}
+                              <div className="bg-slate-50 p-4 border-t border-slate-200">
+                                  <h4 className="font-bold text-slate-700 text-xs uppercase mb-3">{productData.product} : Decisions Reference</h4>
+                                  <div className="grid grid-cols-1 overflow-x-auto">
+                                       <table className="w-full text-xs">
+                                           <tbody>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600 w-68">Price</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Price', i)
+                                                               : decisionsData.marketing.find(d => d.label === `Price : ${productData.product}`)?.values[i]
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Payment Terms</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Payment Terms', i)
+                                                               : '60 days'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Availability: Factory Capacity</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Availability', i)
+                                                               : '10 000'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Stores (Opening + Decisions)</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Stores', i)
+                                                               : '5'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                                <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Agents</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Agents', i)
+                                                               : decisionsData.marketing.find(d => d.label === `Agent Commission`)?.values[i]
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">CS Headcount</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'CS Headcount', i)
+                                                               : '20'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Cumulative Features</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Cumulative Features', i)
+                                                               : '2'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                                <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Company Advertising</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Company Advertising', i)
+                                                               : 'R 2 505 149'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                               <tr className="border-b border-slate-200">
+                                                   <td className="py-1 px-4 font-semibold text-slate-600">Product Advertising</td>
+                                                   {activeTeams.map((_, i) => (
+                                                       <td key={i} className="py-1 px-2 text-center font-mono">
+                                                           {dynamicMarketData 
+                                                               ? getDecisionRefValue(productData.product, 'Product Advertising', i)
+                                                               : 'R 7 515 448'
+                                                           }
+                                                       </td>
+                                                   ))}
+                                               </tr>
+                                           </tbody>
+                                       </table>
                                   </div>
                               </div>
-                          </div>
-                      </div>
+                           </div>
+ 
+                           {/* Mobile View */}
+                           <div className="block lg:hidden">
+                               <div className="divide-y divide-slate-100 p-4 space-y-4">
+                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 divide-y divide-slate-100">
+                                       {productData.data.map((row, idx) => (
+                                           <div key={idx} className={`flex justify-between items-center py-2 px-2 text-xs rounded ${row.bg || ''} ${row.bold ? 'font-bold bg-slate-100/50' : ''}`}>
+                                               <div>
+                                                   <span className="text-slate-800 font-medium block">{row.criteria}</span>
+                                                   {row.rating !== null && <span className="text-[10px] text-slate-400">Rating Weight: {row.rating}</span>}
+                                               </div>
+                                               <span className="font-mono text-slate-800">{row.scores[selectedMobileTeam]}</span>
+                                           </div>
+                                       ))}
+                                   </div>
+ 
+                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                       <h4 className="font-bold text-slate-700 text-xs uppercase mb-2">{productData.product} : Decisions Reference</h4>
+                                       <div className="space-y-1.5 text-xs">
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Price</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Price', selectedMobileTeam)
+                                                       : decisionsData.marketing.find(d => d.label === `Price : ${productData.product}`)?.values[selectedMobileTeam]
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Payment Terms</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Payment Terms', selectedMobileTeam)
+                                                       : '60 days'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Availability: Factory Capacity</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Availability', selectedMobileTeam)
+                                                       : '10 000'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Stores (Opening + Decisions)</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Stores', selectedMobileTeam)
+                                                       : '5'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Agents</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Agents', selectedMobileTeam)
+                                                       : decisionsData.marketing.find(d => d.label === `Agent Commission`)?.values[selectedMobileTeam]
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">CS Headcount</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'CS Headcount', selectedMobileTeam)
+                                                       : '20'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Cumulative Features</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Cumulative Features', selectedMobileTeam)
+                                                       : '2'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1 border-b border-slate-200/60">
+                                               <span className="text-slate-500">Company Advertising</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Company Advertising', selectedMobileTeam)
+                                                       : 'R 2 505 149'
+                                                   }
+                                               </span>
+                                           </div>
+                                           <div className="flex justify-between py-1">
+                                               <span className="text-slate-500">Product Advertising</span>
+                                               <span className="font-mono font-semibold">
+                                                   {dynamicMarketData 
+                                                       ? getDecisionRefValue(productData.product, 'Product Advertising', selectedMobileTeam)
+                                                       : 'R 7 515 448'
+                                                   }
+                                               </span>
+                                           </div>
+                                       </div>
+                                   </div>
+                               </div>
+                           </div>
+                       </div>
                   ))}
              </div>
         )}
