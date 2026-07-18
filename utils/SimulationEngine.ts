@@ -518,12 +518,12 @@ export const processTurn = (
         sumUtilization += ut * count;
     });
 
-    const weightedSalaryChange = totalStaffCount > 0 ? Math.max(-0.20, Math.min(0.20, sumSalaryChange / totalStaffCount)) : 0;
+    const weightedSalaryChange = totalStaffCount > 0 ? Math.max(-0.20, Math.min(0.50, sumSalaryChange / totalStaffCount)) : 0;
     const weightedTrainingFactor = totalStaffCount > 0 ? (sumTrainingFactor / totalStaffCount) : 0;
     const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
-    // Reduced weights for ESAT
-    const salaryEffect = weightedSalaryChange >= 0 ? 0.15 * weightedSalaryChange : 0.50 * weightedSalaryChange;
+    // Reduced weights for ESAT (Max 2% positive ESAT effect if salaries increase by 50% or more)
+    const salaryEffect = weightedSalaryChange >= 0 ? 0.04 * weightedSalaryChange : 0.50 * weightedSalaryChange;
     const utilizationEffect = weightedUtilization > 1.0 ? 0.30 * (weightedUtilization - 1.0) : 0.0;
     const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
 
