@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { PRODUCTS, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, getMarketSize, YEAR_0_RECORD } from '../constants';
-import { ProductId, HRRole } from '../types';
+import { ProductId, HRRole, PeriodRecord } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { formatNumber, formatPercent } from '../utils/numberFormat';
 import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
@@ -209,7 +209,7 @@ const Dashboard: React.FC = () => {
 
   let forecastedRevenue = 0;
   const forecastedRevenueByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
-  const standardCosts = { techbook: 1400, zroid: 1350, itab: 1100 };
+  const standardCosts: Record<ProductId, number> = { techbook: 1400, zroid: 1350, itab: 1100 };
   let forecastedCOGS = 0;
 
   PRODUCTS.forEach(p => {
@@ -223,7 +223,7 @@ const Dashboard: React.FC = () => {
     forecastedRevenue += revenue;
     
     const manufacturedUnits = decisions.operations.production[p.id] || 0;
-    const fgUnits = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
+    const fgUnits = (Object.values(decisions.procurement.supplierAllocation[p.id] || {}) as { finishedGoods?: number }[]).reduce((s, v) => s + (v.finishedGoods || 0), 0);
     
     const mfgCost = standardCosts[p.id] + laborCostPerUnit;
     const fgCost = standardCosts[p.id];
@@ -482,7 +482,7 @@ const Dashboard: React.FC = () => {
       .sort(([a], [b]) => Number(a) - Number(b))
       .map(([period, record]) => ({
         period: `Y${period} (Actual)`,
-        profit: Math.round(record.netProfit / 1000000)
+        profit: Math.round((record as PeriodRecord).netProfit / 1000000)
       })),
     {
       period: `Y${currentPeriod} (Forecast)`,

@@ -117,7 +117,7 @@ const HR: React.FC = () => {
       const currentPeriod = currentTeam.currentPeriod;
 
       // 1. Calculate Production Workload
-      const plannedTotalProduction = Object.values(decisions.operations.production).reduce((a, b) => a + (b || 0), 0);
+      const plannedTotalProduction = (Object.values(decisions.operations.production) as number[]).reduce((a, b) => a + (b || 0), 0);
       const lastPeriodProduction = lastPeriodKPIs.revenue > 0 ? 36094 + 22486 + 11219 : 0;
       const productionWorkload = plannedTotalProduction > 0 ? plannedTotalProduction : lastPeriodProduction;
 

@@ -101,7 +101,7 @@ export default function DecisionTable() {
         },
         {
           label: 'Team Code',
-          getValue: (t) => t.code || currentClass.teamCodes?.[t.id] || t.id,
+          getValue: (t) => (t as any).code || currentClass.teamCodes?.[t.id] || t.id,
           format: (v) => v,
           formatRaw: (v) => v
         },
@@ -421,7 +421,7 @@ export default function DecisionTable() {
       aoa.push([sec.title, ...sortedTeams.map(() => '')]);
       
       sec.rows.forEach(row => {
-        const rowCells = [row.label];
+        const rowCells: (string | number)[] = [row.label];
         sortedTeams.forEach(t => {
           const decisions = t.draftDecisions || INITIAL_DECISIONS;
           const rawVal = row.getValue(t, decisions);

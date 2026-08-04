@@ -121,7 +121,7 @@ const FinancialReports: React.FC = () => {
     const totalProductionUnits = PRODUCTS.reduce((sum, p) => sum + (decisions.operations.production[p.id] || 0), 0);
     const laborCostPerUnit = totalProductionUnits > 0 ? (totalProductionStaffCost / totalProductionUnits) : 0;
 
-    const standardCosts = { techbook: 1400, zroid: 1350, itab: 1100 };
+    const standardCosts: Record<ProductId, number> = { techbook: 1400, zroid: 1350, itab: 1100 };
     const cogsByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
     let totalCOGS = 0;
     
@@ -137,7 +137,7 @@ const FinancialReports: React.FC = () => {
 
         // Dynamic unit cost split
         const manufacturedUnits = decisions.operations.production[p.id] || 0;
-        const fgUnits = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
+        const fgUnits = (Object.values(decisions.procurement.supplierAllocation[p.id] || {}) as { finishedGoods?: number }[]).reduce((s, v) => s + (v.finishedGoods || 0), 0);
         
         const mfgCost = standardCosts[p.id] + laborCostPerUnit;
         const fgCost = standardCosts[p.id];
@@ -509,14 +509,15 @@ const FinancialReports: React.FC = () => {
                       <div className="p-4 space-y-3 text-sm">
                           {PRODUCTS.map(p => {
                               const alloc = decisions.procurement.supplierAllocation[p.id] || {};
-                              const hasAllocations = Object.entries(alloc).some(([_, val]) => val.components > 0 || val.finishedGoods > 0);
+                              const allocEntries = Object.entries(alloc) as [string, { components: number; finishedGoods: number }][];
+                              const hasAllocations = allocEntries.some(([_, val]) => val.components > 0 || val.finishedGoods > 0);
                               
                               return (
                                   <div key={p.id} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                                       <p className="font-bold text-slate-800 mb-1">{p.name}</p>
                                       {hasAllocations ? (
                                           <div className="space-y-1 pl-2 text-xs">
-                                              {Object.entries(alloc).map(([supplier, val]) => {
+                                              {allocEntries.map(([supplier, val]) => {
                                                   if (val.components === 0 && val.finishedGoods === 0) return null;
                                                   return (
                                                       <div key={supplier} className="flex justify-between text-slate-600 py-0.5">

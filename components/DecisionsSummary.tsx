@@ -78,7 +78,7 @@ const DecisionsSummary: React.FC = () => {
 
   // Forecasted Revenue & COGS
   let forecastedRevenue = 0;
-  const standardCosts = { techbook: 1400, zroid: 1350, itab: 1100 };
+  const standardCosts: Record<ProductId, number> = { techbook: 1400, zroid: 1350, itab: 1100 };
   let forecastedCOGS = 0;
 
   PRODUCTS.forEach(p => {
@@ -91,7 +91,7 @@ const DecisionsSummary: React.FC = () => {
     
     // Dynamic unit cost split
     const manufacturedUnits = decisions.operations.production[p.id] || 0;
-    const fgUnits = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
+    const fgUnits = (Object.values(decisions.procurement.supplierAllocation[p.id] || {}) as { finishedGoods?: number }[]).reduce((s, v) => s + (v.finishedGoods || 0), 0);
     
     const mfgCost = standardCosts[p.id] + laborCostPerUnit;
     const fgCost = standardCosts[p.id];
