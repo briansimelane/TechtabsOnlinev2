@@ -28,7 +28,7 @@ import { SimulationConfig } from './SimulationConfig';
 import { ParameterTweaker } from './ParameterTweaker';
 import { formatNumber, formatPercent, formatCurrency } from '../../utils/numberFormat';
 import { Team, HRRole } from '../../types';
-import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../../constants';
+import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS, INITIAL_DECISIONS, STORE_COSTS } from '../../constants';
 import { computeMarketShareBackModel } from '../../utils/marketShareBackModel';
 
 const FacilitatorDashboard: React.FC = () => {
@@ -91,25 +91,164 @@ const FacilitatorDashboard: React.FC = () => {
   }
 
   const realTeams = (currentClass.teams || []).filter(t => !t.isArchived);
+  const period = currentClass.currentPeriod;
+  const backModelResults = computeMarketShareBackModel(realTeams, period);
 
-  const teamsData = realTeams.map(t => {
-      const lastPeriod = t.currentPeriod - 1;
-      const kpis = t.history?.[lastPeriod]?.kpis;
-      return {
-          id: t.id,
-          name: t.name,
-          revenue: kpis?.revenue || 0,
-          profit: kpis?.netProfit || 0,
-          roe: kpis?.roe !== undefined ? kpis.roe * 100 : 0, // convert decimal to percentage
-          status: t.status || 'InProgress'
-      };
+  const teamsPerformance = realTeams.map((t, tIdx) => {
+    const dec = t.draftDecisions || INITIAL_DECISIONS;
+
+    let totalRev = 0;
+    let totalCogs = 0;
+
+    const totalProdUnits = (dec.operations?.production?.techbook || 0) + (dec.operations?.production?.zroid || 0) + (dec.operations?.production?.itab || 0);
+    const techCount = (t.staffCounts?.technicians || 150) + (dec.hr?.hiring?.technicians || 0);
+    const semiCount = (t.staffCounts?.semiSkilled || 200) + (dec.hr?.hiring?.semiSkilled || 0);
+    const techSalary = dec.hr?.salaries?.technicians || 38000;
+    const semiSalary = dec.hr?.salaries?.semiSkilled || 30000;
+    const totalProdStaffCost = (techCount * techSalary + semiCount * semiSalary) * 8;
+    const laborCostPerUnit = totalProdUnits > 0 ? (totalProdStaffCost / totalProdUnits) : 350;
+
+    const pKeys: ('techbook' | 'zroid' | 'itab')[] = ['techbook', 'zroid', 'itab'];
+    pKeys.forEach(pId => {
+      const res = backModelResults.find(r => r.productId === pId);
+      const unitsSold = res ? (res.unitsSoldByTeam[tIdx] || 0) : 0;
+      const price = dec.marketing?.prices?.[pId] ?? 0;
+      const rev = unitsSold * price;
+
+      let componentCost = pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000);
+      const alloc = dec.procurement?.supplierAllocation?.[pId];
+      if (alloc) {
+        let compSum = 0;
+        let compCount = 0;
+        Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
+          if (val && val.components > 0) {
+            const supMetric = (SUPPLIER_METRICS as any)[supId];
+            const supPrice = supMetric?.unitPrices?.[pId] ?? (pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000));
+            compSum += supPrice * val.components;
+            compCount += val.components;
+          }
+        });
+        if (compCount > 0) {
+          componentCost = compSum / compCount;
+        }
+      }
+
+      const unitCogs = componentCost + laborCostPerUnit;
+      const cogs = unitsSold * unitCogs;
+
+      totalRev += rev;
+      totalCogs += cogs;
+    });
+
+    const grossProfit = totalRev - totalCogs;
+
+    const adMkt = dec.marketing?.advertisingBudget ?? 12500000;
+    const openCloseStores = dec.marketing?.openCloseStores ?? 0;
+    const finalStoreCount = Math.max(0, (t.storeCount || 5) + openCloseStores);
+    const storeRunCost = finalStoreCount * (STORE_COSTS.running || 5614005);
+    const storeTransCost = openCloseStores > 0 ? openCloseStores * (STORE_COSTS.opening || 9353900) : (openCloseStores < 0 ? Math.abs(openCloseStores) * (STORE_COSTS.closing || 2438320) : 0);
+    const storeCost = storeRunCost + storeTransCost;
+
+    const agentComm = Math.round(totalRev * 0.52 * (dec.marketing?.agentCommission ?? 0));
+
+    let opexPayroll = 0;
+    let opexTraining = 0;
+    const hrRoles = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const;
+    const baseStaffCounts: Record<string, number> = { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
+    const baseSalaries: Record<string, number> = { engineers: 55000, technicians: 38000, semiSkilled: 30000, adminSales: 20000, customerService: 9250 };
+    const trainingCosts: Record<string, number> = { None: 0, Basic: 5000, Advanced: 15000, Specialized: 30000 };
+
+    hrRoles.forEach(r => {
+      const count = (t.staffCounts?.[r] ?? baseStaffCounts[r] ?? 0) + (dec.hr?.hiring?.[r] ?? 0);
+      const monthlySalary = dec.hr?.salaries?.[r] ?? baseSalaries[r] ?? 0;
+      const trainingLevel = dec.hr?.trainingLevels?.[r] ?? 'None';
+      const trCostPer = trainingCosts[trainingLevel] || 0;
+
+      opexTraining += count * trCostPer;
+      if (r !== 'technicians' && r !== 'semiSkilled') {
+        opexPayroll += count * monthlySalary * 8;
+      }
+    });
+
+    const rdCost = dec.operations?.innovationBudget ?? dec.operations?.rdBudget ?? 4000000;
+    const sumOtherExpenses = adMkt + storeCost + agentComm + opexPayroll + opexTraining + rdCost;
+    const otherOpex = Math.round(sumOtherExpenses * 0.0797);
+    const totalOpEx = sumOtherExpenses + otherOpex;
+
+    const ebitda = grossProfit - totalOpEx;
+    const depr = 1535965;
+    const longTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
+    const finCharges = longTermDebt > 0 ? Math.round(longTermDebt * 0.08) : 0;
+    const ebt = ebitda - depr - finCharges;
+    const taxation = ebt > 0 ? Math.round(ebt * 0.28) : 0;
+    const netProfit = ebt - taxation;
+
+    const openEq = t.shareholdersEquity || 286564937;
+    const equityChange = dec.finance?.equityChange || 0;
+    const dividends = dec.finance?.dividends || 0;
+    const equity = openEq + equityChange - dividends + netProfit;
+
+    const gpMargin = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
+    const npMargin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
+    const roe = equity > 0 ? (netProfit / equity) * 100 : 0;
+
+    return {
+      id: t.id,
+      name: t.name,
+      revenue: totalRev,
+      grossProfit,
+      netProfit,
+      equity,
+      gpMargin,
+      npMargin,
+      roe,
+      status: t.status || 'InProgress'
+    };
   });
 
-  const chartData = teamsData.map(t => ({
-      name: t.name,
-      Revenue: t.revenue,
-      Profit: t.profit
-  }));
+  const nTeams = teamsPerformance.length;
+
+  // Rank by GP% (1 = lowest, nTeams = highest)
+  const sortedByGP = [...teamsPerformance].map((t, idx) => ({ id: t.id, val: t.gpMargin, origIdx: idx }))
+    .sort((a, b) => a.val - b.val);
+  const gpRankMap: Record<string, number> = {};
+  sortedByGP.forEach((item, rIdx) => {
+    gpRankMap[item.id] = rIdx + 1;
+  });
+
+  // Rank by NP% (1 = lowest, nTeams = highest)
+  const sortedByNP = [...teamsPerformance].map((t, idx) => ({ id: t.id, val: t.npMargin, origIdx: idx }))
+    .sort((a, b) => a.val - b.val);
+  const npRankMap: Record<string, number> = {};
+  sortedByNP.forEach((item, rIdx) => {
+    npRankMap[item.id] = rIdx + 1;
+  });
+
+  // Rank by ROE (1 = lowest, nTeams = highest)
+  const sortedByROE = [...teamsPerformance].map((t, idx) => ({ id: t.id, val: t.roe, origIdx: idx }))
+    .sort((a, b) => a.val - b.val);
+  const roeRankMap: Record<string, number> = {};
+  sortedByROE.forEach((item, rIdx) => {
+    roeRankMap[item.id] = rIdx + 1;
+  });
+
+  const maxScore = nTeams > 0 ? nTeams * 3 : 3;
+
+  const leaderboardTeams = teamsPerformance.map(t => {
+    const gpPoints = gpRankMap[t.id] || 1;
+    const npPoints = npRankMap[t.id] || 1;
+    const roePoints = roeRankMap[t.id] || 1;
+    const score = gpPoints + npPoints + roePoints;
+
+    return {
+      ...t,
+      gpPoints,
+      npPoints,
+      roePoints,
+      score,
+      maxScore
+    };
+  }).sort((a, b) => b.score - a.score || b.roe - a.roe);
 
   const handleProcessRound = async () => {
       if (!currentClassId) return;
@@ -127,17 +266,17 @@ const FacilitatorDashboard: React.FC = () => {
       }
   };
 
-  const submittedCount = teamsData.filter(t => t.status === 'Submitted').length;
-  const totalTeams = teamsData.length || 1;
+  const submittedCount = leaderboardTeams.filter(t => t.status === 'Submitted').length;
+  const totalTeams = leaderboardTeams.length || 1;
 
   // Calculate average industry ROE
-  const totalRoe = teamsData.reduce((acc, curr) => acc + curr.roe, 0);
-  const avgIndustryRoe = teamsData.length > 0 ? (totalRoe / teamsData.length) : 0;
+  const totalRoe = leaderboardTeams.reduce((acc, curr) => acc + curr.roe, 0);
+  const avgIndustryRoe = leaderboardTeams.length > 0 ? (totalRoe / leaderboardTeams.length) : 0;
 
-  // Find top performer by ROE
-  const sortedTeams = [...teamsData].sort((a, b) => b.roe - a.roe);
-  const topPerformerName = sortedTeams.length > 0 ? sortedTeams[0].name : 'N/A';
-  const topPerformerRoe = sortedTeams.length > 0 ? sortedTeams[0].roe : 0;
+  // Find top performer by composite score
+  const topPerformer = leaderboardTeams.length > 0 ? leaderboardTeams[0] : null;
+  const topPerformerName = topPerformer ? topPerformer.name : 'N/A';
+  const topPerformerRoe = topPerformer ? topPerformer.roe : 0;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-24">
@@ -289,77 +428,68 @@ const FacilitatorDashboard: React.FC = () => {
 
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Leaderboard */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800">Team Leaderboard</h3>
-                  <button className="text-sm text-blue-600 font-medium hover:underline">View Full Report</button>
+      {/* Leaderboard */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                  <Award className="text-amber-500" size={20} />
+                  Team Leaderboard
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Ranked by composite score from <strong>GP%</strong>, <strong>NP%</strong>, and <strong>ROE</strong> performance (Max Score: <strong>{maxScore} pts</strong>).
+                </p>
               </div>
-              <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
-                          <tr>
-                              <th className="px-6 py-3 w-10">#</th>
-                              <th className="px-6 py-3">Team Name</th>
-                              <th className="px-6 py-3 text-right">Revenue</th>
-                              <th className="px-6 py-3 text-right">Net Profit</th>
-                              <th className="px-6 py-3 text-right">ROE</th>
-                              <th className="px-6 py-3 text-center">Status</th>
+              <span className="text-xs bg-slate-100 font-mono text-slate-600 px-3 py-1 rounded-full font-bold">
+                  {nTeams} Active Teams
+              </span>
+          </div>
+          <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                      <tr>
+                          <th className="px-5 py-3.5 w-12 text-center">Rank</th>
+                          <th className="px-5 py-3.5">Team Name</th>
+                          <th className="px-5 py-3.5 text-right">Revenue</th>
+                          <th className="px-5 py-3.5 text-right">Net Profit</th>
+                          <th className="px-5 py-3.5 text-right bg-blue-50/50 text-blue-900">GP %</th>
+                          <th className="px-5 py-3.5 text-right bg-emerald-50/50 text-emerald-900">NP %</th>
+                          <th className="px-5 py-3.5 text-right bg-purple-50/50 text-purple-900">ROE</th>
+                          <th className="px-5 py-3.5 text-center">Composite Score</th>
+                          <th className="px-5 py-3.5 text-center">Status</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                      {leaderboardTeams.map((team, index) => (
+                          <tr key={team.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="px-5 py-4 text-center font-bold font-mono text-slate-700">
+                                  {index === 0 ? '🥇 1' : index === 1 ? '🥈 2' : index === 2 ? '🥉 3' : `${index + 1}`}
+                              </td>
+                              <td className="px-5 py-4 font-bold text-slate-900">{team.name}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-700">{formatCurrency(team.revenue, 0)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-700">{formatCurrency(team.netProfit, 0)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-blue-50/30">{formatPercent(team.gpMargin / 100, 1)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-emerald-50/30">{formatPercent(team.npMargin / 100, 1)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-purple-50/30">{formatPercent(team.roe / 100, 1)}</td>
+                              <td className="px-5 py-4 text-center">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 border border-blue-200 shadow-xs">
+                                      {team.score} / {maxScore} pts
+                                  </span>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                      team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                      team.status === 'Saved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                      'bg-slate-100 text-slate-800 border border-slate-200'
+                                  }`}>
+                                      {team.status}
+                                  </span>
+                              </td>
                           </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                          {teamsData.sort((a,b) => b.roe - a.roe).map((team, index) => (
-                              <tr key={team.id} className="hover:bg-slate-50">
-                                  <td className="px-6 py-4 text-slate-400 font-mono">{index + 1}</td>
-                                  <td className="px-6 py-4 font-medium text-slate-900">{team.name}</td>
-                                  <td className="px-6 py-4 text-right font-mono text-slate-600">R {formatNumber(team.revenue/1000000, 0)}M</td>
-                                  <td className="px-6 py-4 text-right font-mono text-slate-600">R {formatNumber(team.profit/1000000, 0)}M</td>
-                                  <td className="px-6 py-4 text-right font-bold text-slate-800">{formatPercent(team.roe, 2, false)}</td>
-                                  <td className="px-6 py-4 text-center">
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                          team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800' :
-                                          team.status === 'Saved' ? 'bg-amber-100 text-amber-800' :
-                                          'bg-slate-100 text-slate-800'
-                                      }`}>
-                                          {team.status}
-                                      </span>
-                                  </td>
-                              </tr>
-                          ))}
-                      </tbody>
-                  </table>
-              </div>
+                      ))}
+                  </tbody>
+              </table>
           </div>
-
-          {/* Industry Overview Chart */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-6">Industry Financials</h3>
-              <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <RechartsBarChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                          <XAxis dataKey="name" hide />
-                          <YAxis tickFormatter={(val) => `R${val/1000000}M`} />
-                          <Tooltip formatter={(val: number) => `R ${formatNumber(val/1000000, 0)}M`} />
-                          <Bar dataKey="Revenue" fill="#3B82F6" stackId="a" />
-                          <Bar dataKey="Profit" fill="#10B981" stackId="a" radius={[4, 4, 0, 0]} />
-                      </RechartsBarChart>
-                  </ResponsiveContainer>
-              </div>
-              <div className="mt-4 flex justify-center space-x-6 text-xs">
-                  <div className="flex items-center">
-                      <div className="w-3 h-3 bg-blue-500 rounded-sm mr-2"></div>
-                      <span className="text-slate-600">Revenue</span>
-                  </div>
-                  <div className="flex items-center">
-                      <div className="w-3 h-3 bg-emerald-500 rounded-sm mr-2"></div>
-                      <span className="text-slate-600">Net Profit</span>
-                  </div>
-              </div>
-          </div>
-
       </div>
         </>
       )}
