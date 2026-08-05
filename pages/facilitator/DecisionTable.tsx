@@ -67,7 +67,7 @@ export default function DecisionTable() {
                   </span>
                   <span className="flex items-center text-xs">
                     <Users size={14} className="mr-1 text-slate-400" />
-                    {cls.teams?.length || 0} Teams
+                    {cls.teams?.filter(t => !t.isArchived).length || 0} Teams
                   </span>
                 </div>
               </button>
@@ -85,7 +85,7 @@ export default function DecisionTable() {
     );
   }
 
-  const teams = currentClass.teams ?? [];
+  const teams = (currentClass.teams ?? []).filter(t => !t.isArchived);
   const sortedTeams = [...teams].sort((a, b) => a.id.localeCompare(b.id));
 
   // Build the data-driven sections and rows

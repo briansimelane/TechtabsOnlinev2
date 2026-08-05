@@ -28,7 +28,7 @@ const MarketReports: React.FC = () => {
 
   const currentClass = classes.find(c => c.id === currentClassId);
   const realTeams = React.useMemo(() => {
-    return currentClass?.teams ? [...currentClass.teams].sort((a, b) => a.id.localeCompare(b.id)) : [];
+    return currentClass?.teams ? currentClass.teams.filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)) : [];
   }, [currentClass]);
 
   const teams = [
