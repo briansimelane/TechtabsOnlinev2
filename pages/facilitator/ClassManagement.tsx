@@ -24,7 +24,9 @@ import {
   FileText,
   Shield,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  X
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { DEFAULT_SURVEY_CONFIG } from '../../constants';
@@ -32,9 +34,13 @@ import { SurveyConfig, SurveyQuestion } from '../../types';
 import { formatNumber, formatPercent } from '../../utils/numberFormat';
 
 const ClassManagement: React.FC = () => {
-  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions, archiveTeam, restoreTeam } = useSimulation();
+  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
   const [activeTab, setActiveTab] = useState<'students' | 'ai' | 'godmode' | 'survey' | 'teams'>('students');
   const [teamFilterTab, setTeamFilterTab] = useState<'active' | 'archived'>('active');
+
+  // Team Name Edit State
+  const [editingTeamNameId, setEditingTeamNameId] = useState<string | null>(null);
+  const [tempTeamName, setTempTeamName] = useState('');
 
   // AI Config State
   const [selectedSupplier, setSelectedSupplier] = useState(SUPPLIERS[0]);
@@ -443,18 +449,61 @@ const ClassManagement: React.FC = () => {
                                 <React.Fragment key={team.id}>
                                     <tr className={`hover:bg-slate-50/50 transition-colors ${team.isArchived ? 'bg-red-50/20' : ''}`}>
                                         <td className="px-6 py-4 font-bold text-slate-800">
-                                            <button 
-                                                onClick={() => setExpandedTeams(prev => ({ ...prev, [team.id]: !prev[team.id] }))}
-                                                className="text-left hover:text-blue-600 focus:outline-none flex items-center gap-1.5"
-                                            >
-                                                <ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90 text-blue-500' : ''}`} />
-                                                {team.name}
-                                                {team.isArchived && (
-                                                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold">
-                                                        Archived
-                                                    </span>
-                                                )}
-                                            </button>
+                                            {editingTeamNameId === team.id ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input 
+                                                        type="text"
+                                                        className="font-bold text-slate-800 text-sm border border-blue-400 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                                        value={tempTeamName}
+                                                        onChange={(e) => setTempTeamName(e.target.value)}
+                                                        autoFocus
+                                                    />
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (tempTeamName.trim()) {
+                                                                await updateTeamName(currentClass.id, team.id, tempTeamName.trim());
+                                                            }
+                                                            setEditingTeamNameId(null);
+                                                        }}
+                                                        className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+                                                        title="Save Team Name"
+                                                    >
+                                                        <Check size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => setEditingTeamNameId(null)}
+                                                        className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+                                                        title="Cancel"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-1.5 group/name">
+                                                    <button 
+                                                        onClick={() => setExpandedTeams(prev => ({ ...prev, [team.id]: !prev[team.id] }))}
+                                                        className="text-left hover:text-blue-600 focus:outline-none flex items-center gap-1.5"
+                                                    >
+                                                        <ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90 text-blue-500' : ''}`} />
+                                                        <span>{team.name}</span>
+                                                        {team.isArchived && (
+                                                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold">
+                                                                Archived
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setEditingTeamNameId(team.id);
+                                                            setTempTeamName(team.name);
+                                                        }}
+                                                        className="p-1 text-slate-400 hover:text-blue-600 rounded transition-colors opacity-0 group-hover/name:opacity-100 focus:opacity-100"
+                                                        title="Edit Team Name"
+                                                    >
+                                                        <Edit2 size={13} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="font-mono bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded select-all font-semibold border border-slate-200">

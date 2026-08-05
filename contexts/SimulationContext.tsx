@@ -65,6 +65,7 @@ interface SimulationContextType extends SimulationState {
   updateClassFacilitatorCode: (classId: string, newCode: string) => Promise<void>;
   updateTeamCode: (classId: string, teamId: string, newCode: string) => Promise<void>;
   updateTeamCeoPin: (classId: string, teamId: string, newPin: string) => Promise<void>;
+  updateTeamName: (classId: string, teamId: string, newName: string) => Promise<void>;
   archiveTeam: (classId: string, teamId: string) => Promise<void>;
   restoreTeam: (classId: string, teamId: string) => Promise<void>;
   runClassSimulation: (classId: string) => Promise<void>;
@@ -2161,6 +2162,38 @@ BEHAVIOR RULES:
     }
   };
 
+  const updateTeamName = async (classId: string, teamId: string, newName: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const targetTeam = targetClass.teams.find(t => t.id === teamId);
+    if (!targetTeam) return;
+
+    const updatedTeam: Team = {
+      ...targetTeam,
+      name: newName
+    };
+
+    const updatedTeams = targetClass.teams.map(t => t.id === teamId ? updatedTeam : t);
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams
+    };
+
+    setState(prev => ({
+      ...prev,
+      currentTeam: prev.currentTeam.id === teamId ? updatedTeam : prev.currentTeam,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await saveTeamState(classId, updatedTeam);
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update team name:', err);
+    }
+  };
+
   const archiveTeam = async (classId: string, teamId: string) => {
     const targetClass = state.classes.find(c => c.id === classId);
     if (!targetClass) return;
@@ -2260,6 +2293,7 @@ BEHAVIOR RULES:
         updateClassFacilitatorCode,
         updateTeamCode,
         updateTeamCeoPin,
+        updateTeamName,
         archiveTeam,
         restoreTeam,
         runClassSimulation,
