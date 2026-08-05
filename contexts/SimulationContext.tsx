@@ -1409,18 +1409,45 @@ BEHAVIOR RULES:
   };
 
   const deleteClass = (classId: string) => {
-    if (isDemoMode) {
-      const updatedClasses = state.classes.filter(c => c.id !== classId);
-      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-      setState(prev => ({ ...prev, classes: updatedClasses }));
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    if (!targetClass.isArchived) {
+      // Archive active class first to preserve decisions and history
+      const updatedClass: SimulationClass = {
+        ...targetClass,
+        isArchived: true,
+        archivedAt: new Date().toISOString()
+      };
+
+      if (isDemoMode) {
+        const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+        setState(prev => ({ ...prev, classes: updatedClasses }));
+      } else {
+        void saveClass(updatedClass).catch((error) => {
+            console.error('Failed to archive class', error);
+        });
+        setState(prev => ({
+          ...prev,
+          classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+        }));
+      }
     } else {
-      setState(prev => ({
-        ...prev,
-        classes: prev.classes.filter(c => c.id !== classId)
-      }));
-      void deleteClassById(classId).catch((error) => {
-          console.error('Failed to delete class', error);
-      });
+      // Class is already archived -> erase permanently
+      if (isDemoMode) {
+        const updatedClasses = state.classes.filter(c => c.id !== classId);
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+        setState(prev => ({ ...prev, classes: updatedClasses }));
+      } else {
+        setState(prev => ({
+          ...prev,
+          classes: prev.classes.filter(c => c.id !== classId)
+        }));
+        void deleteClassById(classId).catch((error) => {
+            console.error('Failed to delete class permanently', error);
+        });
+      }
     }
   };
 
