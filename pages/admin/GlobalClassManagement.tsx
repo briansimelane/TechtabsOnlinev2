@@ -4,16 +4,20 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Search, Plus, Trash2, ExternalLink, Calendar, Users, KeyRound } from 'lucide-react';
 
 const GlobalClassManagement: React.FC = () => {
-  const { classes, createClass, deleteClass, selectClass, resetClassToYear1 } = useSimulation();
+  const { classes, createClass, deleteClass, archiveClass, selectClass, resetClassToYear1 } = useSimulation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [classTabFilter, setClassTabFilter] = useState<'active' | 'archived'>('active');
   
   // New Class Form
   const [newClassName, setNewClassName] = useState('');
   const [newClassTeams, setNewClassTeams] = useState(4);
 
-  const filteredClasses = classes.filter(c => 
+  const activeClasses = classes.filter(c => !c.isArchived);
+  const archivedClasses = classes.filter(c => c.isArchived);
+
+  const filteredClasses = (classTabFilter === 'active' ? activeClasses : archivedClasses).filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.facilitatorCode.toLowerCase().includes(searchTerm.toLowerCase())
@@ -35,8 +39,20 @@ const GlobalClassManagement: React.FC = () => {
       navigate('/facilitator/dashboard');
   };
 
-  const handleDelete = (classId: string) => {
-      if (confirm('WARNING: Are you sure you want to delete this class? This action cannot be undone and all student progress will be lost.')) {
+  const handleArchive = async (classId: string, className: string) => {
+      if (confirm(`Archive Class: "${className}"?\n\nMoving this class to Archive will safely preserve all team decisions, access codes, and history so it can be restored anytime.`)) {
+          await archiveClass(classId, true);
+      }
+  };
+
+  const handleRestore = async (classId: string, className: string) => {
+      if (confirm(`Restore Class: "${className}"?\n\nThis will move the class back to Active Classes.`)) {
+          await archiveClass(classId, false);
+      }
+  };
+
+  const handleDeleteForever = (classId: string, className: string) => {
+      if (confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${className}"?\n\nThis action CANNOT be undone and all team decisions will be erased forever.`)) {
           deleteClass(classId);
       }
   };
@@ -66,19 +82,39 @@ const GlobalClassManagement: React.FC = () => {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
           {/* Toolbar */}
-          <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
              <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 <input 
                     type="text" 
                     placeholder="Search class name, ID or code..." 
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <div className="text-sm text-slate-500">
-                Total Classes: {classes.length}
+            
+            <div className="flex items-center gap-4">
+                <div className="flex bg-slate-200/80 p-1 rounded-lg text-xs font-bold gap-1">
+                    <button
+                        onClick={() => setClassTabFilter('active')}
+                        className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${classTabFilter === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        <span>Active Classes</span>
+                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full text-[10px]">
+                            {activeClasses.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setClassTabFilter('archived')}
+                        className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${classTabFilter === 'archived' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        <span>Archive</span>
+                        <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded-full text-[10px]">
+                            {archivedClasses.length}
+                        </span>
+                    </button>
+                </div>
             </div>
           </div>
 
@@ -97,9 +133,16 @@ const GlobalClassManagement: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                       {filteredClasses.map((c) => (
-                          <tr key={c.id} className="hover:bg-slate-50">
+                          <tr key={c.id} className={`hover:bg-slate-50 ${c.isArchived ? 'bg-red-50/20' : ''}`}>
                               <td className="px-6 py-4">
-                                  <div className="font-bold text-slate-900">{c.name}</div>
+                                  <div className="font-bold text-slate-900 flex items-center gap-2">
+                                      <span>{c.name}</span>
+                                      {c.isArchived && (
+                                          <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold border border-red-200">
+                                              Archived
+                                          </span>
+                                      )}
+                                  </div>
                                   <div className="text-xs text-slate-400 font-mono mt-0.5">{c.id}</div>
                               </td>
                               <td className="px-6 py-4">
@@ -111,7 +154,7 @@ const GlobalClassManagement: React.FC = () => {
                               <td className="px-6 py-4">
                                   <div className="flex items-center text-slate-600">
                                       <Users size={16} className="mr-2 text-slate-400" />
-                                      {c.teams.length}
+                                      {c.teams.filter(t => !t.isArchived).length}
                                   </div>
                               </td>
                               <td className="px-6 py-4">
@@ -123,28 +166,49 @@ const GlobalClassManagement: React.FC = () => {
                                   {new Date(c.createdAt).toLocaleDateString()}
                               </td>
                               <td className="px-6 py-4 text-right">
-                                  <div className="flex items-center justify-end space-x-3">
-                                      <button 
-                                        onClick={() => handleSuperLogin(c.id)}
-                                        className="flex items-center px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded hover:bg-slate-900 transition-colors"
-                                        title="Access Facilitator Console for this class"
-                                      >
-                                          Enter Console <ExternalLink size={12} className="ml-1" />
-                                      </button>
-                                      <button 
-                                        onClick={() => handleResetToYear1(c.id)}
-                                        className="flex items-center px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded shadow-sm transition-colors animate-pulse"
-                                        title="Reset Class to Year 1"
-                                      >
-                                          Reset to Year 1
-                                      </button>
-                                      <button 
-                                        onClick={() => handleDelete(c.id)}
-                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                        title="Delete Class"
-                                      >
-                                          <Trash2 size={16} />
-                                      </button>
+                                  <div className="flex items-center justify-end space-x-2">
+                                      {c.isArchived ? (
+                                          <>
+                                              <button 
+                                                onClick={() => handleRestore(c.id, c.name)}
+                                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-xs transition-colors"
+                                                title="Restore Class"
+                                              >
+                                                  Restore
+                                              </button>
+                                              <button 
+                                                onClick={() => handleDeleteForever(c.id, c.name)}
+                                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded shadow-xs transition-colors"
+                                                title="Delete Class Forever"
+                                              >
+                                                  Delete Forever
+                                              </button>
+                                          </>
+                                      ) : (
+                                          <>
+                                              <button 
+                                                onClick={() => handleSuperLogin(c.id)}
+                                                className="flex items-center px-3 py-1.5 bg-slate-800 text-white text-xs font-bold rounded hover:bg-slate-900 transition-colors"
+                                                title="Access Facilitator Console for this class"
+                                              >
+                                                  Enter Console <ExternalLink size={12} className="ml-1" />
+                                              </button>
+                                              <button 
+                                                onClick={() => handleResetToYear1(c.id)}
+                                                className="flex items-center px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded shadow-sm transition-colors animate-pulse"
+                                                title="Reset Class to Year 1"
+                                              >
+                                                  Reset to Year 1
+                                              </button>
+                                              <button 
+                                                onClick={() => handleArchive(c.id, c.name)}
+                                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                title="Archive Class"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </>
+                                      )}
                                   </div>
                               </td>
                           </tr>

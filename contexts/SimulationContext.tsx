@@ -44,6 +44,7 @@ interface SimulationContextType extends SimulationState {
   logout: () => void;
   createClass: (name: string, teamCount: number) => void;
   deleteClass: (classId: string) => void;
+  archiveClass: (classId: string, archive?: boolean) => Promise<void>;
   selectClass: (classId: string) => void;
   addFacilitator: (facilitator: Omit<Facilitator, 'id' | 'joinedDate'>) => void;
   removeFacilitator: (id: string) => void;
@@ -1423,6 +1424,29 @@ BEHAVIOR RULES:
     }
   };
 
+  const archiveClass = async (classId: string, archive: boolean = true) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      isArchived: archive,
+      archivedAt: archive ? new Date().toISOString() : undefined
+    };
+
+    if (isDemoMode) {
+      const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+      setState(prev => ({ ...prev, classes: updatedClasses }));
+    } else {
+      await saveClass(updatedClass);
+      setState(prev => ({
+        ...prev,
+        classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+      }));
+    }
+  };
+
   const selectClass = (classId: string) => {
       setState(prev => ({ ...prev, currentClassId: classId }));
   };
@@ -2274,6 +2298,7 @@ BEHAVIOR RULES:
         logout,
         createClass,
         deleteClass,
+        archiveClass,
         selectClass,
         addFacilitator,
         removeFacilitator,

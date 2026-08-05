@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock } from 'lucide-react';
+import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock, Archive, RefreshCw } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass, deleteClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
+  const { classes, createClass, selectClass, deleteClass, archiveClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
   const navigate = useNavigate();
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCodesModalOpen, setIsCodesModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [classTabFilter, setClassTabFilter] = useState<'active' | 'archived'>('active');
   
   const [newClassName, setNewClassName] = useState('');
   const [newClassTeams, setNewClassTeams] = useState(4);
@@ -52,7 +53,28 @@ const FacilitatorClasses: React.FC = () => {
       setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const filteredClasses = classes.filter(c => 
+  const handleArchiveClick = async (simClass: { id: string; name: string }) => {
+    if (window.confirm(`Archive Class: "${simClass.name}"?\n\nMoving this class to Archive will safely preserve all team decisions, access codes, and history.\n\nYou can restore this class back to Active Classes anytime or delete it permanently from the Archive.`)) {
+      await archiveClass(simClass.id, true);
+    }
+  };
+
+  const handleRestoreClick = async (simClass: { id: string; name: string }) => {
+    if (window.confirm(`Restore Class: "${simClass.name}"?\n\nThis will move the class back to your Active Classes list.`)) {
+      await archiveClass(simClass.id, false);
+    }
+  };
+
+  const handleDeleteForeverClick = async (simClass: { id: string; name: string }) => {
+    if (window.confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${simClass.name}"?\n\nThis action CANNOT be undone. All class records, team submissions, and historical decision data will be erased forever.`)) {
+      deleteClass(simClass.id);
+    }
+  };
+
+  const activeClasses = classes.filter(c => !c.isArchived);
+  const archivedClasses = classes.filter(c => c.isArchived);
+
+  const displayedClasses = (classTabFilter === 'active' ? activeClasses : archivedClasses).filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     c.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -64,7 +86,7 @@ const FacilitatorClasses: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
             <h1 className="text-3xl font-bold text-slate-900">My Classes</h1>
-            <p className="text-slate-500 mt-1">Manage your simulation instances and access codes.</p>
+            <p className="text-slate-500 mt-1">Manage your simulation instances, access codes, and archived classes.</p>
         </div>
         <button 
             onClick={() => setIsCreateModalOpen(true)}
@@ -77,19 +99,43 @@ const FacilitatorClasses: React.FC = () => {
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
         {/* Toolbar */}
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-4">
              <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                 <input 
                     type="text" 
                     placeholder="Search classes..." 
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <div className="text-sm text-slate-500">
-                Showing {filteredClasses.length} classes
+
+            <div className="flex items-center gap-4">
+                <div className="flex bg-slate-200/80 p-1 rounded-lg text-xs font-bold gap-1">
+                    <button
+                        onClick={() => setClassTabFilter('active')}
+                        className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${classTabFilter === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        <span>Active Classes</span>
+                        <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full text-[10px]">
+                            {activeClasses.length}
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setClassTabFilter('archived')}
+                        className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 ${classTabFilter === 'archived' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        <span>Archive</span>
+                        <span className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded-full text-[10px]">
+                            {archivedClasses.length}
+                        </span>
+                    </button>
+                </div>
+                
+                <div className="text-sm text-slate-500 hidden md:block">
+                    Showing {displayedClasses.length} classes
+                </div>
             </div>
         </div>
 
@@ -108,21 +154,28 @@ const FacilitatorClasses: React.FC = () => {
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                    {filteredClasses.length === 0 ? (
+                    {displayedClasses.length === 0 ? (
                          <tr>
                              <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                                 <div className="flex flex-col items-center justify-center">
                                     <Users size={48} className="mb-4 text-slate-300" />
-                                    <p className="text-lg font-medium text-slate-600">No classes found</p>
-                                    <p className="text-sm">Create a new class to get started</p>
+                                    <p className="text-lg font-medium text-slate-600">No {classTabFilter === 'active' ? 'active' : 'archived'} classes found</p>
+                                    <p className="text-sm">{classTabFilter === 'active' ? 'Create a new class to get started' : 'Archived classes will appear here'}</p>
                                 </div>
                              </td>
                          </tr>
                     ) : (
-                        filteredClasses.map((simClass) => (
-                            <tr key={simClass.id} className="hover:bg-slate-50 transition-colors">
+                        displayedClasses.map((simClass) => (
+                            <tr key={simClass.id} className={`hover:bg-slate-50 transition-colors ${simClass.isArchived ? 'bg-red-50/20' : ''}`}>
                                 <td className="px-6 py-4">
-                                    <div className="font-bold text-slate-900">{simClass.name}</div>
+                                    <div className="font-bold text-slate-900 flex items-center gap-2">
+                                        <span>{simClass.name}</span>
+                                        {simClass.isArchived && (
+                                            <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold border border-red-200">
+                                                Archived
+                                            </span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className="font-mono text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded">{simClass.id}</span>
@@ -154,31 +207,50 @@ const FacilitatorClasses: React.FC = () => {
                                     {new Date(simClass.createdAt).toLocaleDateString()}
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end space-x-3">
-                                        <button 
-                                            onClick={() => openCodesModal(simClass.id)}
-                                            className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                            title="View Access Codes"
-                                        >
-                                            <KeyRound size={18} />
-                                        </button>
-                                        <button 
-                                            onClick={() => {
-                                                if (window.confirm("Are you sure you want to delete this class? This will permanently delete all class data and team decisions.")) {
-                                                    deleteClass(simClass.id);
-                                                }
-                                            }}
-                                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Delete Class"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleEnterClass(simClass.id)}
-                                            className="flex items-center px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors"
-                                        >
-                                            Enter <ArrowRight size={14} className="ml-1" />
-                                        </button>
+                                    <div className="flex items-center justify-end space-x-2">
+                                        {simClass.isArchived ? (
+                                            <>
+                                                <button 
+                                                    onClick={() => handleRestoreClick(simClass)}
+                                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                                    title="Restore class back to active classes"
+                                                >
+                                                    <RefreshCw size={14} />
+                                                    Restore
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDeleteForeverClick(simClass)}
+                                                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
+                                                    title="Delete class permanently forever"
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete Forever
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    onClick={() => openCodesModal(simClass.id)}
+                                                    className="p-2 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="View Access Codes"
+                                                >
+                                                    <KeyRound size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleArchiveClick(simClass)}
+                                                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Archive Class"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleEnterClass(simClass.id)}
+                                                    className="flex items-center px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800 transition-colors"
+                                                >
+                                                    Enter <ArrowRight size={14} className="ml-1" />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
