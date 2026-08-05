@@ -81,6 +81,8 @@ export interface Team {
   status?: string;
   updatedAt?: any;
   reopenRequested?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 

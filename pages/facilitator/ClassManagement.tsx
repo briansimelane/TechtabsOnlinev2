@@ -22,7 +22,9 @@ import {
   Wrench,
   Award,
   FileText,
-  Shield
+  Shield,
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { DEFAULT_SURVEY_CONFIG } from '../../constants';
@@ -30,8 +32,9 @@ import { SurveyConfig, SurveyQuestion } from '../../types';
 import { formatNumber, formatPercent } from '../../utils/numberFormat';
 
 const ClassManagement: React.FC = () => {
-  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions } = useSimulation();
+  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions, archiveTeam, restoreTeam } = useSimulation();
   const [activeTab, setActiveTab] = useState<'students' | 'ai' | 'godmode' | 'survey' | 'teams'>('students');
+  const [teamFilterTab, setTeamFilterTab] = useState<'active' | 'archived'>('active');
 
   // AI Config State
   const [selectedSupplier, setSelectedSupplier] = useState(SUPPLIERS[0]);
@@ -339,12 +342,32 @@ const ClassManagement: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'teams' && (
+      {activeTab === 'teams' && (() => {
+        const allTeams = currentClass.teams || [];
+        const activeTeamsList = allTeams.filter(t => !t.isArchived);
+        const archivedTeamsList = allTeams.filter(t => t.isArchived);
+        const displayedTeams = teamFilterTab === 'active' ? activeTeamsList : archivedTeamsList;
+
+        return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
                 <div>
                     <h3 className="font-bold text-slate-800 text-lg">Teams, Access Codes & Decisions</h3>
-                    <p className="text-sm text-slate-500 mt-0.5">Manage submissions, view live decisions snapshot, and track active sessions.</p>
+                    <p className="text-sm text-slate-500 mt-0.5">Manage submissions, view live decisions snapshot, and remove/restore teams.</p>
+                </div>
+                <div className="flex bg-slate-200/70 p-1 rounded-lg text-xs font-bold gap-1">
+                    <button
+                        onClick={() => setTeamFilterTab('active')}
+                        className={`px-3 py-1.5 rounded-md transition-all ${teamFilterTab === 'active' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        Active Teams ({activeTeamsList.length})
+                    </button>
+                    <button
+                        onClick={() => setTeamFilterTab('archived')}
+                        className={`px-3 py-1.5 rounded-md transition-all ${teamFilterTab === 'archived' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                        Archived Teams ({archivedTeamsList.length})
+                    </button>
                 </div>
             </div>
             
@@ -362,7 +385,14 @@ const ClassManagement: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {(currentClass.teams || []).map((team) => {
+                        {displayedTeams.length === 0 ? (
+                            <tr>
+                                <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                                    No {teamFilterTab === 'active' ? 'active' : 'archived'} teams found.
+                                </td>
+                            </tr>
+                        ) : (
+                        displayedTeams.map((team) => {
                             const isExpanded = !!expandedTeams[team.id];
                             const teamCode = currentClass.teamCodes?.[team.id] || 'N/A';
                             
@@ -387,11 +417,31 @@ const ClassManagement: React.FC = () => {
                                 }
                             };
 
+                            const handleArchiveClick = async (teamId: string) => {
+                                if (confirm(`Are you sure you want to remove "${team.name}" from the game? The team will be archived and can be restored at any time.`)) {
+                                    try {
+                                        await archiveTeam(currentClass.id, teamId);
+                                    } catch (err: any) {
+                                        alert("Failed to remove team: " + err.message);
+                                    }
+                                }
+                            };
+
+                            const handleRestoreClick = async (teamId: string) => {
+                                if (confirm(`Are you sure you want to restore "${team.name}" back to the game?`)) {
+                                    try {
+                                        await restoreTeam(currentClass.id, teamId);
+                                    } catch (err: any) {
+                                        alert("Failed to restore team: " + err.message);
+                                    }
+                                }
+                            };
+
                             const decs = team.draftDecisions;
 
                             return (
                                 <React.Fragment key={team.id}>
-                                    <tr className="hover:bg-slate-50/50 transition-colors">
+                                    <tr className={`hover:bg-slate-50/50 transition-colors ${team.isArchived ? 'bg-red-50/20' : ''}`}>
                                         <td className="px-6 py-4 font-bold text-slate-800">
                                             <button 
                                                 onClick={() => setExpandedTeams(prev => ({ ...prev, [team.id]: !prev[team.id] }))}
@@ -399,6 +449,11 @@ const ClassManagement: React.FC = () => {
                                             >
                                                 <ChevronRight size={16} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90 text-blue-500' : ''}`} />
                                                 {team.name}
+                                                {team.isArchived && (
+                                                    <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold">
+                                                        Archived
+                                                    </span>
+                                                )}
                                             </button>
                                         </td>
                                         <td className="px-6 py-4">
@@ -408,11 +463,12 @@ const ClassManagement: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                team.isArchived ? 'bg-red-100 text-red-800 border border-red-200' :
                                                 team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse' :
                                                 team.status === 'Saved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                                                 'bg-slate-100 text-slate-800 border border-slate-200'
                                             }`}>
-                                                {team.status || 'InProgress'}
+                                                {team.isArchived ? 'Archived' : (team.status || 'InProgress')}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-700">
@@ -431,27 +487,41 @@ const ClassManagement: React.FC = () => {
                                             {formatLastActive(team)}
                                         </td>
                                         <td className="px-6 py-4 text-center">
-                                            {team.status === 'Submitted' ? (
-                                                <div className="space-y-1.5 flex flex-col items-center">
-                                                    {team.reopenRequested && (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-800 font-extrabold px-2 py-0.5 rounded-full border border-red-200 animate-pulse">
-                                                            ⚠️ Reopen Requested
-                                                        </span>
-                                                    )}
+                                            <div className="flex items-center justify-center gap-2">
+                                                {team.isArchived ? (
                                                     <button 
-                                                        onClick={() => handleReopenClick(team.id)}
-                                                        className={`px-3 py-1 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center justify-center mx-auto ${
-                                                            team.reopenRequested 
-                                                                ? 'bg-red-600 hover:bg-red-700 animate-bounce' 
-                                                                : 'bg-amber-500 hover:bg-amber-600'
-                                                        }`}
+                                                        onClick={() => handleRestoreClick(team.id)}
+                                                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-sm"
+                                                        title="Restore team back to game"
                                                     >
-                                                        Reopen Decisions
+                                                        <RefreshCw size={13} />
+                                                        Restore Team
                                                     </button>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-slate-400 italic">No action needed</span>
-                                            )}
+                                                ) : (
+                                                    <>
+                                                        {team.status === 'Submitted' && (
+                                                            <button 
+                                                                onClick={() => handleReopenClick(team.id)}
+                                                                className={`px-3 py-1 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center justify-center ${
+                                                                    team.reopenRequested 
+                                                                        ? 'bg-red-600 hover:bg-red-700 animate-bounce' 
+                                                                        : 'bg-amber-500 hover:bg-amber-600'
+                                                                }`}
+                                                            >
+                                                                Reopen
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            onClick={() => handleArchiveClick(team.id)}
+                                                            className="px-2.5 py-1 text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-200 rounded text-xs font-semibold transition-colors flex items-center gap-1"
+                                                            title="Remove/archive team from game"
+                                                        >
+                                                            <Trash2 size={13} />
+                                                            Remove
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                     
@@ -672,12 +742,13 @@ const ClassManagement: React.FC = () => {
                                     )}
                                 </React.Fragment>
                             );
-                        })}
+                        }))}
                     </tbody>
                 </table>
             </div>
         </div>
-      )}
+        );
+      })()}
 
       {activeTab === 'ai' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

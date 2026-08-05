@@ -65,6 +65,8 @@ interface SimulationContextType extends SimulationState {
   updateClassFacilitatorCode: (classId: string, newCode: string) => Promise<void>;
   updateTeamCode: (classId: string, teamId: string, newCode: string) => Promise<void>;
   updateTeamCeoPin: (classId: string, teamId: string, newPin: string) => Promise<void>;
+  archiveTeam: (classId: string, teamId: string) => Promise<void>;
+  restoreTeam: (classId: string, teamId: string) => Promise<void>;
   runClassSimulation: (classId: string) => Promise<void>;
   reopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
   requestReopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
@@ -1738,6 +1740,9 @@ BEHAVIOR RULES:
                 if (tCode === code) {
                     const team = cls.teams.find(t => t.id === teamId);
                     if (team) {
+                        if (team.isArchived) {
+                            return { success: false, message: 'This team has been archived by the facilitator.' };
+                        }
                         localStorage.setItem('techtabs_is_demo', 'false');
                         setIsDemoMode(false);
                         
@@ -1843,6 +1848,9 @@ BEHAVIOR RULES:
             if (tCode === code) {
                 const team = cls.teams.find((t: any) => t.id === teamId);
                 if (team) {
+                    if (team.isArchived) {
+                        return { success: false, message: 'This team has been archived by the facilitator.' };
+                    }
                     localStorage.setItem('techtabs_is_demo', 'true');
                     setIsDemoMode(true);
                     
@@ -1921,6 +1929,9 @@ BEHAVIOR RULES:
 
       const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
       const updatedTeams = cls.teams.map(team => {
+        if (team.isArchived) {
+          return team;
+        }
         const decs = team.draftDecisions || INITIAL_DECISIONS;
         const result = processTurn(team, decs, activeEvents);
 
@@ -2142,9 +2153,35 @@ BEHAVIOR RULES:
       teams: updatedTeams
     };
 
+    try {
+      await saveTeamState(classId, updatedTeam);
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update team CEO PIN:', err);
+    }
+  };
+
+  const archiveTeam = async (classId: string, teamId: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const targetTeam = targetClass.teams.find(t => t.id === teamId);
+    if (!targetTeam) return;
+
+    const updatedTeam: Team = {
+      ...targetTeam,
+      isArchived: true,
+      archivedAt: new Date().toISOString()
+    };
+
+    const updatedTeams = targetClass.teams.map(t => t.id === teamId ? updatedTeam : t);
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams
+    };
+
     setState(prev => ({
       ...prev,
-      currentTeam: prev.currentTeam.id === teamId ? updatedTeam : prev.currentTeam,
       classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
     }));
 
@@ -2152,7 +2189,39 @@ BEHAVIOR RULES:
       await saveTeamState(classId, updatedTeam);
       await saveClass(updatedClass);
     } catch (err) {
-      console.error('Failed to update team CEO PIN:', err);
+      console.error('Failed to archive team:', err);
+    }
+  };
+
+  const restoreTeam = async (classId: string, teamId: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const targetTeam = targetClass.teams.find(t => t.id === teamId);
+    if (!targetTeam) return;
+
+    const updatedTeam: Team = {
+      ...targetTeam,
+      isArchived: false,
+      archivedAt: undefined
+    };
+
+    const updatedTeams = targetClass.teams.map(t => t.id === teamId ? updatedTeam : t);
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams
+    };
+
+    setState(prev => ({
+      ...prev,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await saveTeamState(classId, updatedTeam);
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to restore team:', err);
     }
   };
 
@@ -2191,6 +2260,8 @@ BEHAVIOR RULES:
         updateClassFacilitatorCode,
         updateTeamCode,
         updateTeamCeoPin,
+        archiveTeam,
+        restoreTeam,
         runClassSimulation,
         reopenTeamDecisions,
         requestReopenTeamDecisions

@@ -4,7 +4,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass, deleteClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin } = useSimulation();
+  const { classes, createClass, selectClass, deleteClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
   const navigate = useNavigate();
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -279,8 +279,26 @@ const FacilitatorClasses: React.FC = () => {
                                           <div className="font-bold text-slate-800 flex items-center gap-2">
                                               <Users size={16} className="text-blue-500" />
                                               {teamName}
+                                              {teamObj?.isArchived && (
+                                                  <span className="text-[10px] bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full uppercase">
+                                                      Archived
+                                                  </span>
+                                              )}
                                           </div>
-                                          <span className="text-xs text-slate-400 font-mono">ID: {teamId}</span>
+                                          {teamObj?.isArchived ? (
+                                              <button
+                                                  onClick={async () => {
+                                                      if (confirm(`Restore "${teamName}" back to active simulation?`)) {
+                                                          await restoreTeam(selectedClass.id, teamId);
+                                                      }
+                                                  }}
+                                                  className="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md font-bold transition-colors shadow-sm"
+                                              >
+                                                  Restore
+                                              </button>
+                                          ) : (
+                                              <span className="text-xs text-slate-400 font-mono">ID: {teamId}</span>
+                                          )}
                                       </div>
 
                                       {/* Team Access Code */}
