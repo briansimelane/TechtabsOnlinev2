@@ -62,6 +62,9 @@ interface SimulationContextType extends SimulationState {
   updateClassShowMarketReportsYear1: (show: boolean) => Promise<void>;
   resetClassToYear1: (classId: string) => Promise<void>;
   updateTeamProfile: (name: string, ceoName: string, persist?: boolean) => Promise<void>;
+  updateClassFacilitatorCode: (classId: string, newCode: string) => Promise<void>;
+  updateTeamCode: (classId: string, teamId: string, newCode: string) => Promise<void>;
+  updateTeamCeoPin: (classId: string, teamId: string, newPin: string) => Promise<void>;
   runClassSimulation: (classId: string) => Promise<void>;
   reopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
   requestReopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
@@ -2074,6 +2077,85 @@ BEHAVIOR RULES:
     });
   };
 
+  const updateClassFacilitatorCode = async (classId: string, newCode: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      facilitatorCode: newCode
+    };
+
+    setState(prev => ({
+      ...prev,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update facilitator code:', err);
+    }
+  };
+
+  const updateTeamCode = async (classId: string, teamId: string, newCode: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const updatedTeamCodes = {
+      ...(targetClass.teamCodes || {}),
+      [teamId]: newCode
+    };
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teamCodes: updatedTeamCodes
+    };
+
+    setState(prev => ({
+      ...prev,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update team code:', err);
+    }
+  };
+
+  const updateTeamCeoPin = async (classId: string, teamId: string, newPin: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const targetTeam = targetClass.teams.find(t => t.id === teamId);
+    if (!targetTeam) return;
+
+    const updatedTeam: Team = {
+      ...targetTeam,
+      ceoPin: newPin
+    };
+
+    const updatedTeams = targetClass.teams.map(t => t.id === teamId ? updatedTeam : t);
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams
+    };
+
+    setState(prev => ({
+      ...prev,
+      currentTeam: prev.currentTeam.id === teamId ? updatedTeam : prev.currentTeam,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await saveTeamState(classId, updatedTeam);
+      await saveClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update team CEO PIN:', err);
+    }
+  };
+
   return (
     <SimulationContext.Provider value={{ 
         ...state, 
@@ -2106,6 +2188,9 @@ BEHAVIOR RULES:
         updateClassShowMarketReportsYear1,
         resetClassToYear1,
         updateTeamProfile,
+        updateClassFacilitatorCode,
+        updateTeamCode,
+        updateTeamCeoPin,
         runClassSimulation,
         reopenTeamDecisions,
         requestReopenTeamDecisions

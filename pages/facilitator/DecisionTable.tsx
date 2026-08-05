@@ -112,6 +112,16 @@ export default function DecisionTable() {
           formatRaw: (v) => v
         },
         {
+          label: 'CEO PIN',
+          getValue: (t) => t.ceoPin || 'Not Set',
+          format: (v) => (
+            <span className="font-mono bg-amber-50 text-amber-800 text-xs px-2 py-0.5 rounded font-bold border border-amber-200">
+              {v}
+            </span>
+          ),
+          formatRaw: (v) => v
+        },
+        {
           label: 'Period',
           getValue: (t) => t.currentPeriod,
           format: (v) => v,

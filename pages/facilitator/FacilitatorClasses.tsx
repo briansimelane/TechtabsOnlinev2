@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass, deleteClass } = useSimulation();
+  const { classes, createClass, selectClass, deleteClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin } = useSimulation();
   const navigate = useNavigate();
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -15,6 +15,16 @@ const FacilitatorClasses: React.FC = () => {
   const [newClassTeams, setNewClassTeams] = useState(4);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Edit states inside Access Codes modal
+  const [editingFacCode, setEditingFacCode] = useState(false);
+  const [tempFacCode, setTempFacCode] = useState('');
+
+  const [editingTeamCodeId, setEditingTeamCodeId] = useState<string | null>(null);
+  const [tempTeamCode, setTempTeamCode] = useState('');
+
+  const [editingCeoPinId, setEditingCeoPinId] = useState<string | null>(null);
+  const [tempCeoPin, setTempCeoPin] = useState('');
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,55 +247,245 @@ const FacilitatorClasses: React.FC = () => {
                   <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
                       <div>
                         <h3 className="font-bold text-lg text-slate-800">{selectedClass.name}</h3>
-                        <p className="text-xs text-slate-500">Student Access Codes</p>
+                        <p className="text-xs text-slate-500">Student & Facilitator Access Controls</p>
                       </div>
                       <button 
-                        onClick={() => setIsCodesModalOpen(false)}
+                        onClick={() => {
+                          setIsCodesModalOpen(false);
+                          setEditingFacCode(false);
+                          setEditingTeamCodeId(null);
+                          setEditingCeoPinId(null);
+                        }}
                         className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600"
                       >
                           <Plus size={24} className="rotate-45" />
                       </button>
                   </div>
                   
-                  <div className="p-8 overflow-y-auto">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-8 overflow-y-auto space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {Object.entries(selectedClass.teamCodes).map(([teamId, code], idx) => {
-                              const teamName = selectedClass.teams.find(t => t.id === teamId)?.name || `Team ${idx+1}`;
+                              const teamObj = selectedClass.teams.find(t => t.id === teamId);
+                              const teamName = teamObj?.name || `Team ${idx+1}`;
+                              const ceoName = teamObj?.ceoName || 'Not Claimed';
+                              const ceoPin = teamObj?.ceoPin || '';
+
+                              const isEditingTeamCode = editingTeamCodeId === teamId;
+                              const isEditingCeoPin = editingCeoPinId === teamId;
+
                               return (
-                                  <div key={teamId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-blue-300 hover:shadow-md transition-all">
-                                      <div className="flex justify-between items-start mb-2">
-                                          <div className="text-sm font-medium text-slate-500">{teamName}</div>
-                                          <Users size={16} className="text-slate-300" />
+                                  <div key={teamId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 hover:border-blue-300 transition-all">
+                                      <div className="flex justify-between items-center border-b pb-2">
+                                          <div className="font-bold text-slate-800 flex items-center gap-2">
+                                              <Users size={16} className="text-blue-500" />
+                                              {teamName}
+                                          </div>
+                                          <span className="text-xs text-slate-400 font-mono">ID: {teamId}</span>
                                       </div>
-                                      <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                          <span className="font-mono font-bold text-xl text-slate-800 tracking-wider">{code}</span>
-                                          <button 
-                                            onClick={() => copyToClipboard(code as string)}
-                                            className="p-2 bg-white rounded-md shadow-sm text-slate-400 hover:text-blue-600 hover:shadow transition-all"
-                                            title="Copy Code"
-                                          >
-                                              {copiedCode === code ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                                          </button>
+
+                                      {/* Team Access Code */}
+                                      <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between">
+                                          <div>
+                                              <span className="text-[10px] uppercase font-bold text-slate-400 block">Team Access Code</span>
+                                              {isEditingTeamCode ? (
+                                                  <input 
+                                                      type="text"
+                                                      className="font-mono font-bold text-sm text-slate-800 px-2 py-0.5 border border-blue-400 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                                                      value={tempTeamCode}
+                                                      onChange={(e) => setTempTeamCode(e.target.value.toUpperCase())}
+                                                      autoFocus
+                                                  />
+                                              ) : (
+                                                  <span className="font-mono font-bold text-base text-slate-800 tracking-wider">{code}</span>
+                                              )}
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                              {isEditingTeamCode ? (
+                                                  <>
+                                                      <button 
+                                                          onClick={async () => {
+                                                              if (tempTeamCode.trim()) {
+                                                                  await updateTeamCode(selectedClass.id, teamId, tempTeamCode.trim());
+                                                              }
+                                                              setEditingTeamCodeId(null);
+                                                          }}
+                                                          className="p-1 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
+                                                          title="Save Team Code"
+                                                      >
+                                                          <Check size={14} />
+                                                      </button>
+                                                      <button 
+                                                          onClick={() => setEditingTeamCodeId(null)}
+                                                          className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+                                                          title="Cancel"
+                                                      >
+                                                          <X size={14} />
+                                                      </button>
+                                                  </>
+                                              ) : (
+                                                  <>
+                                                      <button 
+                                                          onClick={() => {
+                                                              setEditingTeamCodeId(teamId);
+                                                              setTempTeamCode(code as string);
+                                                          }}
+                                                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded transition-colors"
+                                                          title="Edit Team Code"
+                                                      >
+                                                          <Edit2 size={14} />
+                                                      </button>
+                                                      <button 
+                                                          onClick={() => copyToClipboard(code as string)}
+                                                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-white rounded transition-colors"
+                                                          title="Copy Code"
+                                                      >
+                                                          {copiedCode === code ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                                      </button>
+                                                  </>
+                                              )}
+                                          </div>
                                       </div>
+
+                                      {/* CEO Name & PIN */}
+                                      <div className="bg-amber-50/60 p-2.5 rounded-lg border border-amber-100 flex items-center justify-between">
+                                          <div>
+                                              <span className="text-[10px] uppercase font-bold text-amber-700 block">
+                                                  CEO: <strong className="text-slate-800">{ceoName}</strong>
+                                              </span>
+                                              <div className="flex items-center gap-1.5 mt-0.5">
+                                                  <Lock size={12} className="text-amber-600" />
+                                                  {isEditingCeoPin ? (
+                                                      <input 
+                                                          type="text"
+                                                          maxLength={4}
+                                                          placeholder="4-digit PIN"
+                                                          className="font-mono font-bold text-xs text-amber-900 px-2 py-0.5 border border-amber-400 rounded focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white w-24"
+                                                          value={tempCeoPin}
+                                                          onChange={(e) => setTempCeoPin(e.target.value.replace(/\D/g, ''))}
+                                                          autoFocus
+                                                      />
+                                                  ) : (
+                                                      <span className="font-mono font-extrabold text-sm text-amber-900 tracking-widest">
+                                                          {ceoPin || <span className="text-amber-500 font-normal italic text-xs">No PIN set</span>}
+                                                      </span>
+                                                  )}
+                                              </div>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                              {isEditingCeoPin ? (
+                                                  <>
+                                                      <button 
+                                                          onClick={async () => {
+                                                              await updateTeamCeoPin(selectedClass.id, teamId, tempCeoPin.trim());
+                                                              setEditingCeoPinId(null);
+                                                          }}
+                                                          className="p-1 bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors"
+                                                          title="Save CEO PIN"
+                                                      >
+                                                          <Check size={14} />
+                                                      </button>
+                                                      <button 
+                                                          onClick={() => setEditingCeoPinId(null)}
+                                                          className="p-1 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+                                                          title="Cancel"
+                                                      >
+                                                          <X size={14} />
+                                                      </button>
+                                                  </>
+                                              ) : (
+                                                  <>
+                                                      <button 
+                                                          onClick={() => {
+                                                              setEditingCeoPinId(teamId);
+                                                              setTempCeoPin(ceoPin);
+                                                          }}
+                                                          className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded transition-colors text-xs font-semibold flex items-center gap-1"
+                                                          title="Edit CEO PIN"
+                                                      >
+                                                          <Edit2 size={13} />
+                                                          <span>{ceoPin ? 'Edit PIN' : 'Set PIN'}</span>
+                                                      </button>
+                                                      {ceoPin && (
+                                                          <button 
+                                                              onClick={() => copyToClipboard(ceoPin)}
+                                                              className="p-1.5 text-amber-500 hover:text-amber-700 hover:bg-amber-100 rounded transition-colors"
+                                                              title="Copy CEO PIN"
+                                                          >
+                                                              {copiedCode === ceoPin ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                                          </button>
+                                                      )}
+                                                  </>
+                                              )}
+                                          </div>
+                                      </div>
+
                                   </div>
                               );
                           })}
                       </div>
 
-                      <div className="mt-8 pt-6 border-t border-slate-100">
+                      {/* Facilitator Access Code Section */}
+                      <div className="pt-4 border-t border-slate-100">
                           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                               <div>
-                                  <h4 className="font-bold text-indigo-900 text-sm">Facilitator Access Code</h4>
+                                  <h4 className="font-bold text-indigo-900 text-sm flex items-center gap-1.5">
+                                      <Shield size={16} className="text-indigo-600" />
+                                      Facilitator Access Code
+                                  </h4>
                                   <p className="text-indigo-600 text-xs mt-1">Use this code to log in as a facilitator for this class.</p>
                               </div>
                               <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg border border-indigo-100 shadow-sm">
-                                  <span className="font-mono font-bold text-indigo-700 text-lg">{selectedClass.facilitatorCode}</span>
-                                   <button 
-                                        onClick={() => copyToClipboard(selectedClass.facilitatorCode)}
-                                        className="text-indigo-300 hover:text-indigo-600 transition-colors"
-                                    >
-                                        {copiedCode === selectedClass.facilitatorCode ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
-                                    </button>
+                                  {editingFacCode ? (
+                                      <div className="flex items-center gap-2">
+                                          <input 
+                                              type="text"
+                                              className="font-mono font-bold text-indigo-700 text-base px-2 py-0.5 border border-indigo-400 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                              value={tempFacCode}
+                                              onChange={(e) => setTempFacCode(e.target.value.toUpperCase())}
+                                              autoFocus
+                                          />
+                                          <button 
+                                              onClick={async () => {
+                                                  if (tempFacCode.trim()) {
+                                                      await updateClassFacilitatorCode(selectedClass.id, tempFacCode.trim());
+                                                  }
+                                                  setEditingFacCode(false);
+                                              }}
+                                              className="p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                                              title="Save Facilitator Code"
+                                          >
+                                              <Check size={16} />
+                                          </button>
+                                          <button 
+                                              onClick={() => setEditingFacCode(false)}
+                                              className="p-1.5 bg-slate-200 text-slate-600 rounded hover:bg-slate-300 transition-colors"
+                                              title="Cancel"
+                                          >
+                                              <X size={16} />
+                                          </button>
+                                      </div>
+                                  ) : (
+                                      <>
+                                          <span className="font-mono font-bold text-indigo-700 text-lg">{selectedClass.facilitatorCode}</span>
+                                          <button 
+                                              onClick={() => {
+                                                  setEditingFacCode(true);
+                                                  setTempFacCode(selectedClass.facilitatorCode);
+                                              }}
+                                              className="text-indigo-400 hover:text-indigo-700 transition-colors p-1"
+                                              title="Change Facilitator Code"
+                                          >
+                                              <Edit2 size={16} />
+                                          </button>
+                                          <button 
+                                              onClick={() => copyToClipboard(selectedClass.facilitatorCode)}
+                                              className="text-indigo-300 hover:text-indigo-600 transition-colors p-1"
+                                              title="Copy Code"
+                                          >
+                                              {copiedCode === selectedClass.facilitatorCode ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                                          </button>
+                                      </>
+                                  )}
                               </div>
                           </div>
                       </div>
@@ -293,7 +493,12 @@ const FacilitatorClasses: React.FC = () => {
                   
                   <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
                       <button 
-                        onClick={() => setIsCodesModalOpen(false)}
+                        onClick={() => {
+                          setIsCodesModalOpen(false);
+                          setEditingFacCode(false);
+                          setEditingTeamCodeId(null);
+                          setEditingCeoPinId(null);
+                        }}
                         className="px-4 py-2 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 shadow-sm"
                       >
                           Close

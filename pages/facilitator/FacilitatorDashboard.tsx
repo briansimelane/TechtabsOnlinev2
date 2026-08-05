@@ -371,6 +371,7 @@ const FacilitatorDashboard: React.FC = () => {
                             <th className="px-6 py-3.5">Access Code</th>
                             <th className="px-6 py-3.5">Status</th>
                             <th className="px-6 py-3.5">Claimed CEO</th>
+                            <th className="px-6 py-3.5">CEO PIN</th>
                             <th className="px-6 py-3.5">Last Active</th>
                             <th className="px-6 py-3.5 text-center">Actions</th>
                         </tr>
@@ -432,6 +433,15 @@ const FacilitatorDashboard: React.FC = () => {
                                         <td className="px-6 py-4 font-medium text-slate-700">
                                             {team.ceoName || <span className="text-slate-400 italic text-xs">Not Claimed</span>}
                                         </td>
+                                        <td className="px-6 py-4">
+                                            {team.ceoPin ? (
+                                                <span className="font-mono bg-amber-50 text-amber-900 text-xs px-2.5 py-1 rounded font-extrabold border border-amber-200 tracking-wider">
+                                                    {team.ceoPin}
+                                                </span>
+                                            ) : (
+                                                <span className="text-slate-400 italic text-xs">Not Set</span>
+                                            )}
+                                        </td>
                                         <td className="px-6 py-4 text-xs font-mono text-slate-500">
                                             {formatLastActive(team)}
                                         </td>
@@ -462,7 +472,7 @@ const FacilitatorDashboard: React.FC = () => {
                                     
                                     {isExpanded && (
                                         <tr>
-                                            <td colSpan={6} className="bg-slate-50/70 px-8 py-4 border-t border-b border-slate-100">
+                                            <td colSpan={7} className="bg-slate-50/70 px-8 py-4 border-t border-b border-slate-100">
                                                 <div className="space-y-4">
                                                     <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Live Turn Decisions Snapshot</h4>
                                                     
