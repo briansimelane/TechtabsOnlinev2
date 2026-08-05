@@ -72,7 +72,7 @@ const FacilitatorDashboard: React.FC = () => {
                                 </span>
                                 <span className="flex items-center text-xs">
                                     <Users size={14} className="mr-1 text-slate-400" />
-                                    {cls.teams.length} Teams
+                                    {cls.teams.filter(t => !t.isArchived).length} Teams
                                 </span>
                             </div>
                         </button>
@@ -90,7 +90,7 @@ const FacilitatorDashboard: React.FC = () => {
       );
   }
 
-  const realTeams = currentClass.teams || [];
+  const realTeams = (currentClass.teams || []).filter(t => !t.isArchived);
 
   const teamsData = realTeams.map(t => {
       const lastPeriod = t.currentPeriod - 1;
@@ -824,9 +824,10 @@ const FacilitatorDashboard: React.FC = () => {
 
       {/* Market Model (Actual) backModel Viewer */}
       {activeTab === 'marketModel' && (() => {
-        const results = computeMarketShareBackModel(currentClass.teams, currentClass.currentPeriod);
+        const activeClassTeams = (currentClass.teams || []).filter(t => !t.isArchived);
+        const results = computeMarketShareBackModel(activeClassTeams, currentClass.currentPeriod);
         const productResult = results.find(r => r.productId === selectedMarketProduct);
-        const sortedTeams = [...currentClass.teams].sort((a, b) => a.id.localeCompare(b.id));
+        const sortedTeams = [...activeClassTeams].sort((a, b) => a.id.localeCompare(b.id));
 
         if (!productResult) return null;
 

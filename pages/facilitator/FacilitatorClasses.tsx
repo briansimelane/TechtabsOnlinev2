@@ -130,7 +130,7 @@ const FacilitatorClasses: React.FC = () => {
                                 <td className="px-6 py-4">
                                     <div className="flex items-center text-slate-600">
                                         <Users size={16} className="mr-2 text-slate-400" />
-                                        {simClass.teams.length}
+                                        {simClass.teams.filter(t => !t.isArchived).length}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">

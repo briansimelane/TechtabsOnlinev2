@@ -275,7 +275,7 @@ const ClassManagement: React.FC = () => {
                                 </span>
                                 <span className="flex items-center text-xs">
                                     <Users size={14} className="mr-1 text-slate-400" />
-                                    {cls.teams.length} Teams
+                                    {cls.teams.filter(t => !t.isArchived).length} Teams
                                 </span>
                             </div>
                         </button>
