@@ -817,6 +817,8 @@ const FinancialReports: React.FC = () => {
                                       <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.equity)}</td>
                                       <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.equity)}</td>
                                   </tr>
+                                  <tr><td className="py-1 px-12 text-slate-500">- Opening Equity</td><td className="text-right px-4">{formatCurrency(forecast.balanceSheet.equity - forecast.netProfit)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.balanceSheet.equity - actuals.netProfit)}</td></tr>
+                                  <tr><td className="py-1 px-12 text-slate-500">- Current Net Profit</td><td className="text-right px-4">{formatCurrency(forecast.netProfit)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.netProfit)}</td></tr>
                                   <tr>
                                       <td className="py-2 px-8 text-slate-700 font-semibold">Non-Current Liabilities</td>
                                       <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.longTermDebt)}</td>
