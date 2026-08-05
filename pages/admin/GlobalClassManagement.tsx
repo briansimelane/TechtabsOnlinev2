@@ -42,18 +42,23 @@ const GlobalClassManagement: React.FC = () => {
   const handleArchive = async (classId: string, className: string) => {
       if (confirm(`Archive Class: "${className}"?\n\nMoving this class to Archive will safely preserve all team decisions, access codes, and history so it can be restored anytime.`)) {
           await archiveClass(classId, true);
+          setClassTabFilter('archived');
+          alert(`Class "${className}" has been moved to Archive.`);
       }
   };
 
   const handleRestore = async (classId: string, className: string) => {
       if (confirm(`Restore Class: "${className}"?\n\nThis will move the class back to Active Classes.`)) {
           await archiveClass(classId, false);
+          setClassTabFilter('active');
+          alert(`Class "${className}" has been restored to Active Classes.`);
       }
   };
 
   const handleDeleteForever = (classId: string, className: string) => {
       if (confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${className}"?\n\nThis action CANNOT be undone and all team decisions will be erased forever.`)) {
           deleteClass(classId);
+          alert(`Class "${className}" permanently deleted.`);
       }
   };
 

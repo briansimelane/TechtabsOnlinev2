@@ -54,20 +54,25 @@ const FacilitatorClasses: React.FC = () => {
   };
 
   const handleArchiveClick = async (simClass: { id: string; name: string }) => {
-    if (window.confirm(`Archive Class: "${simClass.name}"?\n\nMoving this class to Archive will safely preserve all team decisions, access codes, and history.\n\nYou can restore this class back to Active Classes anytime or delete it permanently from the Archive.`)) {
+    if (window.confirm(`Delete Class: "${simClass.name}"?\n\nThis will move the class to your Archive tab where all team decisions, access codes, and history will be safely stored.\n\nYou can view, restore, or delete it permanently anytime in the Archive tab.`)) {
       await archiveClass(simClass.id, true);
+      setClassTabFilter('archived');
+      alert(`Class "${simClass.name}" has been moved to the Archive tab.`);
     }
   };
 
   const handleRestoreClick = async (simClass: { id: string; name: string }) => {
-    if (window.confirm(`Restore Class: "${simClass.name}"?\n\nThis will move the class back to your Active Classes list.`)) {
+    if (window.confirm(`Restore Class: "${simClass.name}"?\n\nThis will restore the class back to your Active Classes list.`)) {
       await archiveClass(simClass.id, false);
+      setClassTabFilter('active');
+      alert(`Class "${simClass.name}" has been restored to Active Classes.`);
     }
   };
 
   const handleDeleteForeverClick = async (simClass: { id: string; name: string }) => {
     if (window.confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${simClass.name}"?\n\nThis action CANNOT be undone. All class records, team submissions, and historical decision data will be erased forever.`)) {
       deleteClass(simClass.id);
+      alert(`Class "${simClass.name}" has been permanently deleted.`);
     }
   };
 
