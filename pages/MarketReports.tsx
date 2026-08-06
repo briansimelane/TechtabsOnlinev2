@@ -64,6 +64,32 @@ const MarketReports: React.FC = () => {
       'Zroid': 'zroid',
       'iTab': 'itab'
     };
+
+    const getCriterionDriverValue = (cName: string, pId: 'techbook' | 'zroid' | 'itab', t: typeof realTeams[0]) => {
+      const dec = t.draftDecisions || INITIAL_DECISIONS;
+      switch (cName) {
+        case 'Price':
+          return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
+        case 'Payment Terms':
+          return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
+        case 'Availability':
+          return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
+        case 'Stores':
+          return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
+        case 'Agents':
+          return `${((dec.marketing?.agentCommission ?? 0) * 100).toFixed(1)}%`;
+        case 'Staff Availability':
+          return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
+        case 'Product Innovation':
+          return `${getClosingFeatures(t, dec, pId)} feat`;
+        case 'Company Advertising':
+          return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
+        case 'Product Advertising':
+          return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
+        default:
+          return '';
+      }
+    };
     
     return ['TechBook', 'Zroid', 'iTab'].map(pName => {
       const pId = productKeys[pName];
@@ -74,13 +100,16 @@ const MarketReports: React.FC = () => {
       }
       
       const criteriaRows = result.criteria.map(c => {
+        const criteriaLabel = `${c.name} (Weight: ${c.rating})`;
         return {
-          criteria: c.name,
+          criteria: criteriaLabel,
           rating: c.rating,
-          scores: realTeams.map((_, tIdx) => {
+          scores: realTeams.map((t, tIdx) => {
             const isActive = result.activeByTeam[tIdx];
             if (!isActive) return '0.00';
-            return c.weightedByTeam[tIdx].toFixed(2);
+            const scoreStr = c.weightedByTeam[tIdx].toFixed(2);
+            const decVal = getCriterionDriverValue(c.name, pId, t);
+            return decVal ? `${decVal} (${scoreStr})` : scoreStr;
           })
         };
       });
