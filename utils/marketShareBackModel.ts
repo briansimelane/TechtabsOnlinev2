@@ -33,8 +33,22 @@ export function normCdf(x: number, mu: number, sigma: number): number {
   return 0.5 * (1 + erf((x - mu) / (sigma * Math.SQRT2)));
 }
 
-// Excel market demand schedule (Excel source of truth from §6)
+// Excel market demand schedule (Excel source of truth from §6 with custom per-year facilitator overrides)
 export function getMarketDemandForPeriod(productId: ProductId, period: number): number {
+  const pName = productId === 'techbook' ? 'TechBook' : (productId === 'zroid' ? 'Zroid' : 'iTab');
+
+  // Check custom facilitator configuration overrides first
+  try {
+    const overridesRaw = localStorage.getItem('simulation_config_overrides');
+    if (overridesRaw) {
+      const overrides = JSON.parse(overridesRaw);
+      const customYearly = overrides.market_demand?.[pName]?.yearly_units;
+      if (customYearly && customYearly[period] !== undefined) {
+        return Number(customYearly[period]);
+      }
+    }
+  } catch (e) {}
+
   const baseDemands: Record<ProductId, number[]> = {
     techbook: [288750, 187588, 240800, 82500],
     zroid: [179888, 260242, 287930, 160000],
@@ -56,8 +70,40 @@ export function getMarketDemandForPeriod(productId: ProductId, period: number): 
   return val;
 }
 
-// Buying criteria driver weights config (§3)
+// Buying criteria driver weights config (§3 with custom per-year facilitator overrides)
 export function getCriterionRating(criterionId: number, productId: ProductId, period: number): number {
+  const pName = productId === 'techbook' ? 'TechBook' : (productId === 'zroid' ? 'Zroid' : 'iTab');
+  const criteriaKeyMap: Record<number, string> = {
+    1: 'Price',
+    2: 'Payment_Terms',
+    3: 'Availability',
+    4: 'Stores',
+    5: 'Agents',
+    6: 'Staff_Availability',
+    7: 'Product_Innovation',
+    8: 'Company_Advertising',
+    9: 'Product_Advertising'
+  };
+
+  // Check custom facilitator configuration overrides first
+  try {
+    const overridesRaw = localStorage.getItem('simulation_config_overrides');
+    if (overridesRaw) {
+      const overrides = JSON.parse(overridesRaw);
+      const factorKey = criteriaKeyMap[criterionId];
+      if (factorKey) {
+        const yearWeights = overrides.customer_buying_criteria?.[pName]?.[`${factorKey}_by_year`];
+        if (yearWeights && yearWeights[period] !== undefined) {
+          return Number(yearWeights[period]);
+        }
+        const flatWeight = overrides.customer_buying_criteria?.[pName]?.[factorKey];
+        if (typeof flatWeight === 'number') {
+          return Number(flatWeight);
+        }
+      }
+    }
+  } catch (e) {}
+
   // 1-based indexing for criterionId matching the spec table
   switch (criterionId) {
     case 1: // Price

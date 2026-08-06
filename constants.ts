@@ -303,6 +303,20 @@ export const PRODUCT_DEMAND_SCHEDULE: Record<ProductId, Record<number, number>> 
 };
 
 export const getMarketSize = (productId: ProductId, period: number): number => {
+  const pName = productId === 'techbook' ? 'TechBook' : (productId === 'zroid' ? 'Zroid' : 'iTab');
+
+  // Check custom facilitator configuration overrides first
+  try {
+    const overridesRaw = localStorage.getItem('simulation_config_overrides');
+    if (overridesRaw) {
+      const overrides = JSON.parse(overridesRaw);
+      const customYearly = overrides.market_demand?.[pName]?.yearly_units;
+      if (customYearly && customYearly[period] !== undefined) {
+        return Number(customYearly[period]);
+      }
+    }
+  } catch (e) {}
+
   const schedule = PRODUCT_DEMAND_SCHEDULE[productId];
   if (schedule && schedule[period] !== undefined) {
     return schedule[period];

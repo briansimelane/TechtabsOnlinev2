@@ -233,69 +233,84 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <TrendingUp className="w-5 h-5 text-green-600" />
-            <span className="font-semibold text-lg">Market Demand & Growth</span>
+            <span className="font-semibold text-lg">Market Demand & Growth Schedule (Year 0 - Year 4)</span>
           </div>
           {expandedSections.marketDemand ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.marketDemand && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-            <div className="space-y-4">
-              {Object.entries(config.market_demand || {}).map(([product, data]: [string, any]) => (
-                <div key={product} className="bg-white p-4 rounded border border-slate-200">
-                  <h4 className="font-semibold text-slate-900 mb-3">{product}</h4>
-                  <div className="grid grid-cols-2 gap-4 mb-3">
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Manually configure or adjust the product market demand (units) per year (Year 0 through Year 4). Custom edits will directly drive simulation period processing.
+            </p>
+            {Object.entries(config.market_demand || {}).map(([product, data]: [string, any]) => {
+              const defaultYearlyDemand: Record<number, number> = {
+                0: product === 'TechBook' ? 288750 : product === 'Zroid' ? 179888 : 89750,
+                1: product === 'TechBook' ? 187588 : product === 'Zroid' ? 260242 : 127559,
+                2: product === 'TechBook' ? 197905 : product === 'Zroid' ? 279760 : 140953,
+                3: product === 'TechBook' ? 208790 : product === 'Zroid' ? 300742 : 155753,
+                4: product === 'TechBook' ? 220274 : product === 'Zroid' ? 323298 : 172107
+              };
+              const yearlyDemand = data.yearly_units || defaultYearlyDemand;
+
+              return (
+                <div key={product} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-base">{product} — Market Demand Schedule</h4>
+                    <span className="text-xs text-slate-500 font-mono">CAGR: {formatPercent(data.cagr || 0, 2)}</span>
+                  </div>
+
+                  {/* Multi-Year Inputs Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700">
+                          {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                            <th key={idx} className="py-2.5 px-3 text-center font-bold">
+                              {yr}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-2 px-2 text-center">
+                              <NumberInput
+                                value={yearlyDemand[y] ?? defaultYearlyDemand[y] ?? 0}
+                                onChange={(val) => updateConfig(['market_demand', product, 'yearly_units', String(y)], val)}
+                                className="w-full px-2 py-1.5 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-green-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                     <div>
-                      <label className="text-sm text-slate-600 block mb-1">Year 1 Units</label>
-                      <NumberInput
-                        value={data.year1_units || 0}
-                        onChange={(val) => updateConfig(['market_demand', product, 'year1_units'], val)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-right"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-slate-600 block mb-1">CAGR (decimal)</label>
+                      <label className="text-xs text-slate-500 block mb-1">Growth CAGR Decimal</label>
                       <NumberInput
                         value={data.cagr || 0}
                         onChange={(val) => updateConfig(['market_demand', product, 'cagr'], val)}
                         decimals={3}
                         isFloat={true}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 font-mono text-right"
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-mono text-right"
                       />
-                      <div className="text-xs text-green-600 mt-1">= {formatPercent(data.cagr, 2)}</div>
-                    </div>
-                  </div>
-                  <div className="mb-2">
-                    <label className="text-sm text-slate-600 block mb-1">Description</label>
-                    <textarea
-                      value={data.description || ''}
-                      onChange={(e) => updateConfig(['market_demand', product, 'description'], e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm"
-                      rows={2}
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm bg-slate-50 p-2 rounded">
-                    <div>
-                      <div className="text-slate-500">Year 2 (Projected)</div>
-                      <div className="font-mono font-semibold">
-                        {Math.floor(data.year1_units * (1 + data.cagr)).toLocaleString()}
-                      </div>
                     </div>
                     <div>
-                      <div className="text-slate-500">Year 3 (Projected)</div>
-                      <div className="font-mono font-semibold">
-                        {Math.floor(data.year1_units * Math.pow(1 + data.cagr, 2)).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-slate-500">Year 6 (Projected)</div>
-                      <div className="font-mono font-semibold">
-                        {Math.floor(data.year1_units * Math.pow(1 + data.cagr, 5)).toLocaleString()}
-                      </div>
+                      <label className="text-xs text-slate-500 block mb-1">Description</label>
+                      <input
+                        type="text"
+                        value={data.description || ''}
+                        onChange={(e) => updateConfig(['market_demand', product, 'description'], e.target.value)}
+                        className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs"
+                      />
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -400,30 +415,79 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <Eye className="w-5 h-5 text-orange-600" />
-            <span className="font-semibold text-lg">Customer Buying Criteria Weights</span>
+            <span className="font-semibold text-lg">Customer Buying Criteria Weights (Year 0 - Year 4)</span>
           </div>
           {expandedSections.buyingCriteria ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.buyingCriteria && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-            <div className="space-y-4">
-              {Object.entries(config.customer_buying_criteria || {}).map(([product, criteria]: [string, any]) => (
-                <div key={product} className="bg-white p-4 rounded border border-slate-200">
-                  <h4 className="font-semibold text-slate-900 mb-3">{product}</h4>
-                  <div className="space-y-2">
-                    {Object.entries(criteria).filter(([k]) => k !== 'description').map(([factor, weight]: [string, any]) => (
-                      <div key={factor} className="flex items-center gap-3">
-                        <label className="text-sm text-slate-600 w-32">{factor.replace(/_/g, ' ')}</label>
-                        <NumberInput
-                          value={weight}
-                          onChange={(val) => updateConfig(['customer_buying_criteria', product, factor], val)}
-                          decimals={2}
-                          isFloat={true}
-                          className="w-24 px-2 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-orange-500 font-mono text-right"
-                        />
-                      </div>
-                    ))}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Configure and manually adjust buying criteria factor weights by year (Year 0 through Year 4) for each product. Custom per-year weights will determine team scoring and market share allocation.
+            </p>
+
+            {Object.entries(config.customer_buying_criteria || {}).map(([product, criteria]: [string, any]) => {
+              const defaultFactors: Record<string, number> = {
+                Price: product === 'TechBook' ? 10 : product === 'Zroid' ? 5 : 3,
+                Payment_Terms: product === 'TechBook' ? 9 : product === 'Zroid' ? 3 : 2,
+                Availability: product === 'TechBook' ? 7 : product === 'Zroid' ? 6 : 9,
+                Stores: product === 'TechBook' ? 8 : product === 'Zroid' ? 8 : 5,
+                Agents: product === 'TechBook' ? 4 : product === 'Zroid' ? 7 : 6,
+                Staff_Availability: product === 'TechBook' ? 3 : product === 'Zroid' ? 4 : 8,
+                Product_Innovation: product === 'TechBook' ? 8 : product === 'Zroid' ? 8 : 10,
+                Company_Advertising: product === 'TechBook' ? 6 : product === 'Zroid' ? 9 : 4,
+                Product_Advertising: product === 'TechBook' ? 5 : product === 'Zroid' ? 10 : 7
+              };
+
+              const factorKeys = Object.keys(defaultFactors);
+
+              return (
+                <div key={product} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                  <h4 className="font-bold text-slate-900 text-base">{product} — Customer Buying Criteria Weights by Year</h4>
+
+                  {/* Multi-Year Matrix Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700">
+                          <th className="py-2.5 px-3 text-left font-bold w-48">Buying Criteria Factor</th>
+                          {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                            <th key={idx} className="py-2.5 px-3 text-center font-bold">
+                              {yr}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {factorKeys.map(factor => {
+                          const yearWeights = criteria[`${factor}_by_year`] || {};
+                          const baseWeight = criteria[factor] ?? defaultFactors[factor] ?? 5;
+
+                          return (
+                            <tr key={factor} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-semibold text-slate-700">
+                                {factor.replace(/_/g, ' ')}
+                              </td>
+                              {[0, 1, 2, 3, 4].map(y => {
+                                const currentWeight = yearWeights[y] ?? baseWeight;
+                                return (
+                                  <td key={y} className="py-1.5 px-2 text-center">
+                                    <NumberInput
+                                      value={currentWeight}
+                                      onChange={(val) => updateConfig(['customer_buying_criteria', product, `${factor}_by_year`, String(y)], val)}
+                                      decimals={1}
+                                      isFloat={true}
+                                      className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-orange-500"
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
+
                   <div className="mt-3">
                     <label className="text-xs text-slate-500 block mb-1">Description</label>
                     <textarea
@@ -434,8 +498,8 @@ export const SimulationConfig: React.FC = () => {
                     />
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         )}
       </div>
