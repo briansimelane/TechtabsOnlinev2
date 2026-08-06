@@ -24,11 +24,14 @@ interface ExportDataParams {
 }
 
 /**
- * Sanitizes cell text for CSV and PDF output
+ * Sanitizes cell text for CSV and PDF output (strips R currency symbol for compact single-line display)
  */
 const cleanValue = (val: string): string => {
   if (!val) return '';
-  return val.replace(/\u00a0/g, ' ').trim();
+  let cleaned = val.replace(/\u00a0/g, ' ').trim();
+  // Remove 'R' currency prefix/symbol so numbers fit cleanly on one row
+  cleaned = cleaned.replace(/^R\s?/, '').replace(/\s?R\s?/g, '').trim();
+  return cleaned;
 };
 
 /**
@@ -119,32 +122,33 @@ export const exportReportPDF = (
   params: ExportDataParams
 ) => {
   const { className, period, activeTeams, decisionsData, performanceData, marketData } = params;
-  const timestamp = new Date().toLocaleDateString();
 
   // Create A4 Landscape PDF for optimal multi-team table layout
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
   // Page setup styling
   const primaryColor = [30, 41, 59] as [number, number, number]; // Slate-900
-  const headerBgColor = [241, 245, 249] as [number, number, number]; // Slate-100
 
   const addPDFHeader = (docInstance: jsPDF, title: string) => {
-    docInstance.setFontSize(16);
+    docInstance.setFontSize(15);
     docInstance.setTextColor(30, 41, 59);
     docInstance.setFont('helvetica', 'bold');
-    docInstance.text('Techtabs Simulation — Industry Reports', 14, 15);
+    docInstance.text('Techtabs Simulation — Industry Reports', 14, 14);
 
-    docInstance.setFontSize(10);
+    docInstance.setFontSize(9.5);
     docInstance.setFont('helvetica', 'normal');
     docInstance.setTextColor(100, 116, 139);
-    docInstance.text(`Class: ${className}   |   Period: ${period}   |   Date: ${timestamp}   |   Report: ${title}`, 14, 22);
+    docInstance.text(`Class: ${className}   |   Period: ${period}   |   Report: ${title}`, 14, 21);
 
     docInstance.setLineWidth(0.5);
     docInstance.setDrawColor(226, 232, 240);
-    docInstance.line(14, 25, 283, 25);
+    docInstance.line(14, 24, 283, 24);
   };
 
   const headers = ['Metric / Line Item', ...activeTeams];
+  const totalPrintableWidth = 269; // 297mm width - 28mm margins
+  const equalColumnWidth = totalPrintableWidth / headers.length; // Equal column size across all columns
+
   let isFirstSection = true;
 
   const appendPDFTable = (sectionTitle: string, rows: { label: string; values: string[]; bold?: boolean }[]) => {
@@ -161,7 +165,7 @@ export const exportReportPDF = (
     ]);
 
     autoTable(doc, {
-      startY: 30,
+      startY: 28,
       head: [headers],
       body: tableBody,
       theme: 'grid',
@@ -169,17 +173,21 @@ export const exportReportPDF = (
         fillColor: primaryColor,
         textColor: [255, 255, 255],
         fontStyle: 'bold',
-        fontSize: 9,
-        halign: 'center'
+        fontSize: 8.5,
+        halign: 'center',
+        valign: 'middle',
+        overflow: 'linebreak'
       },
       columnStyles: {
-        0: { halign: 'left', fontStyle: 'bold', cellWidth: 70 }
+        0: { halign: 'left', fontStyle: 'bold', cellWidth: equalColumnWidth }
       },
       styles: {
         fontSize: 8,
-        cellPadding: 2.5,
+        cellPadding: 2,
         valign: 'middle',
-        halign: 'center'
+        halign: 'center',
+        overflow: 'linebreak',
+        cellWidth: equalColumnWidth
       },
       didParseCell: (data) => {
         // Highlight bold rows or totals
@@ -233,13 +241,13 @@ export const exportReportPDF = (
     }
   }
 
-  // Add page numbers footer
+  // Add page numbers footer (date removed, confidential phrase removed)
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
-    doc.text(`Page ${i} of ${pageCount} — Confidential Facilitator Report`, 283 / 2, 203, { align: 'center' });
+    doc.text(`Page ${i} of ${pageCount}`, 283 / 2, 203, { align: 'center' });
   }
 
   const filename = type === 'all'
