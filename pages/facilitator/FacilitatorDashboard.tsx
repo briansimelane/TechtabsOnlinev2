@@ -39,6 +39,10 @@ const FacilitatorDashboard: React.FC = () => {
   const [selectedMarketProduct, setSelectedMarketProduct] = useState<'techbook' | 'zroid' | 'itab'>('techbook');
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
 
+  // Leaderboard Sorting State (default rank on Current Score)
+  const [sortField, setSortField] = useState<'name' | 'gpMargin' | 'npMargin' | 'roe' | 'prevScore' | 'score' | 'finalScore' | 'status'>('score');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Team Name Edit State
   const [editingTeamNameId, setEditingTeamNameId] = useState<string | null>(null);
   const [tempTeamName, setTempTeamName] = useState('');
@@ -234,21 +238,92 @@ const FacilitatorDashboard: React.FC = () => {
 
   const maxScore = nTeams > 0 ? nTeams * 3 : 3;
 
+  // Calculate Previous Score for each team across past periods (Period 1 to Period currentPeriod - 1)
+  const prevScoresMap: Record<string, number> = {};
+  realTeams.forEach(t => {
+    prevScoresMap[t.id] = 0;
+  });
+
+  if (period > 1) {
+    for (let p = 1; p < period; p++) {
+      const pTeamsData = realTeams.map((t) => {
+        const hist = t.history?.[p];
+        let gpMargin = 0;
+        let npMargin = 0;
+        let roe = 0;
+
+        if (hist) {
+          const rev = hist.incomeStatement?.revenue || 0;
+          const gp = hist.incomeStatement?.grossProfit || 0;
+          const np = hist.incomeStatement?.netProfit || 0;
+          const eq = hist.balanceSheet?.equity || 0;
+
+          gpMargin = rev > 0 ? (gp / rev) * 100 : 0;
+          npMargin = rev > 0 ? (np / rev) * 100 : 0;
+          roe = eq > 0 ? (np / eq) * 100 : 0;
+        }
+
+        return { id: t.id, gpMargin, npMargin, roe };
+      });
+
+      const sortedP_GP = [...pTeamsData].sort((a, b) => a.gpMargin - b.gpMargin);
+      const gpPRank: Record<string, number> = {};
+      sortedP_GP.forEach((item, rIdx) => { gpPRank[item.id] = rIdx + 1; });
+
+      const sortedP_NP = [...pTeamsData].sort((a, b) => a.npMargin - b.npMargin);
+      const npPRank: Record<string, number> = {};
+      sortedP_NP.forEach((item, rIdx) => { npPRank[item.id] = rIdx + 1; });
+
+      const sortedP_ROE = [...pTeamsData].sort((a, b) => a.roe - b.roe);
+      const roePRank: Record<string, number> = {};
+      sortedP_ROE.forEach((item, rIdx) => { roePRank[item.id] = rIdx + 1; });
+
+      pTeamsData.forEach(item => {
+        const pScore = (gpPRank[item.id] || 1) + (npPRank[item.id] || 1) + (roePRank[item.id] || 1);
+        prevScoresMap[item.id] = (prevScoresMap[item.id] || 0) + pScore;
+      });
+    }
+  }
+
   const leaderboardTeams = teamsPerformance.map(t => {
     const gpPoints = gpRankMap[t.id] || 1;
     const npPoints = npRankMap[t.id] || 1;
     const roePoints = roeRankMap[t.id] || 1;
-    const score = gpPoints + npPoints + roePoints;
+    const score = gpPoints + npPoints + roePoints;  // Current Score
+    const prevScore = prevScoresMap[t.id] || 0;     // Previous Score (starts at 0 for Year 1)
+    const finalScore = prevScore + score;           // Final Score (Previous + Current)
 
     return {
       ...t,
       gpPoints,
       npPoints,
       roePoints,
+      prevScore,
       score,
+      finalScore,
       maxScore
     };
-  }).sort((a, b) => b.score - a.score || b.roe - a.roe);
+  });
+
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'name' ? 'asc' : 'desc');
+    }
+  };
+
+  const sortedLeaderboard = [...leaderboardTeams].sort((a, b) => {
+    let valA: any = a[sortField];
+    let valB: any = b[sortField];
+
+    if (typeof valA === 'string') {
+      const cmp = valA.localeCompare(valB);
+      return sortDirection === 'asc' ? cmp : -cmp;
+    }
+    return sortDirection === 'asc' ? valA - valB : valB - valA;
+  });
 
   const handleProcessRound = async () => {
       if (!currentClassId) return;
@@ -437,7 +512,7 @@ const FacilitatorDashboard: React.FC = () => {
                   Team Leaderboard
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Ranked by composite score from <strong>GP%</strong>, <strong>NP%</strong>, and <strong>ROE</strong> performance (Max Score: <strong>{maxScore} pts</strong>).
+                  Ranked by default on <strong>Current Score</strong> (GP%, NP%, and ROE performance - Max Score: <strong>{maxScore} pts</strong>). Click any header to re-sort.
                 </p>
               </div>
               <span className="text-xs bg-slate-100 font-mono text-slate-600 px-3 py-1 rounded-full font-bold">
@@ -448,32 +523,126 @@ const FacilitatorDashboard: React.FC = () => {
               <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                       <tr>
-                          <th className="px-5 py-3.5 w-12 text-center">Rank</th>
-                          <th className="px-5 py-3.5">Team Name</th>
-                          <th className="px-5 py-3.5 text-right">Revenue</th>
-                          <th className="px-5 py-3.5 text-right">Net Profit</th>
-                          <th className="px-5 py-3.5 text-right bg-blue-50/50 text-blue-900">GP %</th>
-                          <th className="px-5 py-3.5 text-right bg-emerald-50/50 text-emerald-900">NP %</th>
-                          <th className="px-5 py-3.5 text-right bg-purple-50/50 text-purple-900">ROE</th>
-                          <th className="px-5 py-3.5 text-center">Composite Score</th>
-                          <th className="px-5 py-3.5 text-center">Status</th>
+                          <th className="px-5 py-3.5 w-12 text-center select-none">Rank</th>
+                          
+                          <th 
+                            onClick={() => handleSort('name')}
+                            className="px-5 py-3.5 cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-1">
+                              <span>Team Name</span>
+                              {sortField === 'name' && (
+                                <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('gpMargin')}
+                            className="px-5 py-3.5 text-right bg-blue-50/50 text-blue-900 cursor-pointer hover:bg-blue-100/60 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <span>GP %</span>
+                              {sortField === 'gpMargin' && (
+                                <span className="text-blue-700 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('npMargin')}
+                            className="px-5 py-3.5 text-right bg-emerald-50/50 text-emerald-900 cursor-pointer hover:bg-emerald-100/60 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <span>NP %</span>
+                              {sortField === 'npMargin' && (
+                                <span className="text-emerald-700 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('roe')}
+                            className="px-5 py-3.5 text-right bg-purple-50/50 text-purple-900 cursor-pointer hover:bg-purple-100/60 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-end gap-1">
+                              <span>ROE</span>
+                              {sortField === 'roe' && (
+                                <span className="text-purple-700 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('prevScore')}
+                            className="px-5 py-3.5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              <span>Previous Score</span>
+                              {sortField === 'prevScore' && (
+                                <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('score')}
+                            className="px-5 py-3.5 text-center bg-indigo-50/60 text-indigo-950 font-bold cursor-pointer hover:bg-indigo-100/70 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              <span>Current Score</span>
+                              {sortField === 'score' && (
+                                <span className="text-indigo-700 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('finalScore')}
+                            className="px-5 py-3.5 text-center bg-amber-50/60 text-amber-950 font-bold cursor-pointer hover:bg-amber-100/70 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              <span>Final Score</span>
+                              {sortField === 'finalScore' && (
+                                <span className="text-amber-700 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
+
+                          <th 
+                            onClick={() => handleSort('status')}
+                            className="px-5 py-3.5 text-center cursor-pointer hover:bg-slate-100 transition-colors select-none"
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              <span>Status</span>
+                              {sortField === 'status' && (
+                                <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                              )}
+                            </div>
+                          </th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                      {leaderboardTeams.map((team, index) => (
+                      {sortedLeaderboard.map((team, index) => (
                           <tr key={team.id} className="hover:bg-slate-50/80 transition-colors">
                               <td className="px-5 py-4 text-center font-bold font-mono text-slate-700">
                                   {index === 0 ? '🥇 1' : index === 1 ? '🥈 2' : index === 2 ? '🥉 3' : `${index + 1}`}
                               </td>
                               <td className="px-5 py-4 font-bold text-slate-900">{team.name}</td>
-                              <td className="px-5 py-4 text-right font-mono text-slate-700">{formatCurrency(team.revenue, 0)}</td>
-                              <td className="px-5 py-4 text-right font-mono text-slate-700">{formatCurrency(team.netProfit, 0)}</td>
-                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-blue-50/30">{formatPercent(team.gpMargin / 100, 1)}</td>
-                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-emerald-50/30">{formatPercent(team.npMargin / 100, 1)}</td>
-                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-purple-50/30">{formatPercent(team.roe / 100, 1)}</td>
-                              <td className="px-5 py-4 text-center">
-                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-blue-100 text-blue-800 border border-blue-200 shadow-xs">
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-blue-50/20">{formatPercent(team.gpMargin / 100, 1)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-emerald-50/20">{formatPercent(team.npMargin / 100, 1)}</td>
+                              <td className="px-5 py-4 text-right font-mono text-slate-800 font-semibold bg-purple-50/20">{formatPercent(team.roe / 100, 1)}</td>
+                              <td className="px-5 py-4 text-center font-mono text-slate-700 font-semibold">
+                                  {team.prevScore} pts
+                              </td>
+                              <td className="px-5 py-4 text-center bg-indigo-50/20">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-xs">
                                       {team.score} / {maxScore} pts
+                                  </span>
+                              </td>
+                              <td className="px-5 py-4 text-center bg-amber-50/20">
+                                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                                      {team.finalScore} pts
                                   </span>
                               </td>
                               <td className="px-5 py-4 text-center">
