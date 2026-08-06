@@ -6,6 +6,7 @@ import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitato
 import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
+import { computeIndustryPerformance } from '../utils/industryPerformance';
 import { formatNumber } from '../utils/numberFormat';
 import { getAppAuth, googleProvider, getAppDb } from '../firebase';
 import {
@@ -2047,12 +2048,21 @@ BEHAVIOR RULES:
       if (!cls) return prev;
 
       const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
+      const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod);
+      const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
+
       const updatedTeams = cls.teams.map(team => {
         if (team.isArchived) {
           return team;
         }
         const decs = team.draftDecisions || INITIAL_DECISIONS;
         const result = processTurn(team, decs, activeEvents);
+        const teamPerf = perfMap.get(team.id);
+
+        const periodRecordWithIndustry = {
+          ...result.periodRecord,
+          industry: teamPerf
+        };
 
         const newTeam: Team = {
           ...result.newTeamState,
@@ -2063,7 +2073,7 @@ BEHAVIOR RULES:
           },
           history: {
             ...(team.history || {}),
-            [team.currentPeriod]: result.periodRecord
+            [team.currentPeriod]: periodRecordWithIndustry
           }
         };
 

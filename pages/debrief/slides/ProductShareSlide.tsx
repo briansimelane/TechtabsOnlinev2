@@ -17,33 +17,16 @@ export const ProductShareSlide: React.FC<SlideProps> = ({
   productId,
   productName,
   dataset,
-  revealStep,
   currentSlide,
   totalSlides
 }) => {
-  // Compute normalized market share percentage for active competing teams
   const totalUnits = dataset.teams.reduce((sum, t) => {
-    return sum + (t.record.market?.actualUnits?.[productId] ?? 0);
-  }, 0);
-
-  const totalRawShare = dataset.teams.reduce((sum, t) => {
-    const raw = t.record.market?.actualShare?.[productId] ?? t.record.kpis?.marketShare?.[productId] ?? 0;
-    return sum + (raw > 1 ? raw : raw * 100);
+    return sum + (t.perf?.units?.[productId]?.actual ?? 0);
   }, 0);
 
   const chartData = dataset.teams.map(t => {
-    const units = t.record.market?.actualUnits?.[productId];
-    const raw = t.record.market?.actualShare?.[productId] ?? t.record.kpis?.marketShare?.[productId] ?? 0;
-
-    let pct = 0;
-    if (totalUnits > 0 && units !== undefined) {
-      pct = (units / totalUnits) * 100;
-    } else if (totalRawShare > 0) {
-      const val = raw > 1 ? raw : raw * 100;
-      pct = (val / totalRawShare) * 100;
-    } else {
-      pct = 100 / (dataset.teams.length || 1);
-    }
+    const units = t.perf?.units?.[productId]?.actual ?? 0;
+    const pct = totalUnits > 0 ? (units / totalUnits) * 100 : 100 / (dataset.teams.length || 1);
 
     return {
       name: t.name,

@@ -11,7 +11,7 @@ interface SlideProps {
   totalSlides: number;
 }
 
-export const CustomerSatisfactionSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
+export const CustomerSatisfactionSlide: React.FC<SlideProps> = ({ dataset, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => {
     const csat = (t.record.kpis?.customerSatisfaction ?? 0.70) * 100;
     return {
@@ -30,12 +30,11 @@ export const CustomerSatisfactionSlide: React.FC<SlideProps> = ({ dataset, revea
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="space-y-4">
+      <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between space-y-3">
         <TeamBarChart
           data={chartData}
           formatter={(v) => formatDebriefPercent(v, 1)}
           yUnit="%"
-          height={600}
         />
 
         {/* Delta chips vs prior year */}

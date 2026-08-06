@@ -18,13 +18,12 @@ export const ProductRevenueSlide: React.FC<SlideProps> = ({
   productId,
   productName,
   dataset,
-  revealStep,
   currentSlide,
   totalSlides
 }) => {
   const chartData = dataset.teams.map(t => ({
     name: t.name,
-    value: t.record.revenue.byProduct[productId] || 0,
+    value: t.perf?.revenueByProduct?.[productId] ?? 0,
     colorIndex: t.colorIndex
   }));
 
@@ -40,7 +39,6 @@ export const ProductRevenueSlide: React.FC<SlideProps> = ({
       <TeamBarChart
         data={chartData}
         formatter={(v) => formatDebriefCurrency(v, true, false)}
-        height={650}
         startFromZero={false}
       />
     </SlideFrame>

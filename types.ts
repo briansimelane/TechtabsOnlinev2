@@ -72,6 +72,7 @@ export interface PeriodRecord {
   market?: PeriodMarketRecord;
   staffCounts?: Record<HRRole, number>;
   requiredCS?: number;
+  industry?: any;
 }
 
 export interface Team {

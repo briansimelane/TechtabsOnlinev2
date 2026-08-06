@@ -22,12 +22,12 @@ interface SlideProps {
   totalSlides: number;
 }
 
-export const RevenueMixSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
+export const RevenueMixSlide: React.FC<SlideProps> = ({ dataset, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => {
-    const tot = t.record.revenue.total || 1;
-    const tb = ((t.record.revenue.byProduct.techbook || 0) / tot) * 100;
-    const zr = ((t.record.revenue.byProduct.zroid || 0) / tot) * 100;
-    const it = ((t.record.revenue.byProduct.itab || 0) / tot) * 100;
+    const tot = t.perf?.totalRevenue || 1;
+    const tb = ((t.perf?.revenueByProduct?.techbook || 0) / tot) * 100;
+    const zr = ((t.perf?.revenueByProduct?.zroid || 0) / tot) * 100;
+    const it = ((t.perf?.revenueByProduct?.itab || 0) / tot) * 100;
 
     return {
       name: t.name,

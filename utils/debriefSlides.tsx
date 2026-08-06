@@ -13,7 +13,7 @@ import { ProductShareSlide } from '../pages/debrief/slides/ProductShareSlide';
 import { ProductPlanVsActualSlide } from '../pages/debrief/slides/ProductPlanVsActualSlide';
 import { ProductValuePriceSlide } from '../pages/debrief/slides/ProductValuePriceSlide';
 import { OpexSlide } from '../pages/debrief/slides/OpexSlide';
-import { CustomerServiceSlide } from '../pages/debrief/slides/CustomerServiceSlide';
+import { EmployeeUtilisationSlide } from '../pages/debrief/slides/EmployeeUtilisationSlide';
 import { CustomerSatisfactionSlide } from '../pages/debrief/slides/CustomerSatisfactionSlide';
 import { EmployeeSatisfactionSlide } from '../pages/debrief/slides/EmployeeSatisfactionSlide';
 import { LeagueCurrentSlide } from '../pages/debrief/slides/LeagueCurrentSlide';
@@ -139,12 +139,12 @@ export function compileDebriefSlides(dataset: DebriefDataset): SlideDefinition[]
     render: (p) => <OpexSlide {...p} />
   });
 
-  // 23. Customer Service
+  // 23. Employee Utilisation
   slides.push({
-    id: 'customer-service',
-    title: 'Customer Service Headcount vs Requirement',
+    id: 'employee-utilisation',
+    title: 'Employee Capacity & Utilisation (%)',
     maxRevealSteps: 1,
-    render: (p) => <CustomerServiceSlide {...p} />
+    render: (p) => <EmployeeUtilisationSlide {...p} />
   });
 
   // 24. Customer Satisfaction

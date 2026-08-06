@@ -15,11 +15,11 @@ interface SlideProps {
 export const TotalRevenueSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => ({
     name: t.name,
-    value: t.record.revenue.total,
+    value: t.perf?.totalRevenue ?? 0,
     colorIndex: t.colorIndex
   }));
 
-  const maxTeam = [...dataset.teams].sort((a, b) => b.record.revenue.total - a.record.revenue.total)[0];
+  const maxTeam = [...dataset.teams].sort((a, b) => (b.perf?.totalRevenue ?? 0) - (a.perf?.totalRevenue ?? 0))[0];
 
   return (
     <SlideFrame
@@ -34,7 +34,6 @@ export const TotalRevenueSlide: React.FC<SlideProps> = ({ dataset, revealStep, c
         <TeamBarChart
           data={chartData}
           formatter={(v) => formatDebriefCurrency(v, true, false)}
-          height={660}
           startFromZero={false}
         />
         
@@ -43,7 +42,7 @@ export const TotalRevenueSlide: React.FC<SlideProps> = ({ dataset, revealStep, c
             <div className="bg-emerald-50/90 border border-emerald-300 p-4 rounded-xl text-emerald-950 text-2xl font-bold flex items-center justify-between shadow-sm">
               <span>🏆 Top Revenue Generator: <strong>{maxTeam.name}</strong></span>
               <span className="font-mono text-emerald-700 font-extrabold text-3xl">
-                {formatDebriefCurrency(maxTeam.record.revenue.total, true, false)}
+                {formatDebriefCurrency(maxTeam.perf?.totalRevenue ?? 0, true, false)}
               </span>
             </div>
           )}

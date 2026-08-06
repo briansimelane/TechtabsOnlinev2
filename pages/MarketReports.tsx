@@ -14,6 +14,7 @@ import { useSimulation } from '../contexts/SimulationContext';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, STORE_COSTS, FINANCE_CONSTANTS, HR_ROLES, getMarketSize } from '../constants';
 import { computeMarketShareBackModel, getClosingFeatures } from '../utils/marketShareBackModel';
+import { computeIndustryPerformance } from '../utils/industryPerformance';
 import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
 
 const HR_ROLE_LABELS: Record<string, string> = {
@@ -507,195 +508,62 @@ const MarketReports: React.FC = () => {
     }
     const period = currentClass.currentPeriod;
     const lastPeriod = period - 1;
-    const backModelResults = computeMarketShareBackModel(realTeams, period);
 
-    const getTeamIncome = (t: typeof realTeams[0], tIdx: number) => {
-      const dec = t.draftDecisions || INITIAL_DECISIONS;
-
-      // Calculate Revenue & COGS based on current period backModel simulation results
-      let techbookRev = 0, zroidRev = 0, itabRev = 0;
-      let techbookCogsVal = 0, zroidCogsVal = 0, itabCogsVal = 0;
-
-      // Direct Labor Cost per unit calculation
-      const totalProdUnits = (dec.operations?.production?.techbook || 0) + (dec.operations?.production?.zroid || 0) + (dec.operations?.production?.itab || 0);
-      const techCount = (t.staffCounts?.technicians || 150) + (dec.hr?.hiring?.technicians || 0);
-      const semiCount = (t.staffCounts?.semiSkilled || 200) + (dec.hr?.hiring?.semiSkilled || 0);
-      const techSalary = dec.hr?.salaries?.technicians || 38000;
-      const semiSalary = dec.hr?.salaries?.semiSkilled || 30000;
-      const totalProdStaffCost = (techCount * techSalary + semiCount * semiSalary) * 8;
-      const laborCostPerUnit = totalProdUnits > 0 ? (totalProdStaffCost / totalProdUnits) : 350;
-
-      const pKeys: ('techbook' | 'zroid' | 'itab')[] = ['techbook', 'zroid', 'itab'];
-      pKeys.forEach(pId => {
-        const res = backModelResults.find(r => r.productId === pId);
-        const unitsSold = res ? (res.unitsSoldByTeam[tIdx] || 0) : 0;
-        const price = dec.marketing?.prices?.[pId] ?? 0;
-        const rev = unitsSold * price;
-
-        // Procurement Component Cost
-        let componentCost = pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000);
-        const alloc = dec.procurement?.supplierAllocation?.[pId];
-        if (alloc) {
-          let compSum = 0;
-          let compCount = 0;
-          Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
-            if (val && val.components > 0) {
-              const supMetric = (SUPPLIER_METRICS as any)[supId];
-              const supPrice = supMetric?.unitPrices?.[pId] ?? (pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000));
-              compSum += supPrice * val.components;
-              compCount += val.components;
-            }
-          });
-          if (compCount > 0) {
-            componentCost = compSum / compCount;
-          }
-        }
-
-        const unitCogs = componentCost + laborCostPerUnit;
-        const cogs = unitsSold * unitCogs;
-
-        if (pId === 'techbook') { techbookRev = rev; techbookCogsVal = cogs; }
-        else if (pId === 'zroid') { zroidRev = rev; zroidCogsVal = cogs; }
-        else { itabRev = rev; itabCogsVal = cogs; }
-      });
-
-      const totalRev = techbookRev + zroidRev + itabRev;
-      const totalCogs = techbookCogsVal + zroidCogsVal + itabCogsVal;
-      const grossProfit = totalRev - totalCogs;
-
-      // 1. Dynamic Marketing & Advertising Spend
-      const adMkt = dec.marketing?.advertisingBudget ?? 12500000;
-
-      // 2. Dynamic Store Costs (Running + Opening/Closing)
-      const openCloseStores = dec.marketing?.openCloseStores ?? 0;
-      const finalStoreCount = Math.max(0, (t.storeCount || 5) + openCloseStores);
-      const storeRunCost = finalStoreCount * STORE_COSTS.running;
-      const storeTransCost = openCloseStores > 0 
-        ? openCloseStores * STORE_COSTS.opening 
-        : (openCloseStores < 0 ? Math.abs(openCloseStores) * STORE_COSTS.closing : 0);
-      const storeCost = storeRunCost + storeTransCost;
-
-      // 3. Dynamic Agent Commission (52% channel sales * commission rate decimal)
-      const agentSales = totalRev * 0.52;
-      const agentCommRate = dec.marketing?.agentCommission ?? 0;
-      const agentComm = Math.round(agentSales * agentCommRate);
-
-      // 4. Dynamic HR Payroll & Training
-      let opexPayroll = 0;
-      let opexTraining = 0;
-      const hrRoles = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const;
-      const baseStaffCounts: Record<string, number> = { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
-      const baseSalaries: Record<string, number> = { engineers: 55000, technicians: 38000, semiSkilled: 30000, adminSales: 20000, customerService: 9250 };
-      const trainingCosts: Record<string, number> = { None: 0, Basic: 5000, Advanced: 15000, Specialized: 30000 };
-
-      hrRoles.forEach(r => {
-        const count = (t.staffCounts?.[r] ?? baseStaffCounts[r] ?? 0) + (dec.hr?.hiring?.[r] ?? 0);
-        const monthlySalary = dec.hr?.salaries?.[r] ?? baseSalaries[r] ?? 0;
-        const trainingLevel = dec.hr?.trainingLevels?.[r] ?? 'None';
-        const trCostPer = trainingCosts[trainingLevel] || 0;
-
-        opexTraining += count * trCostPer;
-
-        // Production workers (technicians & semiSkilled) are allocated to COGS; admin & engineers are in opexPayroll
-        if (r !== 'technicians' && r !== 'semiSkilled') {
-          opexPayroll += count * monthlySalary * 8;
-        }
-      });
-
-      // 5. Dynamic R&D / Innovation Budget
-      const rdCost = dec.operations?.innovationBudget ?? dec.operations?.rdBudget ?? 4000000;
-
-      // 6. Dynamic Other Operational Expenses
-      const sumOtherExpenses = adMkt + storeCost + agentComm + opexPayroll + opexTraining + rdCost;
-      const otherOpex = Math.round(sumOtherExpenses * 0.0797);
-
-      const totalOpEx = sumOtherExpenses + otherOpex;
-
-      const ebitda = grossProfit - totalOpEx;
-      const depr = 1535965;
-      const forecastedLongTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
-      const startCash = t.cashBalance || 0;
-      const overdraftInterest = startCash < 0 ? Math.round(Math.abs(startCash) * (FINANCE_CONSTANTS?.overdraftInterestRate || 0.15)) : 0;
-      const debtInterest = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * (FINANCE_CONSTANTS?.interestRate || 0.065)) : 0;
-      const finCharges = debtInterest + overdraftInterest;
-      const ebt = ebitda - depr - finCharges;
-      const taxation = ebt > 0 ? Math.round(ebt * (FINANCE_CONSTANTS?.taxRate || 0.28)) : 0;
-      const netProfit = ebt - taxation;
-
-      return {
-        totalRevenue: totalRev,
-        techbookRevenue: techbookRev,
-        zroidRevenue: zroidRev,
-        itabRevenue: itabRev,
-        cogs: totalCogs,
-        techbookCogs: techbookCogsVal,
-        zroidCogs: zroidCogsVal,
-        itabCogs: itabCogsVal,
-        grossProfit,
-        opexMarketing: adMkt,
-        opexStore: storeCost,
-        opexPayroll: opexPayroll,
-        opexRD: rdCost,
-        opexAgents: agentComm,
-        opexTraining: opexTraining,
-        opexOther: otherOpex,
-        opEx: totalOpEx,
-        ebitda,
-        depreciation: depr,
-        financeCharges: finCharges,
-        ebt,
-        taxation,
-        netProfit
-      };
-    };
+    const perfList = computeIndustryPerformance(realTeams, period);
+    const perfMap = new Map(perfList.map(p => [p.teamId, p]));
+    const getPerf = (t: typeof realTeams[0]) => perfMap.get(t.id);
 
     const incomeRows = [
-      { label: 'Total Revenue', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).totalRevenue, 0)), bold: true },
-      { label: '   - TechBook Revenue', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).techbookRevenue, 0)) },
-      { label: '   - Zroid Revenue', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).zroidRevenue, 0)) },
-      { label: '   - iTab Revenue', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).itabRevenue, 0)) },
-      { label: 'Total COGS / Cost of Sales', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).cogs, 0)), bold: true },
-      { label: '   - TechBook COGS', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).techbookCogs, 0)) },
-      { label: '   - Zroid COGS', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).zroidCogs, 0)) },
-      { label: '   - iTab COGS', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).itabCogs, 0)) },
-      { label: 'Total Gross Profit (GP)', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).grossProfit, 0)), bold: true },
+      { label: 'Total Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.totalRevenue ?? 0, 0)), bold: true },
+      { label: '   - TechBook Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.revenueByProduct.techbook ?? 0, 0)) },
+      { label: '   - Zroid Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.revenueByProduct.zroid ?? 0, 0)) },
+      { label: '   - iTab Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.revenueByProduct.itab ?? 0, 0)) },
+      { label: 'Total COGS / Cost of Sales', values: realTeams.map(t => formatCurrency(getPerf(t)?.totalCogs ?? 0, 0)), bold: true },
+      { label: '   - TechBook COGS', values: realTeams.map(t => formatCurrency(getPerf(t)?.cogsByProduct.techbook ?? 0, 0)) },
+      { label: '   - Zroid COGS', values: realTeams.map(t => formatCurrency(getPerf(t)?.cogsByProduct.zroid ?? 0, 0)) },
+      { label: '   - iTab COGS', values: realTeams.map(t => formatCurrency(getPerf(t)?.cogsByProduct.itab ?? 0, 0)) },
+      { label: 'Total Gross Profit (GP)', values: realTeams.map(t => formatCurrency(getPerf(t)?.grossProfit ?? 0, 0)), bold: true },
       { label: 'Operating Expenses:', values: realTeams.map(() => ''), bold: true },
-      { label: '   - Advertising & Marketing', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexMarketing, 0)) },
-      { label: '   - Store Costs', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexStore, 0)) },
-      { label: '   - Payroll (Salaries)', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexPayroll, 0)) },
-      { label: '   - R & D (Innovation)', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexRD, 0)) },
-      { label: '   - Agent Commissions', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexAgents, 0)) },
-      { label: '   - Staff Development (Training)', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexTraining, 0)) },
-      { label: '   - Other Operational Expenses', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opexOther, 0)) },
-      { label: 'Total Operating Expenses', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).opEx, 0)), bold: true },
-      { label: 'EBITDA', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).ebitda, 0)), bold: true },
-      { label: '   - Depreciation', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).depreciation, 0)) },
-      { label: '   - Finance Charges', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).financeCharges, 0)) },
-      { label: 'EBT', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).ebt, 0)), bold: true },
-      { label: '   - Taxation', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).taxation, 0)) },
-      { label: 'Net Profit for the period', values: realTeams.map((t, i) => formatCurrency(getTeamIncome(t, i).netProfit, 0)), bold: true, bg: 'bg-emerald-50' }
+      { label: '   - Advertising & Marketing', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.marketing ?? 0, 0)) },
+      { label: '   - Store Costs', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.store ?? 0, 0)) },
+      { label: '   - Payroll (Salaries)', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.payroll ?? 0, 0)) },
+      { label: '   - R & D (Innovation)', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.rd ?? 0, 0)) },
+      { label: '   - Agent Commissions', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.agents ?? 0, 0)) },
+      { label: '   - Staff Development (Training)', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.training ?? 0, 0)) },
+      { label: '   - Other Operational Expenses', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.other ?? 0, 0)) },
+      { label: 'Total Operating Expenses', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.total ?? 0, 0)), bold: true },
+      { label: 'EBITDA', values: realTeams.map(t => formatCurrency(getPerf(t)?.ebitda ?? 0, 0)), bold: true },
+      { label: '   - Depreciation', values: realTeams.map(t => formatCurrency(getPerf(t)?.depreciation ?? 0, 0)) },
+      { label: '   - Finance Charges', values: realTeams.map(t => formatCurrency(getPerf(t)?.financeCharges ?? 0, 0)) },
+      { label: 'EBT', values: realTeams.map(t => formatCurrency(getPerf(t)?.ebt ?? 0, 0)), bold: true },
+      { label: '   - Taxation', values: realTeams.map(t => formatCurrency(getPerf(t)?.taxation ?? 0, 0)) },
+      { label: 'Net Profit for the period', values: realTeams.map(t => formatCurrency(getPerf(t)?.netProfit ?? 0, 0)), bold: true, bg: 'bg-emerald-50' }
     ];
 
-    const getTeamBalance = (t: typeof realTeams[0], inc: ReturnType<typeof getTeamIncome>) => {
+    const getTeamBalance = (t: typeof realTeams[0]) => {
       const dec = t.draftDecisions || INITIAL_DECISIONS;
-      const tIdx = realTeams.indexOf(t);
+      const perf = getPerf(t);
+      const depr = perf?.depreciation ?? 1535965;
+      const totalRev = perf?.totalRevenue ?? 0;
+      const totalCogs = perf?.totalCogs ?? 0;
+      const netProf = perf?.netProfit ?? 0;
 
       // 1. Non-Current Assets (Fixed Assets)
       const startPPE = t.fixedAssets || 293500000;
       const capex = (dec.operations?.capacityChange || 0) * 1500;
-      const nonCurrAssets = Math.max(0, startPPE + capex - inc.depreciation);
+      const nonCurrAssets = Math.max(0, startPPE + capex - depr);
 
       // 2. Accounts Receivables
       const debtorsDays = (dec.finance?.debtorsDays?.techbook || 30);
-      const recVal = Math.round((inc.totalRevenue / 365) * debtorsDays);
+      const recVal = Math.round((totalRev / 365) * debtorsDays);
 
       // 3. Inventory Valuation (Unsold units * unit cost)
       const pKeys: ('techbook' | 'zroid' | 'itab')[] = ['techbook', 'zroid', 'itab'];
       let invVal = 0;
       pKeys.forEach(pId => {
-        const res = backModelResults.find(r => r.productId === pId);
-        const unitsSold = res ? (res.unitsSoldByTeam[tIdx] || 0) : 0;
-        const available = res ? (res.availableByTeam[tIdx] || 0) : 0;
+        const u = perf?.units[pId];
+        const unitsSold = u?.actual ?? 0;
+        const available = u?.available ?? 0;
         const unsold = Math.max(0, available - unitsSold);
         const stdCost = pId === 'techbook' ? 1400 : (pId === 'zroid' ? 1350 : 1100);
         invVal += unsold * stdCost;
@@ -705,15 +573,14 @@ const MarketReports: React.FC = () => {
       const openEq = t.shareholdersEquity || 286564937;
       const equityChange = dec.finance?.equityChange || 0;
       const dividends = dec.finance?.dividends || 0;
-      const netProf = inc.netProfit;
       const totEq = openEq + equityChange - dividends + netProf;
 
-      // 5. Liabilities (Long-term Debt + Current Liabilities / Payables)
+      // 5. Liabilities
       const longTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
-      const currentLiabilities = Math.round(inc.cogs * 0.25);
+      const currentLiabilities = Math.round(totalCogs * 0.25);
       const liab = longTermDebt + currentLiabilities;
 
-      // 6. Cash Balance (Allows negative cash for bank overdrafts)
+      // 6. Cash Balance
       const startCash = t.cashBalance ?? 180000000;
       const debtChange = dec.finance?.debtChange || 0;
       const cashVal = startCash + netProf + debtChange + equityChange - dividends - capex;
@@ -736,23 +603,25 @@ const MarketReports: React.FC = () => {
       };
     };
 
-    const getTeamKpis = (t: typeof realTeams[0], inc: ReturnType<typeof getTeamIncome>, bal: ReturnType<typeof getTeamBalance>) => {
+    const getTeamKpis = (t: typeof realTeams[0]) => {
+      const perf = getPerf(t);
       if (t.history && t.history[lastPeriod]?.kpis) {
         const k = t.history[lastPeriod].kpis;
         return {
-          gpMargin: `${((k.gpMargin ?? (inc.totalRevenue > 0 ? inc.grossProfit / inc.totalRevenue : 0)) * 100).toFixed(1)}%`,
-          netMargin: `${((k.netMargin ?? (inc.totalRevenue > 0 ? inc.netProfit / inc.totalRevenue : 0)) * 100).toFixed(1)}%`,
-          assetTurnover: `${((k.assetTurnover ?? (bal.totalAssets > 0 ? inc.totalRevenue / bal.totalAssets : 0)) * 100).toFixed(1)}%`,
-          debtEquity: `${((k.debtEquity ?? (bal.equity > 0 ? bal.liabilities / bal.equity : 0)) * 100).toFixed(1)}%`,
-          roe: `${((k.roe !== undefined ? k.roe : (bal.equity > 0 ? inc.netProfit / bal.equity : 0)) * 100).toFixed(1)}%`
+          gpMargin: `${((k.gpMargin ?? (perf ? perf.gpMargin / 100 : 0)) * 100).toFixed(1)}%`,
+          netMargin: `${((k.netMargin ?? (perf ? perf.npMargin / 100 : 0)) * 100).toFixed(1)}%`,
+          assetTurnover: `${((k.assetTurnover ?? 0) * 100).toFixed(1)}%`,
+          debtEquity: `${((k.debtEquity ?? 0) * 100).toFixed(1)}%`,
+          roe: `${((k.roe !== undefined ? k.roe : (perf ? perf.roe / 100 : 0)) * 100).toFixed(1)}%`
         };
       }
 
-      const gpM = inc.totalRevenue > 0 ? (inc.grossProfit / inc.totalRevenue) * 100 : 0;
-      const netM = inc.totalRevenue > 0 ? (inc.netProfit / inc.totalRevenue) * 100 : 0;
-      const assetT = bal.totalAssets > 0 ? (inc.totalRevenue / bal.totalAssets) * 100 : 0;
+      const bal = getTeamBalance(t);
+      const gpM = perf?.gpMargin ?? 0;
+      const netM = perf?.npMargin ?? 0;
+      const assetT = bal.totalAssets > 0 ? ((perf?.totalRevenue ?? 0) / bal.totalAssets) * 100 : 0;
       const debtE = bal.equity > 0 ? (bal.liabilities / bal.equity) * 100 : 0;
-      const roeVal = bal.equity > 0 ? (inc.netProfit / bal.equity) * 100 : 0;
+      const roeVal = perf?.roe ?? 0;
 
       return {
         gpMargin: `${gpM.toFixed(1)}%`,
@@ -763,28 +632,26 @@ const MarketReports: React.FC = () => {
       };
     };
 
-
-
     const balanceRows = [
-      { label: 'Total Non-Current Assets', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).nonCurrentAssets, 0)), bold: true },
-      { label: 'Total Current Assets', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).currentAssets, 0)), bold: true },
-      { label: '   - Cash & Cash Equivalents', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).cash, 0)) },
-      { label: '   - Accounts Receivables', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).receivables, 0)) },
-      { label: '   - Inventory', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).inventory, 0)) },
-      { label: 'TOTAL ASSETS', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).totalAssets, 0)), bold: true, bg: 'bg-slate-100' },
-      { label: 'Total Equity', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).equity, 0)), bold: true },
-      { label: '   - Opening Equity', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).openingEquity, 0)) },
-      { label: '   - Current Net Profit', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).netProfit, 0)) },
-      { label: 'Total Liabilities', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).liabilities, 0)), bold: true },
-      { label: 'TOTAL EQUITY & LIABILITIES', values: realTeams.map((t, i) => formatCurrency(getTeamBalance(t, getTeamIncome(t, i)).totalEquityLiabilities, 0)), bold: true, bg: 'bg-slate-100' }
+      { label: 'Total Non-Current Assets', values: realTeams.map(t => formatCurrency(getTeamBalance(t).nonCurrentAssets, 0)), bold: true },
+      { label: 'Total Current Assets', values: realTeams.map(t => formatCurrency(getTeamBalance(t).currentAssets, 0)), bold: true },
+      { label: '   - Cash & Cash Equivalents', values: realTeams.map(t => formatCurrency(getTeamBalance(t).cash, 0)) },
+      { label: '   - Accounts Receivables', values: realTeams.map(t => formatCurrency(getTeamBalance(t).receivables, 0)) },
+      { label: '   - Inventory', values: realTeams.map(t => formatCurrency(getTeamBalance(t).inventory, 0)) },
+      { label: 'TOTAL ASSETS', values: realTeams.map(t => formatCurrency(getTeamBalance(t).totalAssets, 0)), bold: true, bg: 'bg-slate-100' },
+      { label: 'Total Equity', values: realTeams.map(t => formatCurrency(getTeamBalance(t).equity, 0)), bold: true },
+      { label: '   - Opening Equity', values: realTeams.map(t => formatCurrency(getTeamBalance(t).openingEquity, 0)) },
+      { label: '   - Current Net Profit', values: realTeams.map(t => formatCurrency(getTeamBalance(t).netProfit, 0)) },
+      { label: 'Total Liabilities', values: realTeams.map(t => formatCurrency(getTeamBalance(t).liabilities, 0)), bold: true },
+      { label: 'TOTAL EQUITY & LIABILITIES', values: realTeams.map(t => formatCurrency(getTeamBalance(t).totalEquityLiabilities, 0)), bold: true, bg: 'bg-slate-100' }
     ];
 
     const kpiRows = [
-      { label: 'GP Margin (Total)', values: realTeams.map((t, i) => getTeamKpis(t, getTeamIncome(t, i), getTeamBalance(t, getTeamIncome(t, i))).gpMargin) },
-      { label: 'Net Profit Margin', values: realTeams.map((t, i) => getTeamKpis(t, getTeamIncome(t, i), getTeamBalance(t, getTeamIncome(t, i))).netMargin) },
-      { label: 'Asset Turnover', values: realTeams.map((t, i) => getTeamKpis(t, getTeamIncome(t, i), getTeamBalance(t, getTeamIncome(t, i))).assetTurnover) },
-      { label: 'Debt Equity', values: realTeams.map((t, i) => getTeamKpis(t, getTeamIncome(t, i), getTeamBalance(t, getTeamIncome(t, i))).debtEquity) },
-      { label: 'ROE', values: realTeams.map((t, i) => getTeamKpis(t, getTeamIncome(t, i), getTeamBalance(t, getTeamIncome(t, i))).roe) }
+      { label: 'GP Margin (Total)', values: realTeams.map(t => getTeamKpis(t).gpMargin) },
+      { label: 'Net Profit Margin', values: realTeams.map(t => getTeamKpis(t).netMargin) },
+      { label: 'Asset Turnover', values: realTeams.map(t => getTeamKpis(t).assetTurnover) },
+      { label: 'Debt Equity', values: realTeams.map(t => getTeamKpis(t).debtEquity) },
+      { label: 'ROE', values: realTeams.map(t => getTeamKpis(t).roe) }
     ];
 
     return {

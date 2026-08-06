@@ -13,9 +13,8 @@ interface SlideProps {
 
 export const GrossProfitSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => {
-    const rev = t.record.revenue.total || 1;
-    const gp = t.record.grossProfit.total || 0;
-    const gpPct = (gp / rev) * 100;
+    const gp = t.perf?.grossProfit ?? 0;
+    const gpPct = t.perf?.gpMargin ?? 0;
     return {
       name: t.name,
       value: gp,
@@ -37,15 +36,13 @@ export const GrossProfitSlide: React.FC<SlideProps> = ({ dataset, revealStep, cu
         <TeamBarChart
           data={chartData}
           formatter={(v) => formatDebriefCurrency(v, true, false)}
-          height={600}
           startFromZero={false}
         />
         
         {/* GP% Pills */}
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
           {dataset.teams.map((t) => {
-            const rev = t.record.revenue.total || 1;
-            const gpPct = ((t.record.grossProfit.total || 0) / rev) * 100;
+            const gpPct = t.perf?.gpMargin ?? 0;
             return (
               <div key={t.id} className="bg-white border border-slate-200 p-3 rounded-xl text-center shadow-xs">
                 <div className="text-slate-500 text-xs font-semibold truncate">{t.name}</div>

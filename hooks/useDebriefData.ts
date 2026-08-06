@@ -4,7 +4,7 @@ import { getAppDb } from '../firebase';
 import { PeriodRecord, SimulationClass, Team } from '../types';
 import { ensurePeriodMarketRecord } from '../utils/debriefBackfill';
 import { processTurn } from '../utils/SimulationEngine';
-import { computeMarketShareBackModel } from '../utils/marketShareBackModel';
+import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
 import { INITIAL_DECISIONS } from '../constants';
 
 export interface DebriefTeam {
@@ -13,6 +13,8 @@ export interface DebriefTeam {
   colorIndex: number;
   record: PeriodRecord;
   prior?: PeriodRecord;
+  perf: TeamIndustryPerformance;
+  fullHistory: Record<number, PeriodRecord>;
 }
 
 export interface DebriefDataset {
@@ -81,158 +83,49 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const pHist = pTeam.history || {};
         const sHist = sTeam.history || {};
 
-        const mergedHistory = { ...pHist, ...sHist };
+        // Primary (Firestore) data ALWAYS takes precedence over secondary (localStorage fallback)
+        const mergedHistory = { ...sHist, ...pHist };
 
         return {
-          ...pTeam,
           ...sTeam,
+          ...pTeam,
           history: mergedHistory
         };
       });
     };
 
     const updateCombined = () => {
-      const fallback = loadFallbackTeams();
-      rawTeams = mergeTeamsWithHistory(rawTeams, fallback);
+      let teamsToUse = rawTeams;
+      if (!teamsToUse || teamsToUse.length === 0) {
+        teamsToUse = loadFallbackTeams();
+      }
 
       // Filter out archived teams, keep bots
-      const activeTeams = rawTeams
+      const activeTeams = teamsToUse
         .filter(t => !t.isArchived)
         .sort((a, b) => a.id.localeCompare(b.id));
 
-      let backModelCurrent: any[] = [];
+      let livePerfList: TeamIndustryPerformance[] = [];
       try {
         if (activeTeams.length > 0) {
-          backModelCurrent = computeMarketShareBackModel(activeTeams, period);
+          livePerfList = computeIndustryPerformance(activeTeams, period);
         }
       } catch (err) {
-        console.warn("Error running market share back model in debrief:", err);
+        console.warn("Error running industry performance calculation in debrief:", err);
       }
+
+      const livePerfMap = new Map(livePerfList.map(p => [p.teamId, p]));
 
       const debriefTeams: DebriefTeam[] = activeTeams.map((t, index) => {
         const rawRec = t.history?.[period] || t.history?.[String(period)];
         const rawPriorRec = t.history?.[period - 1] || t.history?.[String(period - 1)];
 
-        // If committed history exists for this period, use it directly to match reports exactly.
-        // If not committed yet, compute live via processTurn passing [] for events.
-        let record = rawRec 
+        const record = rawRec 
           ? ensurePeriodMarketRecord(rawRec) 
           : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, []).periodRecord);
 
         const prior = rawPriorRec ? ensurePeriodMarketRecord(rawPriorRec) : undefined;
-
-        // ONLY enrich with backModelCurrent if previewing live uncommitted decisions
-        if (!rawRec && backModelCurrent && backModelCurrent.length > 0) {
-          const tbRes = backModelCurrent.find(r => r.productId === 'techbook');
-          const zrRes = backModelCurrent.find(r => r.productId === 'zroid');
-          const itRes = backModelCurrent.find(r => r.productId === 'itab');
-
-          const tbShare = tbRes?.marketShareByTeam?.[index] ?? 0;
-          const zrShare = zrRes?.marketShareByTeam?.[index] ?? 0;
-          const itShare = itRes?.marketShareByTeam?.[index] ?? 0;
-
-          const tbUnits = tbRes?.unitsSoldByTeam?.[index] ?? tbRes?.actualUnitsByTeam?.[index] ?? 0;
-          const zrUnits = zrRes?.unitsSoldByTeam?.[index] ?? zrRes?.actualUnitsByTeam?.[index] ?? 0;
-          const itUnits = itRes?.unitsSoldByTeam?.[index] ?? itRes?.actualUnitsByTeam?.[index] ?? 0;
-
-          const tbDemand = tbRes?.demandUnitsByTeam?.[index] ?? 0;
-          const zrDemand = zrRes?.demandUnitsByTeam?.[index] ?? 0;
-          const itDemand = itRes?.demandUnitsByTeam?.[index] ?? 0;
-
-          const tbForecast = tbRes?.forecastUnitsByTeam?.[index] ?? 0;
-          const zrForecast = zrRes?.forecastUnitsByTeam?.[index] ?? 0;
-          const itForecast = itRes?.forecastUnitsByTeam?.[index] ?? 0;
-
-          const tbVal = tbRes?.valueScoreByTeam?.[index] ?? 50;
-          const zrVal = zrRes?.valueScoreByTeam?.[index] ?? 50;
-          const itVal = itRes?.valueScoreByTeam?.[index] ?? 50;
-
-          const tbValEx = tbRes?.valueScoreExPriceByTeam?.[index] ?? 50;
-          const zrValEx = zrRes?.valueScoreExPriceByTeam?.[index] ?? 50;
-          const itValEx = itRes?.valueScoreExPriceByTeam?.[index] ?? 50;
-
-          // Compute accurate product revenues from actual units won * price if previewing live
-          const priceTB = t.draftDecisions?.marketing?.prices?.techbook ?? (record.prices?.techbook ?? 2500);
-          const priceZR = t.draftDecisions?.marketing?.prices?.zroid ?? (record.prices?.zroid ?? 4500);
-          const priceIT = t.draftDecisions?.marketing?.prices?.itab ?? (record.prices?.itab ?? 6000);
-
-          const liveRevTB = tbUnits * priceTB;
-          const liveRevZR = zrUnits * priceZR;
-          const liveRevIT = itUnits * priceIT;
-          const liveRevTotal = liveRevTB + liveRevZR + liveRevIT;
-
-          // Compute Unit COGS accurately from simulation engine calculations
-          const origUnitsTB = record.market?.actualUnits?.techbook || 0;
-          const origUnitsZR = record.market?.actualUnits?.zroid || 0;
-          const origUnitsIT = record.market?.actualUnits?.itab || 0;
-
-          const cogsPerUnitTB = origUnitsTB > 0 ? (record.cogs.byProduct.techbook / origUnitsTB) : (priceTB * 0.55);
-          const cogsPerUnitZR = origUnitsZR > 0 ? (record.cogs.byProduct.zroid / origUnitsZR) : (priceZR * 0.55);
-          const cogsPerUnitIT = origUnitsIT > 0 ? (record.cogs.byProduct.itab / origUnitsIT) : (priceIT * 0.55);
-
-          const liveCogsTB = Math.round(tbUnits * cogsPerUnitTB);
-          const liveCogsZR = Math.round(zrUnits * cogsPerUnitZR);
-          const liveCogsIT = Math.round(itUnits * cogsPerUnitIT);
-
-          const liveGPTB = liveRevTB - liveCogsTB;
-          const liveGPZR = liveRevZR - liveCogsZR;
-          const liveGPIT = liveRevIT - liveCogsIT;
-          const liveGPTotal = liveGPTB + liveGPZR + liveGPIT;
-
-          record = {
-            ...record,
-            revenue: {
-              total: liveRevTotal,
-              byProduct: {
-                techbook: liveRevTB,
-                zroid: liveRevZR,
-                itab: liveRevIT
-              }
-            },
-            grossProfit: {
-              total: liveGPTotal,
-              byProduct: {
-                techbook: liveGPTB,
-                zroid: liveGPZR,
-                itab: liveGPIT
-              }
-            },
-            market: {
-              marketSize: record.market?.marketSize || { techbook: 288750, zroid: 179888, itab: 89750 },
-              availableUnits: record.market?.availableUnits || { techbook: tbUnits, zroid: zrUnits, itab: itUnits },
-              actualShare: {
-                techbook: tbShare,
-                zroid: zrShare,
-                itab: itShare
-              },
-              actualUnits: {
-                techbook: tbUnits,
-                zroid: zrUnits,
-                itab: itUnits
-              },
-              demandUnits: {
-                techbook: tbDemand,
-                zroid: zrDemand,
-                itab: itDemand
-              },
-              forecastUnits: {
-                techbook: tbForecast,
-                zroid: zrForecast,
-                itab: itForecast
-              },
-              valueScore: {
-                techbook: tbVal,
-                zroid: zrVal,
-                itab: itVal
-              },
-              valueScoreExPrice: {
-                techbook: tbValEx,
-                zroid: zrValEx,
-                itab: itValEx
-              }
-            }
-          };
-        }
+        const perf: TeamIndustryPerformance = rawRec?.industry || livePerfMap.get(t.id) || livePerfList[index];
 
         const match = t.id.match(/\d+/);
         const teamNum = match ? match[0] : String(index + 1);
@@ -243,7 +136,9 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
           name: formattedName,
           colorIndex: index,
           record,
-          prior
+          prior,
+          perf,
+          fullHistory: t.history || {}
         };
       });
 
@@ -261,13 +156,13 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const cData = snap.data() as SimulationClass;
         currentClassName = cData.name || '';
         if (cData.teams && cData.teams.length > 0) {
-          rawTeams = mergeTeamsWithHistory(rawTeams, cData.teams);
+          rawTeams = mergeTeamsWithHistory(cData.teams, rawTeams);
         }
         updateCombined();
       } else {
         const fallback = loadFallbackTeams();
         if (fallback.length > 0) {
-          rawTeams = mergeTeamsWithHistory(rawTeams, fallback);
+          rawTeams = mergeTeamsWithHistory(fallback, rawTeams);
           updateCombined();
         } else {
           setDataset(prev => ({ ...prev, loading: false, error: 'Class not found' }));
@@ -276,7 +171,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
     }, (err) => {
       const fallback = loadFallbackTeams();
       if (fallback.length > 0) {
-        rawTeams = mergeTeamsWithHistory(rawTeams, fallback);
+        rawTeams = mergeTeamsWithHistory(fallback, rawTeams);
         updateCombined();
       } else {
         setDataset(prev => ({ ...prev, loading: false, error: err.message }));
@@ -286,7 +181,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
     unsubTeams = onSnapshot(teamsRef, (snap) => {
       if (!snap.empty) {
         const dbTeams = snap.docs.map(d => d.data() as Team);
-        rawTeams = mergeTeamsWithHistory(rawTeams, dbTeams);
+        rawTeams = mergeTeamsWithHistory(dbTeams, rawTeams);
         updateCombined();
       }
     }, () => {});

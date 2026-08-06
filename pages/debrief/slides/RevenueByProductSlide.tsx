@@ -21,12 +21,12 @@ interface SlideProps {
   totalSlides: number;
 }
 
-export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
+export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => ({
     name: t.name,
-    TechBook: t.record.revenue.byProduct.techbook || 0,
-    Zroid: t.record.revenue.byProduct.zroid || 0,
-    iTab: t.record.revenue.byProduct.itab || 0
+    TechBook: t.perf?.revenueByProduct?.techbook ?? 0,
+    Zroid: t.perf?.revenueByProduct?.zroid ?? 0,
+    iTab: t.perf?.revenueByProduct?.itab ?? 0
   }));
 
   return (
