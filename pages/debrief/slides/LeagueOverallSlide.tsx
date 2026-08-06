@@ -23,7 +23,6 @@ interface SlideProps {
 const YEAR_SHADES = ['#1D4ED8', '#2563EB', '#3B82F6', '#60A5FA', '#93C5FD'];
 
 export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
-  // Build teams list with histories
   const teamsInput = dataset.teams.map(t => ({
     id: t.id,
     name: t.name,
@@ -31,7 +30,6 @@ export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
   }));
 
   const cumScores = scoreCumulative(teamsInput, dataset.period);
-  // Sort descending by total cumulative points
   const sortedCum = [...cumScores].sort((a, b) => b.total - a.total);
 
   const yearsList = Array.from({ length: dataset.period }, (_, i) => i + 1);
@@ -53,14 +51,14 @@ export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="w-full bg-[#131C2E] border border-[#22304A] rounded-2xl p-8 shadow-2xl">
-        <ResponsiveContainer width="100%" height={520}>
-          <BarChart data={chartData} layout="vertical" margin={{ top: 20, right: 40, left: 40, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#22304A" horizontal={false} />
-            <XAxis type="number" stroke="#8296B4" tick={{ fill: '#8296B4', fontSize: 18 }} tickLine={false} />
-            <YAxis type="category" dataKey="name" stroke="#8296B4" tick={{ fill: '#E8EDF7', fontSize: 24, fontWeight: 700 }} tickLine={false} />
+      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ top: 25, right: 40, left: 40, bottom: 15 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
+            <XAxis type="number" stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickLine={false} />
+            <YAxis type="category" dataKey="name" stroke="#64748B" interval={0} tick={{ fill: '#0F172A', fontSize: 24, fontWeight: 700 }} tickLine={false} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#0B1220', borderColor: '#22304A', borderRadius: '8px', color: '#E8EDF7', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
+              contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
               formatter={(val: any) => [`${val} pts`, 'Points']}
             />
             <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '18px', fontWeight: 'bold' }} />

@@ -10,7 +10,7 @@ interface FigureProps {
 export const Figure: React.FC<FigureProps> = ({
   value,
   formatter = (v) => v.toLocaleString(),
-  className = 'text-[120px] font-bold text-[#37D9A4]',
+  className = 'text-[120px] font-bold text-blue-700',
   duration = 700
 }) => {
   const [displayValue, setDisplayValue] = useState<number>(0);

@@ -10,8 +10,9 @@ import {
   Cell,
   LabelList
 } from 'recharts';
-import { DebriefTeam } from '../../../hooks/useDebriefData';
 import { TEAM_COLORS } from './SlideFrame';
+
+import { CustomAxisTick } from './CustomAxisTick';
 
 interface TeamBarChartProps {
   data: { name: string; value: number; colorIndex: number; [key: string]: any }[];
@@ -20,6 +21,7 @@ interface TeamBarChartProps {
   layout?: 'horizontal' | 'vertical';
   yUnit?: string;
   height?: number;
+  startFromZero?: boolean;
 }
 
 export const TeamBarChart: React.FC<TeamBarChartProps> = ({
@@ -28,29 +30,44 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
   showLabels = true,
   layout = 'horizontal',
   yUnit = '',
-  height = 550
+  height = 550,
+  startFromZero = true
 }) => {
+  let domain: [any, any] = [0, 'auto'];
+  if (!startFromZero && data.length > 0) {
+    const values = data.map(d => Number(d.value) || 0);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    if (minVal > 0) {
+      const floor = Math.floor(minVal * 0.85);
+      const ceil = Math.ceil(maxVal * 1.05);
+      domain = [floor, ceil];
+    }
+  }
+
   return (
-    <div className="w-full bg-[#131C2E] border border-[#22304A] rounded-2xl p-8 shadow-2xl">
-      <ResponsiveContainer width="100%" height={height}>
+    <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center overflow-hidden">
+      <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
           layout={layout}
-          margin={{ top: 30, right: 40, left: 30, bottom: 20 }}
+          margin={{ top: 35, right: 40, left: 40, bottom: 45 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#22304A" vertical={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
           {layout === 'horizontal' ? (
             <>
               <XAxis
                 dataKey="name"
-                stroke="#8296B4"
-                tick={{ fill: '#E8EDF7', fontSize: 24, fontWeight: 600 }}
-                axisLine={{ stroke: '#22304A' }}
+                stroke="#64748B"
+                interval={0}
+                tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />}
+                axisLine={{ stroke: '#CBD5E1' }}
                 tickLine={false}
               />
               <YAxis
-                stroke="#8296B4"
-                tick={{ fill: '#8296B4', fontSize: 20 }}
+                stroke="#64748B"
+                domain={domain}
+                tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${formatter(v)}${yUnit}`}
@@ -60,8 +77,9 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
             <>
               <XAxis
                 type="number"
-                stroke="#8296B4"
-                tick={{ fill: '#8296B4', fontSize: 20 }}
+                stroke="#64748B"
+                domain={domain}
+                tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${formatter(v)}${yUnit}`}
@@ -69,23 +87,25 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#8296B4"
-                tick={{ fill: '#E8EDF7', fontSize: 24, fontWeight: 600 }}
-                axisLine={{ stroke: '#22304A' }}
+                stroke="#64748B"
+                interval={0}
+                tick={<CustomAxisTick fontSize={16} maxCharsPerLine={14} textAnchor="end" />}
+                axisLine={{ stroke: '#CBD5E1' }}
                 tickLine={false}
               />
             </>
           )}
           <Tooltip
             contentStyle={{
-              backgroundColor: '#0B1220',
-              borderColor: '#22304A',
-              borderRadius: '8px',
-              color: '#E8EDF7',
+              backgroundColor: '#0F172A',
+              borderColor: '#1E293B',
+              borderRadius: '12px',
+              color: '#F8FAFC',
               fontSize: '20px',
-              fontFamily: 'IBM Plex Mono'
+              fontFamily: 'IBM Plex Mono',
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)'
             }}
-            formatter={(val: any) => [formatter(Number(val)), 'Value']}
+            formatter={(val: any) => [`${formatter(Number(val))}${yUnit}`, 'Value']}
           />
           <Bar
             dataKey="value"
@@ -103,11 +123,11 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
               <LabelList
                 dataKey="value"
                 position={layout === 'horizontal' ? 'top' : 'right'}
-                formatter={(v: any) => formatter(Number(v))}
+                formatter={(v: any) => `${formatter(Number(v))}${yUnit}`}
                 style={{
-                  fill: '#E8EDF7',
-                  fontSize: '28px',
-                  fontWeight: 700,
+                  fill: '#0F172A',
+                  fontSize: '24px',
+                  fontWeight: 800,
                   fontFamily: 'IBM Plex Mono',
                   fontVariantNumeric: 'tabular-nums'
                 }}

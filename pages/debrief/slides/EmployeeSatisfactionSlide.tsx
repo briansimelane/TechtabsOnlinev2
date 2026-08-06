@@ -30,11 +30,12 @@ export const EmployeeSatisfactionSlide: React.FC<SlideProps> = ({ dataset, revea
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         <TeamBarChart
           data={chartData}
           formatter={(v) => formatDebriefPercent(v, 1)}
           yUnit="%"
+          height={600}
         />
 
         {/* Delta chips vs prior year */}
@@ -46,9 +47,9 @@ export const EmployeeSatisfactionSlide: React.FC<SlideProps> = ({ dataset, revea
             const isPositive = delta >= 0;
 
             return (
-              <div key={t.id} className="bg-[#131C2E] border border-[#22304A] p-3 rounded-xl text-center">
-                <div className="text-[#8296B4] text-xs font-semibold truncate">{t.name}</div>
-                <div className={`text-base font-bold font-mono mt-1 ${isPositive ? 'text-[#37D9A4]' : 'text-[#FF6B8A]'}`}>
+              <div key={t.id} className="bg-white border border-slate-200 p-3 rounded-xl text-center shadow-xs">
+                <div className="text-slate-500 text-xs font-semibold truncate">{t.name}</div>
+                <div className={`text-base font-bold font-mono mt-1 ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {isPositive ? '▲ +' : '▼ '}{delta.toFixed(1)}%
                 </div>
               </div>

@@ -54,7 +54,6 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
     };
   });
 
-  // Calculate least-squares trend line for fair value reference
   const n = points.length;
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
   points.forEach(p => {
@@ -81,40 +80,39 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title={`Value vs Price: ${productName}`}
       eyebrow={`${productName} Market Positioning`}
-      footer={`X = Selling Price (R) · Y = Value Score (0–100, ex-price) · Bubble size = Units Sold`}
+      footer={`X = Selling Price · Y = Value Score (0–100, ex-price) · Bubble size = Units Sold`}
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="space-y-6">
-        <div className="w-full bg-[#131C2E] border border-[#22304A] rounded-2xl p-8 shadow-2xl relative">
-          <ResponsiveContainer width="100%" height={460}>
-            <ScatterChart margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#22304A" />
+      <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between space-y-3">
+        <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl relative flex flex-col justify-center">
+          <ResponsiveContainer width="100%" height="100%">
+            <ScatterChart margin={{ top: 25, right: 40, left: 30, bottom: 20 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
               <XAxis
                 type="number"
                 dataKey="x"
                 name="Price"
-                unit=" R"
-                stroke="#8296B4"
+                stroke="#64748B"
                 domain={[Math.floor(minX), Math.ceil(maxX)]}
-                tickFormatter={(v) => formatDebriefCurrency(v, true)}
-                tick={{ fill: '#E8EDF7', fontSize: 18 }}
+                tickFormatter={(v) => formatDebriefCurrency(v, true, false)}
+                tick={{ fill: '#0F172A', fontSize: 18, fontWeight: 600 }}
               />
               <YAxis
                 type="number"
                 dataKey="y"
                 name="Value Score"
-                stroke="#8296B4"
+                stroke="#64748B"
                 domain={[0, 100]}
-                tick={{ fill: '#8296B4', fontSize: 18 }}
+                tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }}
               />
-              <ZAxis type="number" dataKey="z" range={[200, 2000]} name="Units Sold" />
+              <ZAxis type="number" dataKey="z" range={[250, 2200]} name="Units Sold" />
               <Tooltip
                 cursor={{ strokeDasharray: '3 3' }}
-                contentStyle={{ backgroundColor: '#0B1220', borderColor: '#22304A', borderRadius: '8px', color: '#E8EDF7', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
+                contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
                 formatter={(val: any, name: any, item: any) => {
-                  if (name === 'Price') return [formatDebriefCurrency(Number(val)), 'Price'];
+                  if (name === 'Price') return [formatDebriefCurrency(Number(val), true, false), 'Price'];
                   if (name === 'Value Score') return [`${val} pts`, 'Value Score'];
                   if (name === 'Units Sold') return [formatDebriefUnits(item.payload.units), 'Units Sold'];
                   return [val, name];
@@ -122,18 +120,18 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
               />
               <ReferenceLine
                 segment={refLinePoints}
-                stroke="#FFC24C"
+                stroke="#D97706"
                 strokeDasharray="5 5"
                 strokeWidth={2}
-                label={{ value: 'Fair Value Trend', fill: '#FFC24C', fontSize: 16, position: 'top' }}
+                label={{ value: 'Fair Value Trend', fill: '#D97706', fontSize: 16, position: 'top', fontWeight: 700 }}
               />
               <Scatter data={points} isAnimationActive={true}>
                 {points.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={TEAM_COLORS[entry.colorIndex % TEAM_COLORS.length]}
-                    stroke="#E8EDF7"
-                    strokeWidth={2}
+                    stroke="#FFFFFF"
+                    strokeWidth={3}
                   />
                 ))}
               </Scatter>
@@ -142,10 +140,10 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
         </div>
 
         <Reveal step={2} currentStep={revealStep}>
-          <div className="flex justify-between items-center bg-[#131C2E] border border-[#22304A] px-6 py-4 rounded-xl text-xl text-[#8296B4]">
-            <div><strong className="text-[#37D9A4]">Above Line:</strong> Over-delivering value for price</div>
-            <div><strong className="text-[#FFC24C]">Trend Line:</strong> Market fair-value positioning</div>
-            <div><strong className="text-[#FF6B8A]">Below Line:</strong> Premium priced relative to features</div>
+          <div className="flex justify-between items-center bg-white border border-slate-200 px-6 py-4 rounded-xl text-xl text-slate-700 shadow-sm font-medium">
+            <div><strong className="text-emerald-700">Above Line:</strong> Over-delivering value for price</div>
+            <div><strong className="text-amber-700">Trend Line:</strong> Market fair-value positioning</div>
+            <div><strong className="text-rose-700">Below Line:</strong> Premium priced relative to features</div>
           </div>
         </Reveal>
       </div>

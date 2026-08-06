@@ -39,7 +39,9 @@ export const ProductRevenueSlide: React.FC<SlideProps> = ({
     >
       <TeamBarChart
         data={chartData}
-        formatter={(v) => formatDebriefCurrency(v, true)}
+        formatter={(v) => formatDebriefCurrency(v, true, false)}
+        height={650}
+        startFromZero={false}
       />
     </SlideFrame>
   );

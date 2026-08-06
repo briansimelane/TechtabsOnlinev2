@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame } from '../components/SlideFrame';
+import { CustomAxisTick } from '../components/CustomAxisTick';
 import { formatDebriefCurrency } from '../../../utils/debriefFormat';
 
 interface SlideProps {
@@ -21,13 +22,13 @@ interface SlideProps {
 }
 
 const OPEX_COLORS = {
-  payroll: '#4CC3FF',
-  marketing: '#FFC24C',
-  store: '#37D9A4',
-  agents: '#9B8CFF',
-  training: '#FF6B8A',
-  rd: '#FF9560',
-  other: '#8296B4'
+  payroll: '#2563EB',
+  marketing: '#D97706',
+  store: '#059669',
+  agents: '#7C3AED',
+  training: '#E11D48',
+  rd: '#EA580C',
+  other: '#64748B'
 };
 
 export const OpexSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
@@ -55,17 +56,17 @@ export const OpexSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSl
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="w-full bg-[#131C2E] border border-[#22304A] rounded-2xl p-8 shadow-2xl">
-        <ResponsiveContainer width="100%" height={520}>
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#22304A" vertical={false} />
-            <XAxis dataKey="name" stroke="#8296B4" tick={{ fill: '#E8EDF7', fontSize: 22, fontWeight: 600 }} tickLine={false} />
-            <YAxis stroke="#8296B4" tick={{ fill: '#8296B4', fontSize: 18 }} tickFormatter={(v) => formatDebriefCurrency(v, true)} tickLine={false} axisLine={false} />
+      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 65 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+            <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />} tickLine={false} />
+            <YAxis stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickFormatter={(v) => formatDebriefCurrency(v, true, false)} tickLine={false} axisLine={false} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#0B1220', borderColor: '#22304A', borderRadius: '8px', color: '#E8EDF7', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
-              formatter={(val: any) => [formatDebriefCurrency(Number(val)), '']}
+              contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
+              formatter={(val: any) => [formatDebriefCurrency(Number(val), true, true), '']}
             />
-            <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '18px', fontWeight: 'bold' }} />
+            <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '18px', fontWeight: 'bold' }} />
             <Bar dataKey="Payroll" stackId="a" fill={OPEX_COLORS.payroll} isAnimationActive={true} />
             <Bar dataKey="Marketing" stackId="a" fill={OPEX_COLORS.marketing} isAnimationActive={true} />
             <Bar dataKey="Store" stackId="a" fill={OPEX_COLORS.store} isAnimationActive={true} />

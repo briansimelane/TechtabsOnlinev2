@@ -30,17 +30,21 @@ export const TotalRevenueSlide: React.FC<SlideProps> = ({ dataset, revealStep, c
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="space-y-6">
+      <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between space-y-3">
         <TeamBarChart
           data={chartData}
-          formatter={(v) => formatDebriefCurrency(v, true)}
+          formatter={(v) => formatDebriefCurrency(v, true, false)}
+          height={660}
+          startFromZero={false}
         />
         
         <Reveal step={3} currentStep={revealStep}>
           {maxTeam && (
-            <div className="bg-[#131C2E] border border-[#37D9A4] p-4 rounded-xl text-[#E8EDF7] text-2xl font-bold flex items-center justify-between">
+            <div className="bg-emerald-50/90 border border-emerald-300 p-4 rounded-xl text-emerald-950 text-2xl font-bold flex items-center justify-between shadow-sm">
               <span>🏆 Top Revenue Generator: <strong>{maxTeam.name}</strong></span>
-              <span className="font-mono text-[#37D9A4]">{formatDebriefCurrency(maxTeam.record.revenue.total)}</span>
+              <span className="font-mono text-emerald-700 font-extrabold text-3xl">
+                {formatDebriefCurrency(maxTeam.record.revenue.total, true, false)}
+              </span>
             </div>
           )}
         </Reveal>

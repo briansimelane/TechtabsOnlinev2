@@ -43,24 +43,24 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
   const yearsAvailable = Array.from({ length: Math.max(1, currentPeriod) }, (_, i) => i + 1);
 
   return (
-    <div className="bg-[#0B1220] border border-[#22304A] rounded-2xl p-5 text-[#E8EDF7] shadow-xl space-y-4 my-4">
-      <div className="flex items-center justify-between border-b border-[#22304A] pb-3">
-        <div className="flex items-center gap-2 font-bold text-lg text-[#37D9A4]">
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 text-white shadow-xl space-y-4 my-4">
+      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div className="flex items-center gap-2 font-bold text-lg text-emerald-400">
           <Presentation className="w-5 h-5" />
           <span>Debrief Presenter Controller</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenWindow}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#131C2E] hover:bg-[#22304A] text-xs font-semibold rounded-lg border border-[#22304A] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg border border-slate-700 transition-colors text-white"
             title="Pop out projector window"
           >
-            <ExternalLink size={14} /> Pop-out
+            <ExternalLink size={14} /> Pop-out Presenter
           </button>
           <button
             onClick={() => updateState({ isLive: !state.isLive })}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-              state.isLive ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+              state.isLive ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
             }`}
           >
             {state.isLive ? 'End Session' : 'Resume Live'}
@@ -71,11 +71,11 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
         {/* Year Selector */}
         <div>
-          <label className="text-xs font-semibold text-[#8296B4] block mb-1">Debrief Year</label>
+          <label className="text-xs font-semibold text-slate-400 block mb-1">Debrief Year</label>
           <select
             value={state.period}
             onChange={(e) => updateState({ period: Number(e.target.value), slideIndex: 0, revealStep: 0 })}
-            className="w-full bg-[#131C2E] border border-[#22304A] text-[#E8EDF7] text-sm rounded-lg px-3 py-2 font-mono font-bold focus:ring-2 focus:ring-[#37D9A4]"
+            className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
           >
             {yearsAvailable.map(yr => (
               <option key={yr} value={yr}>Year {yr}</option>
@@ -85,11 +85,11 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
 
         {/* Slide Selector */}
         <div>
-          <label className="text-xs font-semibold text-[#8296B4] block mb-1">Jump to Slide</label>
+          <label className="text-xs font-semibold text-slate-400 block mb-1">Jump to Slide</label>
           <select
             value={currentSlideIdx}
             onChange={(e) => updateState({ slideIndex: Number(e.target.value), revealStep: 0 })}
-            className="w-full bg-[#131C2E] border border-[#22304A] text-[#E8EDF7] text-sm rounded-lg px-3 py-2 font-mono font-bold focus:ring-2 focus:ring-[#37D9A4]"
+            className="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 font-mono font-bold focus:ring-2 focus:ring-emerald-500 outline-none"
           >
             {slides.map((s, idx) => (
               <option key={s.id} value={idx}>
@@ -104,14 +104,14 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
           <button
             onClick={handlePrev}
             disabled={currentSlideIdx === 0 && state.revealStep === 0}
-            className="p-3 bg-[#131C2E] hover:bg-[#22304A] disabled:opacity-40 rounded-xl border border-[#22304A] transition-colors"
+            className="p-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 rounded-xl border border-slate-700 transition-colors text-white"
           >
             <ChevronLeft size={20} />
           </button>
 
           <div className="text-center font-mono px-3">
-            <div className="text-xs text-[#8296B4]">Slide</div>
-            <div className="text-base font-bold text-[#37D9A4]">
+            <div className="text-xs text-slate-400">Slide</div>
+            <div className="text-base font-bold text-emerald-400">
               {currentSlideIdx + 1} / {slides.length}
             </div>
           </div>
@@ -119,7 +119,7 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
           <button
             onClick={handleNext}
             disabled={currentSlideIdx === slides.length - 1 && state.revealStep >= (currentSlideDef?.maxRevealSteps || 0)}
-            className="p-3 bg-[#37D9A4] hover:bg-[#2fb88b] text-[#0B1220] font-bold rounded-xl transition-colors"
+            className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors shadow-sm"
           >
             <ChevronRight size={20} />
           </button>

@@ -79,8 +79,8 @@ export const DebriefPresenter: React.FC = () => {
   if (dataset.loading) {
     return (
       <DebriefScaler>
-        <div className="w-full h-full flex flex-col justify-center items-center text-center p-12 bg-[#0B1220] text-[#E8EDF7]">
-          <div className="w-16 h-16 border-4 border-[#37D9A4] border-t-transparent rounded-full animate-spin mb-6" />
+        <div className="w-full h-full flex flex-col justify-center items-center text-center p-12 bg-slate-50 text-slate-900">
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6" />
           <h2 className="text-4xl font-bold font-['Archivo']">Loading Debrief Deck...</h2>
         </div>
       </DebriefScaler>
@@ -90,9 +90,9 @@ export const DebriefPresenter: React.FC = () => {
   if (dataset.error) {
     return (
       <DebriefScaler>
-        <div className="w-full h-full flex flex-col justify-center items-center text-center p-12 bg-[#0B1220] text-[#E8EDF7]">
-          <h2 className="text-4xl font-bold text-[#FF6B8A] mb-4 font-['Archivo']">Debrief Load Error</h2>
-          <p className="text-2xl text-[#8296B4] font-mono">{dataset.error}</p>
+        <div className="w-full h-full flex flex-col justify-center items-center text-center p-12 bg-slate-50 text-slate-900">
+          <h2 className="text-4xl font-bold text-rose-600 mb-4 font-['Archivo']">Debrief Load Error</h2>
+          <p className="text-2xl text-slate-600 font-mono">{dataset.error}</p>
         </div>
       </DebriefScaler>
     );
@@ -101,12 +101,12 @@ export const DebriefPresenter: React.FC = () => {
   if (!state.isLive) {
     return (
       <DebriefScaler>
-        <div className="w-full h-full flex flex-col justify-center items-center text-center p-20 bg-[#0B1220] text-[#E8EDF7] space-y-6">
-          <div className="text-[#8296B4] text-3xl uppercase tracking-widest font-bold">Session Concluded</div>
-          <h1 className="text-7xl font-extrabold font-['Archivo'] text-[#E8EDF7]">
+        <div className="w-full h-full flex flex-col justify-center items-center text-center p-20 bg-slate-50 text-slate-900 space-y-6">
+          <div className="text-slate-500 text-3xl uppercase tracking-widest font-bold">Session Concluded</div>
+          <h1 className="text-7xl font-extrabold font-['Archivo'] text-slate-900">
             {dataset.className}
           </h1>
-          <p className="text-3xl text-[#37D9A4] font-mono font-semibold">
+          <p className="text-3xl text-emerald-700 font-mono font-semibold">
             Year {dataset.period} Executive Debrief Completed
           </p>
         </div>

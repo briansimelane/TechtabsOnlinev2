@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame, PRODUCT_COLORS } from '../components/SlideFrame';
+import { CustomAxisTick } from '../components/CustomAxisTick';
 import { formatDebriefCurrency } from '../../../utils/debriefFormat';
 
 interface SlideProps {
@@ -37,17 +38,17 @@ export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, revealSte
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="w-full bg-[#131C2E] border border-[#22304A] rounded-2xl p-8 shadow-2xl">
-        <ResponsiveContainer width="100%" height={520}>
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#22304A" vertical={false} />
-            <XAxis dataKey="name" stroke="#8296B4" tick={{ fill: '#E8EDF7', fontSize: 22, fontWeight: 600 }} tickLine={false} />
-            <YAxis stroke="#8296B4" tick={{ fill: '#8296B4', fontSize: 18 }} tickFormatter={(v) => formatDebriefCurrency(v, true)} tickLine={false} axisLine={false} />
+      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 65 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+            <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />} tickLine={false} />
+            <YAxis stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickFormatter={(v) => formatDebriefCurrency(v, true, false)} tickLine={false} axisLine={false} />
             <Tooltip
-              contentStyle={{ backgroundColor: '#0B1220', borderColor: '#22304A', borderRadius: '8px', color: '#E8EDF7', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
-              formatter={(val: any) => [formatDebriefCurrency(Number(val)), '']}
+              contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
+              formatter={(val: any) => [formatDebriefCurrency(Number(val), true, true), '']}
             />
-            <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '20px', fontWeight: 'bold' }} />
+            <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '20px', fontWeight: 'bold', color: '#0F172A' }} />
             <Bar dataKey="TechBook" fill={PRODUCT_COLORS.techbook} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
             <Bar dataKey="Zroid" fill={PRODUCT_COLORS.zroid} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
             <Bar dataKey="iTab" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />

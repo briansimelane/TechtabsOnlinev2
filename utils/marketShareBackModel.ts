@@ -271,13 +271,18 @@ export function computeMarketShareBackModel(
   ];
 
   return PRODUCTS.map(p => {
-    // 1. Determine active teams for this product
-    const activeByTeam = sortedTeams.map((t, idx) => {
+    let activeByTeam = sortedTeams.map((t, idx) => {
       if (idx >= numberOfTeams) return false;
       const dec = t.draftDecisions || INITIAL_DECISIONS;
+      const price = dec.marketing?.prices?.[p.id] ?? 0;
       const forecastedShare = dec.marketing?.forecastedMarketShare?.[p.id] ?? 0;
-      return forecastedShare >= 0.000001;
+      const histRev = t.history?.[period]?.revenue?.byProduct?.[p.id] ?? 0;
+      return price > 0 || histRev > 0 || forecastedShare >= 0.000001;
     });
+
+    if (!activeByTeam.some(Boolean)) {
+      activeByTeam = sortedTeams.map((_, idx) => idx < numberOfTeams);
+    }
 
     const activeCount = activeByTeam.filter(Boolean).length;
 
