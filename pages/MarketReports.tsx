@@ -570,7 +570,10 @@ const MarketReports: React.FC = () => {
       const ebitda = grossProfit - totalOpEx;
       const depr = 1535965;
       const forecastedLongTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
-      const finCharges = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * (FINANCE_CONSTANTS?.interestRate || 0.08)) : 0;
+      const startCash = t.cashBalance || 0;
+      const overdraftInterest = startCash < 0 ? Math.round(Math.abs(startCash) * (FINANCE_CONSTANTS?.overdraftInterestRate || 0.15)) : 0;
+      const debtInterest = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * (FINANCE_CONSTANTS?.interestRate || 0.065)) : 0;
+      const finCharges = debtInterest + overdraftInterest;
       const ebt = ebitda - depr - finCharges;
       const taxation = ebt > 0 ? Math.round(ebt * (FINANCE_CONSTANTS?.taxRate || 0.28)) : 0;
       const netProfit = ebt - taxation;
@@ -666,10 +669,10 @@ const MarketReports: React.FC = () => {
       const currentLiabilities = Math.round(inc.cogs * 0.25);
       const liab = longTermDebt + currentLiabilities;
 
-      // 6. Cash Balance
-      const startCash = t.cashBalance || 180000000;
+      // 6. Cash Balance (Allows negative cash for bank overdrafts)
+      const startCash = t.cashBalance ?? 180000000;
       const debtChange = dec.finance?.debtChange || 0;
-      const cashVal = Math.max(0, startCash + netProf + debtChange + equityChange - dividends - capex);
+      const cashVal = startCash + netProf + debtChange + equityChange - dividends - capex;
 
       const totCurrAssets = cashVal + recVal + invVal;
       const totAssets = nonCurrAssets + totCurrAssets;

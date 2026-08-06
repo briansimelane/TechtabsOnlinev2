@@ -188,9 +188,12 @@ const FinancialReports: React.FC = () => {
     // 4. Below EBITDA
     const depreciation = 1535965; // Aligned with Year 0 Depreciation
     const forecastedLongTermDebt = currentTeam.longTermDebt + decisions.finance.debtChange;
-    const financeCharges = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * FINANCE_CONSTANTS.interestRate) : 0;
+    const debtInterest = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * FINANCE_CONSTANTS.interestRate) : 0;
+    const startCash = currentTeam.cashBalance || 0;
+    const overdraftInterest = startCash < 0 ? Math.round(Math.abs(startCash) * (FINANCE_CONSTANTS.overdraftInterestRate || 0.15)) : 0;
+    const financeCharges = debtInterest + overdraftInterest;
     const ebt = ebitda - depreciation - financeCharges;
-    const tax = ebt * FINANCE_CONSTANTS.taxRate;
+    const tax = ebt > 0 ? ebt * FINANCE_CONSTANTS.taxRate : 0;
     const netProfit = ebt - tax;
 
     // 5. Balance Sheet Items

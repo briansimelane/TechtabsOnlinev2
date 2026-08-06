@@ -53,7 +53,8 @@ export const HR_CONSTANTS = {
 
 // Finance Constants
 export const FINANCE_CONSTANTS = {
-    interestRate: 0.065, // 6.5%
+    interestRate: 0.065, // 6.5% long-term debt interest
+    overdraftInterestRate: 0.15, // 15% overdraft interest on negative cash balances
     wacc: 0.156, // 15.6%
     taxRate: 0.28,
     maxDebtRatio: 0.5, // Used to calc max available debt relative to equity/assets

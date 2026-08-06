@@ -29,9 +29,9 @@ interface ExportDataParams {
 const cleanValue = (val: string): string => {
   if (!val) return '';
   let cleaned = val.replace(/\u00a0/g, ' ').trim();
-  // Remove 'R' currency prefix/symbol so numbers fit cleanly on one row
-  cleaned = cleaned.replace(/^R\s?/, '').replace(/\s?R\s?/g, '').trim();
-  return cleaned;
+  const isNegative = cleaned.startsWith('-') || cleaned.includes('-R') || cleaned.includes('R -');
+  cleaned = cleaned.replace(/^[+-]?R\s?/, '').replace(/\s?R\s?/g, '').replace(/^-/, '').trim();
+  return isNegative ? `-${cleaned}` : cleaned;
 };
 
 /**
