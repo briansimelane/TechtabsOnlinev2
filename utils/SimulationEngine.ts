@@ -214,7 +214,14 @@ export const processTurn = (
     let productionPayroll = 0;
     let opexPayroll = 0;
     let opexTraining = 0;
-    const staffCounts = { ...team.staffCounts } as Record<string, number>;
+    const staffCounts: Record<HRRole, number> = {
+        engineers: 50,
+        technicians: 150,
+        semiSkilled: 200,
+        adminSales: 40,
+        customerService: 20,
+        ...(team.staffCounts || {})
+    };
 
     (Object.keys(staffCounts) as HRRole[]).forEach(r => {
         const hire = decisions.hr.hiring[r] || 0;

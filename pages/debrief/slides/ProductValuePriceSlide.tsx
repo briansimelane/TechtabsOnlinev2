@@ -72,7 +72,7 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
   const minX = Math.min(...points.map(p => p.x), 1000) * 0.9;
   const maxX = Math.max(...points.map(p => p.x), 4000) * 1.1;
 
-  const refLinePoints = [
+  const refLinePoints: [{ x: number; y: number }, { x: number; y: number }] = [
     { x: minX, y: slope * minX + intercept },
     { x: maxX, y: slope * maxX + intercept }
   ];
