@@ -348,10 +348,11 @@ const FacilitatorDashboard: React.FC = () => {
   const totalRoe = leaderboardTeams.reduce((acc, curr) => acc + curr.roe, 0);
   const avgIndustryRoe = leaderboardTeams.length > 0 ? (totalRoe / leaderboardTeams.length) : 0;
 
-  // Find top performer by composite score
-  const topPerformer = leaderboardTeams.length > 0 ? leaderboardTeams[0] : null;
+  // Find top performer based ALWAYS on Final Score
+  const sortedByFinalScore = [...leaderboardTeams].sort((a, b) => b.finalScore - a.finalScore || b.score - a.score);
+  const topPerformer = sortedByFinalScore.length > 0 ? sortedByFinalScore[0] : null;
   const topPerformerName = topPerformer ? topPerformer.name : 'N/A';
-  const topPerformerRoe = topPerformer ? topPerformer.roe : 0;
+  const topPerformerFinalScore = topPerformer ? topPerformer.finalScore : 0;
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-24">
@@ -498,7 +499,7 @@ const FacilitatorDashboard: React.FC = () => {
                     <Award size={24} />
                 </div>
             </div>
-            <p className="text-xs text-slate-500 mt-4">ROE: {formatPercent(topPerformerRoe / 100, 2)}</p>
+            <p className="text-xs text-slate-500 mt-4 font-medium">Final Score: <strong className="text-slate-900 font-bold">{topPerformerFinalScore} pts</strong></p>
         </div>
 
       </div>
