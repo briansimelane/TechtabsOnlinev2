@@ -4,8 +4,17 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock, Archive, RefreshCw } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
+  const { classes, currentRole, currentClassId, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
   const navigate = useNavigate();
+
+  // Master accounts (ADMIN, FAC-8819 / currentClassId === null) see ALL classes.
+  // Class-specific facilitators see ONLY their assigned class.
+  const userClasses = (currentRole === 'FACILITATOR' && currentClassId) 
+    ? classes.filter(c => c.id === currentClassId)
+    : classes;
+
+  const activeClasses = userClasses.filter(c => !c.isArchived);
+  const archivedClasses = userClasses.filter(c => c.isArchived);
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isCodesModalOpen, setIsCodesModalOpen] = useState(false);
@@ -148,9 +157,6 @@ const FacilitatorClasses: React.FC = () => {
       });
     }
   };
-
-  const activeClasses = classes.filter(c => !c.isArchived);
-  const archivedClasses = classes.filter(c => c.isArchived);
 
   const displayedClasses = (classTabFilter === 'active' ? activeClasses : archivedClasses).filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 

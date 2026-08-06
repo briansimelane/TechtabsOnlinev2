@@ -1563,16 +1563,54 @@ BEHAVIOR RULES:
 
   // --- Auth (Mock) ---
 
-    const loginWithGoogle = async (): Promise<{ role: Role } | null> => {
+    const loginWithGoogle = async (): Promise<{ role: Role; success: boolean; message?: string } | null> => {
+        try {
             const auth = getAppAuth();
             const result = await signInWithPopup(auth, googleProvider);
             const user = result.user;
+            const userEmail = (user.email || '').toLowerCase().trim();
+
+            let registeredFacs: any[] = [];
+            let registeredAdmins: any[] = [];
+            try {
+                registeredFacs = await listFacilitators();
+                registeredAdmins = await listAdministrators();
+            } catch (e) {
+                console.warn("Failed to fetch registered facilitators/admins from Firestore", e);
+            }
+
+            const storedFacs = localStorage.getItem('techtabs_facilitators');
+            if (storedFacs) {
+                registeredFacs = [...registeredFacs, ...JSON.parse(storedFacs)];
+            }
+            const storedAdmins = localStorage.getItem('techtabs_administrators');
+            if (storedAdmins) {
+                registeredAdmins = [...registeredAdmins, ...JSON.parse(storedAdmins)];
+            }
+
+            const isMasterEmail = 
+                userEmail.includes('briansimelane') || 
+                userEmail.includes('brian@techtabs') || 
+                userEmail === 'admin@techtabs.com' ||
+                userEmail === 'briansimelane@gmail.com';
+
+            const isFac = registeredFacs.some((f: any) => (f.email || '').toLowerCase().trim() === userEmail);
+            const isAdmin = registeredAdmins.some((a: any) => (a.email || '').toLowerCase().trim() === userEmail);
 
             const existingProfile = await getUserProfile(user.uid);
-            const role = existingProfile?.role ?? 'STUDENT';
-            const currentClassId = existingProfile?.currentClassId ?? null;
+            const existingRole = existingProfile?.role;
 
-            const teamId = existingProfile?.teamId ?? null;
+            if (!isMasterEmail && !isFac && !isAdmin && existingRole !== 'FACILITATOR' && existingRole !== 'ADMIN') {
+                await signOut(auth);
+                return {
+                    role: 'STUDENT',
+                    success: false,
+                    message: `Access denied: Google account (${user.email}) is not registered as a facilitator or administrator.`
+                };
+            }
+
+            const role: Role = (isMasterEmail || isAdmin || existingRole === 'ADMIN') ? 'ADMIN' : 'FACILITATOR';
+            const currentClassId = (isMasterEmail || isAdmin) ? null : (existingProfile?.currentClassId ?? null);
 
             await upsertUserProfile({
                 uid: user.uid,
@@ -1580,7 +1618,7 @@ BEHAVIOR RULES:
                 displayName: user.displayName ?? null,
                 role,
                 currentClassId,
-                teamId
+                teamId: null
             });
 
             localStorage.setItem('techtabs_is_demo', 'false');
@@ -1592,10 +1630,18 @@ BEHAVIOR RULES:
                 isAuthenticated: true,
                 currentRole: role,
                 originalRole: role,
-                currentClassId: currentClassId ?? prev.currentClassId
+                currentClassId: currentClassId
             }));
 
-            return { role };
+            return { role, success: true };
+        } catch (err: any) {
+            console.error("Google Auth failed", err);
+            return {
+                role: 'STUDENT',
+                success: false,
+                message: err.message || 'Google sign-in failed. Please try again.'
+            };
+        }
     };
 
   const login = async (code: string): Promise<{ success: boolean; message?: string; role?: Role }> => {
@@ -1616,6 +1662,31 @@ BEHAVIOR RULES:
         } catch (err) {
             console.error("Failed to load classes from Firestore in login flow", err);
         }
+    }
+
+    if (code === 'FAC-8819') {
+        localStorage.setItem('techtabs_is_demo', 'false');
+        setIsDemoMode(false);
+        const displayName = 'Brian Simelane (Master Facilitator)';
+        setCurrentUser({ uid: authUser?.uid || 'fac-master-8819', email: authUser?.email ?? 'brian@techtabs.com', displayName });
+        setState(prev => ({
+            ...prev,
+            isAuthenticated: true,
+            currentRole: 'FACILITATOR',
+            originalRole: 'FACILITATOR',
+            currentClassId: null
+        }));
+
+        if (authUser) {
+            await safeUpsertProfile({
+                uid: authUser.uid,
+                email: authUser.email ?? 'brian@techtabs.com',
+                displayName,
+                role: 'FACILITATOR',
+                currentClassId: null
+            });
+        }
+        return { success: true, role: 'FACILITATOR' };
     }
 
     if (code === 'ADMIN-MASTER') {
