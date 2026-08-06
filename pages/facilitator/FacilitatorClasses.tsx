@@ -4,7 +4,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock, Archive, RefreshCw } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, createClass, selectClass, deleteClass, archiveClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
+  const { classes, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
   const navigate = useNavigate();
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -26,6 +26,22 @@ const FacilitatorClasses: React.FC = () => {
 
   const [editingCeoPinId, setEditingCeoPinId] = useState<string | null>(null);
   const [tempCeoPin, setTempCeoPin] = useState('');
+
+  // Custom Modal State (replaces browser confirm/alert)
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'archive' | 'restore' | 'deleteForever' | 'alert' | null;
+    simClass?: { id: string; name: string };
+    title: string;
+    description: string;
+    confirmText?: string;
+    confirmStyle?: 'danger' | 'warning' | 'primary' | 'emerald';
+  }>({
+    isOpen: false,
+    type: null,
+    title: '',
+    description: ''
+  });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,26 +69,83 @@ const FacilitatorClasses: React.FC = () => {
       setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const handleArchiveClick = async (simClass: { id: string; name: string }) => {
-    if (window.confirm(`Delete Class: "${simClass.name}"?\n\nThis will move the class to your Archive tab where all team decisions, access codes, and history will be safely stored.\n\nYou can view, restore, or delete it permanently anytime in the Archive tab.`)) {
+  const promptArchive = (simClass: { id: string; name: string }) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'archive',
+      simClass,
+      title: 'Archive Class',
+      description: `Are you sure you want to archive "${simClass.name}"? This will move the class to your Archive tab. All team decisions, access codes, and history will be safely preserved.`,
+      confirmText: 'Move to Archive',
+      confirmStyle: 'warning'
+    });
+  };
+
+  const promptRestore = (simClass: { id: string; name: string }) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'restore',
+      simClass,
+      title: 'Restore Class',
+      description: `Are you sure you want to restore "${simClass.name}" back to Active Classes?`,
+      confirmText: 'Restore Class',
+      confirmStyle: 'emerald'
+    });
+  };
+
+  const promptDeleteForever = (simClass: { id: string; name: string }) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'deleteForever',
+      simClass,
+      title: 'Permanently Delete Class',
+      description: `⚠️ DANGER: Are you sure you want to PERMANENTLY delete "${simClass.name}"? This action CANNOT be undone and all team decisions will be lost forever.`,
+      confirmText: 'Delete Forever',
+      confirmStyle: 'danger'
+    });
+  };
+
+  const handleConfirmModalAction = async () => {
+    if (!modalConfig.simClass && modalConfig.type !== 'alert') {
+      setModalConfig({ isOpen: false, type: null, title: '', description: '' });
+      return;
+    }
+
+    const { type, simClass } = modalConfig;
+    setModalConfig({ isOpen: false, type: null, title: '', description: '' });
+
+    if (type === 'archive' && simClass) {
       await archiveClass(simClass.id, true);
       setClassTabFilter('archived');
-      alert(`Class "${simClass.name}" has been moved to the Archive tab.`);
-    }
-  };
-
-  const handleRestoreClick = async (simClass: { id: string; name: string }) => {
-    if (window.confirm(`Restore Class: "${simClass.name}"?\n\nThis will restore the class back to your Active Classes list.`)) {
-      await archiveClass(simClass.id, false);
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Archived',
+        description: `Class "${simClass.name}" has been moved to the Archive tab. All student decisions and history were safely preserved.`,
+        confirmText: 'Got It',
+        confirmStyle: 'primary'
+      });
+    } else if (type === 'restore' && simClass) {
+      await restoreClass(simClass.id);
       setClassTabFilter('active');
-      alert(`Class "${simClass.name}" has been restored to Active Classes.`);
-    }
-  };
-
-  const handleDeleteForeverClick = async (simClass: { id: string; name: string }) => {
-    if (window.confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${simClass.name}"?\n\nThis action CANNOT be undone. All class records, team submissions, and historical decision data will be erased forever.`)) {
-      deleteClass(simClass.id);
-      alert(`Class "${simClass.name}" has been permanently deleted.`);
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Restored',
+        description: `Class "${simClass.name}" has been successfully restored back to Active Classes!`,
+        confirmText: 'View Active Classes',
+        confirmStyle: 'emerald'
+      });
+    } else if (type === 'deleteForever' && simClass) {
+      await deleteClass(simClass.id);
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Deleted',
+        description: `Class "${simClass.name}" has been permanently deleted.`,
+        confirmText: 'Done',
+        confirmStyle: 'danger'
+      });
     }
   };
 
@@ -216,7 +289,7 @@ const FacilitatorClasses: React.FC = () => {
                                         {simClass.isArchived ? (
                                             <>
                                                 <button 
-                                                    onClick={() => handleRestoreClick(simClass)}
+                                                    onClick={() => promptRestore(simClass)}
                                                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
                                                     title="Restore class back to active classes"
                                                 >
@@ -224,7 +297,7 @@ const FacilitatorClasses: React.FC = () => {
                                                     Restore
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleDeleteForeverClick(simClass)}
+                                                    onClick={() => promptDeleteForever(simClass)}
                                                     className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-1 shadow-xs"
                                                     title="Delete class permanently forever"
                                                 >
@@ -242,7 +315,7 @@ const FacilitatorClasses: React.FC = () => {
                                                     <KeyRound size={18} />
                                                 </button>
                                                 <button 
-                                                    onClick={() => handleArchiveClick(simClass)}
+                                                    onClick={() => promptArchive(simClass)}
                                                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                                     title="Archive Class"
                                                 >
@@ -601,6 +674,77 @@ const FacilitatorClasses: React.FC = () => {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* Custom Action & Alert Modal Dialog */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in fade-in duration-150">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  {modalConfig.type === 'archive' && (
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                      <Archive size={20} />
+                    </div>
+                  )}
+                  {modalConfig.type === 'restore' && (
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                      <RefreshCw size={20} />
+                    </div>
+                  )}
+                  {modalConfig.type === 'deleteForever' && (
+                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                      <Trash2 size={20} />
+                    </div>
+                  )}
+                  {modalConfig.type === 'alert' && (
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                      <Check size={20} />
+                    </div>
+                  )}
+                  <h3 className="text-lg font-bold text-slate-900">{modalConfig.title}</h3>
+                </div>
+                <button 
+                  onClick={() => setModalConfig({ isOpen: false, type: null, title: '', description: '' })}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                {modalConfig.description}
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                {modalConfig.type !== 'alert' && (
+                  <button
+                    onClick={() => setModalConfig({ isOpen: false, type: null, title: '', description: '' })}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+
+                <button
+                  onClick={handleConfirmModalAction}
+                  className={`px-5 py-2 text-white text-sm font-bold rounded-lg shadow-xs transition-all ${
+                    modalConfig.confirmStyle === 'danger'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : modalConfig.confirmStyle === 'warning'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : modalConfig.confirmStyle === 'emerald'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {modalConfig.confirmText || 'OK'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

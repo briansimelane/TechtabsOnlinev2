@@ -1,15 +1,31 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { Search, Plus, Trash2, ExternalLink, Calendar, Users, KeyRound } from 'lucide-react';
+import { Search, Plus, Trash2, ExternalLink, Calendar, Users, KeyRound, Archive, RefreshCw, X, Check } from 'lucide-react';
 
 const GlobalClassManagement: React.FC = () => {
-  const { classes, createClass, deleteClass, archiveClass, selectClass, resetClassToYear1 } = useSimulation();
+  const { classes, createClass, deleteClass, archiveClass, restoreClass, selectClass, resetClassToYear1 } = useSimulation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [classTabFilter, setClassTabFilter] = useState<'active' | 'archived'>('active');
   
+  // Custom Modal State (replaces browser confirm/alert)
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'archive' | 'restore' | 'deleteForever' | 'resetYear1' | 'alert' | null;
+    targetClass?: { id: string; name: string };
+    title: string;
+    description: string;
+    confirmText?: string;
+    confirmStyle?: 'danger' | 'warning' | 'primary' | 'emerald';
+  }>({
+    isOpen: false,
+    type: null,
+    title: '',
+    description: ''
+  });
+
   // New Class Form
   const [newClassName, setNewClassName] = useState('');
   const [newClassTeams, setNewClassTeams] = useState(4);
@@ -39,34 +55,106 @@ const GlobalClassManagement: React.FC = () => {
       navigate('/facilitator/dashboard');
   };
 
-  const handleArchive = async (classId: string, className: string) => {
-      if (confirm(`Archive Class: "${className}"?\n\nMoving this class to Archive will safely preserve all team decisions, access codes, and history so it can be restored anytime.`)) {
-          await archiveClass(classId, true);
-          setClassTabFilter('archived');
-          alert(`Class "${className}" has been moved to Archive.`);
-      }
+  const promptArchive = (classId: string, className: string) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'archive',
+      targetClass: { id: classId, name: className },
+      title: 'Archive Class',
+      description: `Are you sure you want to archive "${className}"? This will move the class to your Archive tab. All team decisions and history will be preserved.`,
+      confirmText: 'Move to Archive',
+      confirmStyle: 'warning'
+    });
   };
 
-  const handleRestore = async (classId: string, className: string) => {
-      if (confirm(`Restore Class: "${className}"?\n\nThis will move the class back to Active Classes.`)) {
-          await archiveClass(classId, false);
-          setClassTabFilter('active');
-          alert(`Class "${className}" has been restored to Active Classes.`);
-      }
+  const promptRestore = (classId: string, className: string) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'restore',
+      targetClass: { id: classId, name: className },
+      title: 'Restore Class',
+      description: `Are you sure you want to restore "${className}" back to Active Classes?`,
+      confirmText: 'Restore Class',
+      confirmStyle: 'emerald'
+    });
   };
 
-  const handleDeleteForever = (classId: string, className: string) => {
-      if (confirm(`⚠️ PERMANENT DELETION WARNING!\n\nAre you sure you want to PERMANENTLY delete class "${className}"?\n\nThis action CANNOT be undone and all team decisions will be erased forever.`)) {
-          deleteClass(classId);
-          alert(`Class "${className}" permanently deleted.`);
-      }
+  const promptDeleteForever = (classId: string, className: string) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'deleteForever',
+      targetClass: { id: classId, name: className },
+      title: 'Permanently Delete Class',
+      description: `⚠️ DANGER: Are you sure you want to PERMANENTLY delete "${className}"? This action CANNOT be undone and all team decisions will be erased forever.`,
+      confirmText: 'Delete Forever',
+      confirmStyle: 'danger'
+    });
   };
 
-  const handleResetToYear1 = async (classId: string) => {
-      if (confirm('WARNING: Are you sure you want to reset this class to Year 1? This will clear all team decisions, transactions, and calculated results for Year 1 onward. Year 0 history will remain intact. This action cannot be undone.')) {
-          await resetClassToYear1(classId);
-          alert('Class reset to Year 1 successfully.');
-      }
+  const promptResetToYear1 = (classId: string, className: string) => {
+    setModalConfig({
+      isOpen: true,
+      type: 'resetYear1',
+      targetClass: { id: classId, name: className },
+      title: 'Reset Class to Year 1',
+      description: `WARNING: Are you sure you want to reset "${className}" to Year 1? This will clear all decisions and calculated results from Year 1 onward. Year 0 history will remain intact.`,
+      confirmText: 'Reset to Year 1',
+      confirmStyle: 'danger'
+    });
+  };
+
+  const handleConfirmModalAction = async () => {
+    if (!modalConfig.targetClass && modalConfig.type !== 'alert') {
+      setModalConfig({ isOpen: false, type: null, title: '', description: '' });
+      return;
+    }
+
+    const { type, targetClass } = modalConfig;
+    setModalConfig({ isOpen: false, type: null, title: '', description: '' });
+
+    if (type === 'archive' && targetClass) {
+      await archiveClass(targetClass.id, true);
+      setClassTabFilter('archived');
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Archived',
+        description: `Class "${targetClass.name}" has been moved to Archive.`,
+        confirmText: 'OK',
+        confirmStyle: 'primary'
+      });
+    } else if (type === 'restore' && targetClass) {
+      await restoreClass(targetClass.id);
+      setClassTabFilter('active');
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Restored',
+        description: `Class "${targetClass.name}" has been restored to Active Classes!`,
+        confirmText: 'View Active Classes',
+        confirmStyle: 'emerald'
+      });
+    } else if (type === 'deleteForever' && targetClass) {
+      await deleteClass(targetClass.id);
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Deleted',
+        description: `Class "${targetClass.name}" has been permanently deleted.`,
+        confirmText: 'OK',
+        confirmStyle: 'danger'
+      });
+    } else if (type === 'resetYear1' && targetClass) {
+      await resetClassToYear1(targetClass.id);
+      setModalConfig({
+        isOpen: true,
+        type: 'alert',
+        title: 'Class Reset Complete',
+        description: `Class "${targetClass.name}" reset to Year 1 successfully.`,
+        confirmText: 'OK',
+        confirmStyle: 'primary'
+      });
+    }
   };
 
   return (
@@ -175,17 +263,19 @@ const GlobalClassManagement: React.FC = () => {
                                       {c.isArchived ? (
                                           <>
                                               <button 
-                                                onClick={() => handleRestore(c.id, c.name)}
-                                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-xs transition-colors"
+                                                onClick={() => promptRestore(c.id, c.name)}
+                                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-xs transition-colors flex items-center gap-1"
                                                 title="Restore Class"
                                               >
+                                                  <RefreshCw size={12} />
                                                   Restore
                                               </button>
                                               <button 
-                                                onClick={() => handleDeleteForever(c.id, c.name)}
-                                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded shadow-xs transition-colors"
+                                                onClick={() => promptDeleteForever(c.id, c.name)}
+                                                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded shadow-xs transition-colors flex items-center gap-1"
                                                 title="Delete Class Forever"
                                               >
+                                                  <Trash2 size={12} />
                                                   Delete Forever
                                               </button>
                                           </>
@@ -199,14 +289,14 @@ const GlobalClassManagement: React.FC = () => {
                                                   Enter Console <ExternalLink size={12} className="ml-1" />
                                               </button>
                                               <button 
-                                                onClick={() => handleResetToYear1(c.id)}
+                                                onClick={() => promptResetToYear1(c.id, c.name)}
                                                 className="flex items-center px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded shadow-sm transition-colors animate-pulse"
                                                 title="Reset Class to Year 1"
                                               >
                                                   Reset to Year 1
                                               </button>
                                               <button 
-                                                onClick={() => handleArchive(c.id, c.name)}
+                                                onClick={() => promptArchive(c.id, c.name)}
                                                 className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                                                 title="Archive Class"
                                               >
@@ -279,6 +369,77 @@ const GlobalClassManagement: React.FC = () => {
                   </form>
               </div>
           </div>
+      )}
+
+      {/* Custom Action & Alert Modal Dialog */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100 animate-in fade-in duration-150">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  {modalConfig.type === 'archive' && (
+                    <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                      <Archive size={20} />
+                    </div>
+                  )}
+                  {modalConfig.type === 'restore' && (
+                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+                      <RefreshCw size={20} />
+                    </div>
+                  )}
+                  {(modalConfig.type === 'deleteForever' || modalConfig.type === 'resetYear1') && (
+                    <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                      <Trash2 size={20} />
+                    </div>
+                  )}
+                  {modalConfig.type === 'alert' && (
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                      <Check size={20} />
+                    </div>
+                  )}
+                  <h3 className="text-lg font-bold text-slate-900">{modalConfig.title}</h3>
+                </div>
+                <button 
+                  onClick={() => setModalConfig({ isOpen: false, type: null, title: '', description: '' })}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="text-sm text-slate-600 leading-relaxed mb-6">
+                {modalConfig.description}
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                {modalConfig.type !== 'alert' && (
+                  <button
+                    onClick={() => setModalConfig({ isOpen: false, type: null, title: '', description: '' })}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+
+                <button
+                  onClick={handleConfirmModalAction}
+                  className={`px-5 py-2 text-white text-sm font-bold rounded-lg shadow-xs transition-all ${
+                    modalConfig.confirmStyle === 'danger'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : modalConfig.confirmStyle === 'warning'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : modalConfig.confirmStyle === 'emerald'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  }`}
+                >
+                  {modalConfig.confirmText || 'OK'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

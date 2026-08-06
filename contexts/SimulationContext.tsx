@@ -45,6 +45,7 @@ interface SimulationContextType extends SimulationState {
   createClass: (name: string, teamCount: number) => void;
   deleteClass: (classId: string) => void;
   archiveClass: (classId: string, archive?: boolean) => Promise<void>;
+  restoreClass: (classId: string) => Promise<void>;
   selectClass: (classId: string) => void;
   addFacilitator: (facilitator: Omit<Facilitator, 'id' | 'joinedDate'>) => void;
   removeFacilitator: (id: string) => void;
@@ -1408,49 +1409,6 @@ BEHAVIOR RULES:
     }));
   };
 
-  const deleteClass = (classId: string) => {
-    const targetClass = state.classes.find(c => c.id === classId);
-    if (!targetClass) return;
-
-    if (!targetClass.isArchived) {
-      // Archive active class first to preserve decisions and history
-      const updatedClass: SimulationClass = {
-        ...targetClass,
-        isArchived: true,
-        archivedAt: new Date().toISOString()
-      };
-
-      if (isDemoMode) {
-        const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
-        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-        setState(prev => ({ ...prev, classes: updatedClasses }));
-      } else {
-        void saveClass(updatedClass).catch((error) => {
-            console.error('Failed to archive class', error);
-        });
-        setState(prev => ({
-          ...prev,
-          classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
-        }));
-      }
-    } else {
-      // Class is already archived -> erase permanently
-      if (isDemoMode) {
-        const updatedClasses = state.classes.filter(c => c.id !== classId);
-        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-        setState(prev => ({ ...prev, classes: updatedClasses }));
-      } else {
-        setState(prev => ({
-          ...prev,
-          classes: prev.classes.filter(c => c.id !== classId)
-        }));
-        void deleteClassById(classId).catch((error) => {
-            console.error('Failed to delete class permanently', error);
-        });
-      }
-    }
-  };
-
   const archiveClass = async (classId: string, archive: boolean = true) => {
     const targetClass = state.classes.find(c => c.id === classId);
     if (!targetClass) return;
@@ -1461,16 +1419,52 @@ BEHAVIOR RULES:
       archivedAt: archive ? new Date().toISOString() : undefined
     };
 
+    // Update React state immediately
+    setState(prev => ({
+      ...prev,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
     if (isDemoMode) {
-      const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
-      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-      setState(prev => ({ ...prev, classes: updatedClasses }));
+      const storedClasses = localStorage.getItem('techtabs_classes');
+      const parsed = storedClasses ? JSON.parse(storedClasses) : [];
+      const updatedLocal = parsed.map((c: any) => c.id === classId ? updatedClass : c);
+      localStorage.setItem('techtabs_classes', JSON.stringify(updatedLocal));
     } else {
-      await saveClass(updatedClass);
+      try {
+        await saveClass(updatedClass);
+      } catch (err) {
+        console.error("Failed to archive/restore class in Firestore:", err);
+      }
+    }
+  };
+
+  const restoreClass = async (classId: string) => {
+    await archiveClass(classId, false);
+  };
+
+  const deleteClass = async (classId: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    if (!targetClass.isArchived) {
+      // Archive active class first
+      await archiveClass(classId, true);
+    } else {
+      // Delete permanently from archive
       setState(prev => ({
         ...prev,
-        classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+        classes: prev.classes.filter(c => c.id !== classId)
       }));
+
+      if (isDemoMode) {
+        const storedClasses = localStorage.getItem('techtabs_classes');
+        const parsed = storedClasses ? JSON.parse(storedClasses) : [];
+        const updatedLocal = parsed.filter((c: any) => c.id !== classId);
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedLocal));
+      } else {
+        await deleteClassById(classId);
+      }
     }
   };
 
@@ -2326,6 +2320,7 @@ BEHAVIOR RULES:
         createClass,
         deleteClass,
         archiveClass,
+        restoreClass,
         selectClass,
         addFacilitator,
         removeFacilitator,
