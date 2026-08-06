@@ -22,6 +22,33 @@ export interface TeamYearScore extends TeamYearMetrics {
   maxScore: number; // nTeams * 3
 }
 
+export function getCumCsatEsat(team: any, period: number): number {
+  if (!team) return 0;
+  let total = 0;
+
+  for (let yr = 1; yr <= period; yr++) {
+    const rec = team.fullHistory?.[yr] || team.history?.[yr] || (yr === period ? team.record : undefined);
+    const csat = (rec?.kpis?.customerSatisfaction ?? team.perf?.kpis?.customerSatisfaction ?? 0.70) * 100;
+    const esat = (rec?.kpis?.employeeSatisfaction ?? team.perf?.kpis?.employeeSatisfaction ?? 0.70) * 100;
+    total += csat + esat;
+  }
+  return total;
+}
+
+export function getCumFinancialPct(team: any, period: number): number {
+  if (!team) return 0;
+  let total = 0;
+
+  for (let yr = 1; yr <= period; yr++) {
+    const rec = team.fullHistory?.[yr] || team.history?.[yr] || (yr === period ? team.record : undefined);
+    const gp = rec?.industry?.gpMargin ?? team.perf?.gpMargin ?? 0;
+    const np = rec?.industry?.npMargin ?? team.perf?.npMargin ?? 0;
+    const roe = rec?.industry?.roe ?? team.perf?.roe ?? 0;
+    total += gp + np + roe;
+  }
+  return total;
+}
+
 export function metricsFromRecord(teamId: string, teamName: string, rec: PeriodRecord): TeamYearMetrics {
   if (rec?.industry) {
     const p = rec.industry;
@@ -142,7 +169,7 @@ export function scoreYear(teams: { id: string; name: string; record: PeriodRecor
 }
 
 export function scoreCumulative(
-  teams: { id: string; name: string; history?: Record<number, PeriodRecord>; perf?: TeamIndustryPerformance; fullHistory?: Record<number, PeriodRecord> }[],
+  teams: { id: string; name: string; history?: Record<number, PeriodRecord>; perf?: TeamIndustryPerformance; fullHistory?: Record<number, PeriodRecord>; record?: PeriodRecord }[],
   throughYear: number
 ): {
   teamId: string;
@@ -162,11 +189,26 @@ export function scoreCumulative(
   });
 
   for (let yr = 1; yr <= throughYear; yr++) {
+    // Current year calculation using team.perf if available
+    if (yr === throughYear && teams.every(t => !!t.perf)) {
+      const perfList = teams.map(t => t.perf!);
+      const yearScores = scoreYearFromPerformance(perfList, yr);
+      yearScores.forEach(s => {
+        if (result[s.teamId]) {
+          result[s.teamId].byYear[yr] = s.score;
+          result[s.teamId].total += s.score;
+        }
+      });
+      continue;
+    }
+
+    // Historical years calculation
     const teamsWithYrRecord: { id: string; name: string; record: PeriodRecord }[] = [];
     teams.forEach(t => {
       const histMap = t.fullHistory || t.history;
-      if (histMap && histMap[yr]) {
-        teamsWithYrRecord.push({ id: t.id, name: t.name, record: histMap[yr] });
+      const rec = histMap?.[yr] || histMap?.[String(yr)] || (yr === throughYear ? t.record : undefined);
+      if (rec) {
+        teamsWithYrRecord.push({ id: t.id, name: t.name, record: rec });
       }
     });
 

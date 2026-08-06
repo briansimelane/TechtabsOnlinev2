@@ -14,7 +14,6 @@ import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame } from '../components/SlideFrame';
 import { CustomAxisTick } from '../components/CustomAxisTick';
 import { formatDebriefUnits } from '../../../utils/debriefFormat';
-import { Reveal } from '../components/Reveal';
 
 interface SlideProps {
   productId: ProductId;
@@ -29,18 +28,22 @@ export const ProductPlanVsActualSlide: React.FC<SlideProps> = ({
   productId,
   productName,
   dataset,
-  revealStep,
   currentSlide,
   totalSlides
 }) => {
   const chartData = dataset.teams.map(t => {
     const u = t.perf?.units?.[productId];
+    const forecast = u?.forecast ?? 0;
+    const actual = u?.actual ?? 0;
+    const accuracy = forecast > 0 ? (actual / forecast) * 100 : 0;
 
     return {
       name: t.name,
-      'Plan (Forecast)': u?.forecast ?? 0,
+      'Plan (Forecast)': forecast,
       Demand: u?.demand ?? 0,
-      Actual: u?.actual ?? 0,
+      Actual: actual,
+      accuracy,
+      accuracyText: forecast > 0 ? `${accuracy.toFixed(1)}%` : '0%',
       colorIndex: t.colorIndex
     };
   });
@@ -49,50 +52,43 @@ export const ProductPlanVsActualSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title={`Plan vs Actual Units: ${productName}`}
       eyebrow={`${productName} Execution Gap Analysis`}
-      footer="Plan = forecast share × market size · Demand = share earned × market size · Actual = min(demand, available stock)"
+      footer="Forecasting Accuracy = Actual Units Sold ÷ Forecasted Units · Plan = forecast share × market size · Demand = share earned × market size"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
       <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between space-y-3">
+        {/* Forecasting Accuracy Chips per Team */}
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
+          {chartData.map((d) => (
+            <div key={d.name} className="bg-white border border-slate-200 p-2.5 rounded-xl text-center shadow-xs">
+              <div className="text-slate-500 text-xs font-semibold truncate">{d.name}</div>
+              <div className="text-emerald-700 text-xl font-extrabold font-mono mt-0.5">
+                {d.accuracyText}
+              </div>
+              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Accuracy</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Chart taking full vertical remaining space */}
         <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 65 }}>
+            <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
               <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />} tickLine={false} />
               <YAxis stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickFormatter={(v) => formatDebriefUnits(v)} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
-                formatter={(val: any) => [formatDebriefUnits(Number(val)), 'Units']}
+                formatter={(val: any, name: any) => [formatDebriefUnits(Number(val)), name]}
               />
-              <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '18px', fontWeight: 'bold' }} />
+              <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '18px', fontWeight: 'bold' }} />
               <Bar dataKey="Plan (Forecast)" fill="#7C3AED" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
               <Bar dataKey="Demand" fill="#D97706" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
               <Bar dataKey="Actual" fill="#059669" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        <Reveal step={2} currentStep={revealStep}>
-          <div className="grid grid-cols-2 gap-6 bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <div className="border-r border-slate-200 pr-6">
-              <div className="text-amber-700 text-xl font-bold uppercase tracking-wider mb-1">
-                1. Forecast → Demand Gap ("Read the Market?")
-              </div>
-              <p className="text-slate-600 text-lg">
-                Difference between planned forecast and market share won. Positive = won more market demand than expected.
-              </p>
-            </div>
-            <div className="pl-2">
-              <div className="text-orange-700 text-xl font-bold uppercase tracking-wider mb-1">
-                2. Demand → Actual Gap ("Capacity / Supply Constraint?")
-              </div>
-              <p className="text-slate-600 text-lg">
-                Difference between market demand won and actual units delivered. Shortfalls indicate stockouts or production limits.
-              </p>
-            </div>
-          </div>
-        </Reveal>
       </div>
     </SlideFrame>
   );

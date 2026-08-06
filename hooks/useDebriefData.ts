@@ -10,6 +10,7 @@ import { INITIAL_DECISIONS } from '../constants';
 export interface DebriefTeam {
   id: string;
   name: string;
+  ceoName?: string;
   colorIndex: number;
   record: PeriodRecord;
   prior?: PeriodRecord;
@@ -83,7 +84,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const pHist = pTeam.history || {};
         const sHist = sTeam.history || {};
 
-        // Primary (Firestore) data ALWAYS takes precedence over secondary (localStorage fallback)
+        // Primary (Firestore) data ALWAYS takes precedence over secondary
         const mergedHistory = { ...sHist, ...pHist };
 
         return {
@@ -134,6 +135,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         return {
           id: t.id,
           name: formattedName,
+          ceoName: t.ceoName || (t.draftDecisions as any)?.general?.ceoName || (t.draftDecisions as any)?.ceoName,
           colorIndex: index,
           record,
           prior,

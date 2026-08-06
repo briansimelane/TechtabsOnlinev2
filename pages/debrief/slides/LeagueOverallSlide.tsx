@@ -1,7 +1,7 @@
 import React from 'react';
 import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame, TEAM_COLORS } from '../components/SlideFrame';
-import { scoreCumulative } from '../../../utils/leagueScoring';
+import { scoreCumulative, getCumCsatEsat, getCumFinancialPct } from '../../../utils/leagueScoring';
 
 interface SlideProps {
   dataset: DebriefDataset;
@@ -12,57 +12,110 @@ interface SlideProps {
 
 export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, currentSlide, totalSlides }) => {
   const cumScores = scoreCumulative(dataset.teams, dataset.period);
-  const sortedCum = [...cumScores].sort((a, b) => b.total - a.total);
-  const totalYears = 5;
+
+  // Apply Tie-Breaker Rules:
+  // 1. Primary: Total Cumulative Points
+  // 2. 1st Tie-Breaker: Cumulative CSAT + ESAT
+  // 3. 2nd Tie-Breaker: Cumulative GP% + ROE% + NP%
+  const sortedCum = [...cumScores].sort((a, b) => {
+    if (b.total !== a.total) {
+      return b.total - a.total;
+    }
+
+    const teamA = dataset.teams.find(t => t.id === a.teamId);
+    const teamB = dataset.teams.find(t => t.id === b.teamId);
+
+    const csatEsatA = getCumCsatEsat(teamA, dataset.period);
+    const csatEsatB = getCumCsatEsat(teamB, dataset.period);
+
+    if (Math.abs(csatEsatB - csatEsatA) > 0.001) {
+      return csatEsatB - csatEsatA;
+    }
+
+    const finPctA = getCumFinancialPct(teamA, dataset.period);
+    const finPctB = getCumFinancialPct(teamB, dataset.period);
+
+    return finPctB - finPctA;
+  });
+
+  const totalYears = 3;
 
   return (
     <SlideFrame
       title="Cumulative League Leaderboard"
       eyebrow="Overall Championship Standings"
-      footer="Cumulative points accumulated across all completed simulation years · Maximum 24 points per year per team"
+      footer="Tie-breakers (before GP%): TB 1 = Cum. CSAT+ESAT · TB 2 = Cum. GP%+NP%+ROE%"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-2">
+      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-2 overflow-hidden">
         {/* Header Row */}
-        <div className="flex items-center px-4 py-2 text-slate-500 text-sm font-bold uppercase tracking-wider border-b border-slate-200">
-          <div className="w-16 text-center">Rank</div>
-          <div className="flex-1 pl-4">Team Name</div>
+        <div className="flex items-center px-4 py-2 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+          <div className="w-14 text-center">Rank</div>
+          <div className="flex-1 pl-3 min-w-0">Team Name</div>
+          <div className="w-24 text-right pr-2 text-amber-700">TB 1 (CSAT+ESAT)</div>
+          <div className="w-24 text-right pr-2 text-indigo-700">TB 2 (FIN PCT)</div>
           {Array.from({ length: totalYears }, (_, i) => i + 1).map(yr => (
             <div key={yr} className="w-20 text-center">Yr {yr}</div>
           ))}
-          <div className="w-28 text-center font-extrabold text-blue-900">Total Pts</div>
+          <div className="w-28 text-center font-extrabold text-blue-900">Total Score</div>
         </div>
 
         {/* Team Rows */}
-        <div className="flex-1 flex flex-col justify-between space-y-1.5 min-h-0">
+        <div className="flex-1 flex flex-col justify-around space-y-1 min-h-0">
           {sortedCum.map((c, idx) => {
             const teamObj = dataset.teams.find(t => t.id === c.teamId);
             const colorIdx = teamObj ? teamObj.colorIndex : idx;
 
+            // Extract team number X
+            const match = c.teamId.match(/\d+/);
+            const teamNum = match ? match[0] : String(idx + 1);
+            const rawName = c.teamName.replace(/^\(\d+\)\s*/, '');
+            const displayName = `(${teamNum}) ${rawName}`;
+
+            const ceoName = (teamObj as any)?.ceoName || (teamObj as any)?.draftDecisions?.general?.ceoName || (teamObj as any)?.draftDecisions?.ceoName || 'Unassigned';
+
+            const tb1 = getCumCsatEsat(teamObj, dataset.period);
+            const tb2 = getCumFinancialPct(teamObj, dataset.period);
+
             return (
               <div
                 key={c.teamId}
-                className={`flex items-center px-4 py-2.5 rounded-xl border transition-all duration-300 ${
-                  idx === 0 ? 'bg-amber-50/80 border-amber-300 shadow-xs' : 'bg-slate-50 border-slate-200'
+                className={`flex items-center px-4 py-2 rounded-xl border transition-all duration-300 ${
+                  idx === 0 ? 'bg-amber-50/80 border-amber-300 shadow-xs font-semibold' : 'bg-slate-50 border-slate-200'
                 }`}
               >
                 {/* Rank Badge */}
-                <div className="w-16 text-center font-mono text-2xl font-extrabold text-slate-800">
+                <div className="w-14 text-center font-mono text-xl font-extrabold text-slate-800">
                   {idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : `${idx + 1}`}
                 </div>
 
-                {/* Team Name */}
-                <div className="flex-1 pl-4 flex items-center gap-3 min-w-0">
+                {/* Team Name & CEO Name */}
+                <div className="flex-1 pl-3 flex items-center gap-3 min-w-0">
                   <div
-                    className="w-3.5 h-7 rounded-full shadow-xs shrink-0"
+                    className="w-3.5 h-6 rounded-full shadow-xs shrink-0"
                     style={{ backgroundColor: TEAM_COLORS[colorIdx % TEAM_COLORS.length] }}
                   />
-                  <span className="text-slate-900 text-xl font-bold truncate">{c.teamName}</span>
+                  <div className="flex items-center gap-2 truncate">
+                    <span className="text-slate-900 text-base font-bold truncate">{displayName}</span>
+                    <span className="text-blue-700 font-bold text-[11px] bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-mono shrink-0">
+                      [CEO: {ceoName}]
+                    </span>
+                  </div>
                 </div>
 
-                {/* Year 1 to 5 Scores */}
+                {/* Tiebreaker 1 (CSAT + ESAT) */}
+                <div className="w-24 text-right pr-2 font-mono text-base font-extrabold text-amber-700">
+                  {tb1.toFixed(1)}%
+                </div>
+
+                {/* Tiebreaker 2 (GP + NP + ROE) */}
+                <div className="w-24 text-right pr-2 font-mono text-base font-extrabold text-indigo-700">
+                  {tb2.toFixed(1)}%
+                </div>
+
+                {/* Year 1 to 3 Scores */}
                 {Array.from({ length: totalYears }, (_, i) => i + 1).map(yr => {
                   const scoreForYr = c.byYear[yr];
                   const isPlayed = yr <= dataset.period;
@@ -78,7 +131,7 @@ export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, currentSlide
                   );
                 })}
 
-                {/* Total Points */}
+                {/* Total Score */}
                 <div className="w-28 text-center font-mono text-3xl font-black text-blue-700">
                   {c.total}
                 </div>

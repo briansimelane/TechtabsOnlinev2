@@ -105,7 +105,7 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title={`Value vs Price: ${productName}`}
       eyebrow={`${productName} Positioning Matrix`}
-      footer="X = Price · Y = Total Score · Quadrants centered at class average · Bubble size = Units Sold"
+      footer="X-Axis = Price · Y-Axis = Value (Total Score) · Quadrants centered at class average · Bubble size = Units Sold"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
@@ -135,8 +135,18 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
           </div>
         </div>
 
+        {/* Prominent Axis Labels */}
+        <div className="absolute inset-4 pointer-events-none flex flex-col justify-between items-center z-10">
+          <div className="bg-slate-900/90 text-white font-extrabold text-sm tracking-widest uppercase px-5 py-1.5 rounded-full shadow-md font-mono border border-slate-700">
+            ▲ VALUE (TOTAL SCORE)
+          </div>
+          <div className="bg-slate-900/90 text-white font-extrabold text-sm tracking-widest uppercase px-5 py-1.5 rounded-full shadow-md font-mono border border-slate-700">
+            PRICE (LOW → HIGH) ▶
+          </div>
+        </div>
+
         <ResponsiveContainer width="100%" height="100%">
-          <ScatterChart margin={{ top: 30, right: 40, left: 40, bottom: 30 }}>
+          <ScatterChart margin={{ top: 40, right: 40, left: 40, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
             <XAxis
               type="number"
@@ -145,6 +155,7 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
               domain={[-1.15, 1.15]}
               tick={false}
               axisLine={false}
+              label={{ value: 'Price (Low → High)', position: 'insideBottom', offset: -5, style: { fill: '#475569', fontSize: 16, fontWeight: 800, fontFamily: 'IBM Plex Mono' } }}
             />
             <YAxis
               type="number"
@@ -153,6 +164,7 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
               domain={[-1.15, 1.15]}
               tick={false}
               axisLine={false}
+              label={{ value: 'Value (Total Score)', angle: -90, position: 'insideLeft', offset: 10, style: { fill: '#475569', fontSize: 16, fontWeight: 800, fontFamily: 'IBM Plex Mono' } }}
             />
             <ZAxis type="number" dataKey="units" range={[400, 2400]} />
             <Tooltip
@@ -161,9 +173,9 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
                 if (!payload || payload.length === 0) return null;
                 const p = payload[0].payload;
                 return (
-                  <div className="bg-slate-900 text-white border border-slate-700 p-3.5 rounded-xl shadow-xl font-mono text-sm space-y-1">
+                  <div className="bg-slate-900 text-white border border-slate-700 p-3.5 rounded-xl shadow-xl font-mono text-sm space-y-1 z-20">
                     <div className="font-bold text-base text-blue-400">{p.name}</div>
-                    <div>Price: <span className="font-bold">{formatDebriefCurrency(p.price, true, false)}</span></div>
+                    <div>Price: <span className="font-bold text-amber-300">{formatDebriefCurrency(p.price, false, true)}</span></div>
                     <div>Total Score: <span className="font-bold">{p.value.toFixed(2)} pts</span></div>
                     <div>Actual Sold: <span className="font-bold">{formatDebriefUnits(p.units)} units</span></div>
                   </div>

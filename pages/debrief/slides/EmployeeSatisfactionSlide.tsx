@@ -2,7 +2,6 @@ import React from 'react';
 import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame } from '../components/SlideFrame';
 import { TeamBarChart } from '../components/TeamBarChart';
-import { formatDebriefPercent } from '../../../utils/debriefFormat';
 
 interface SlideProps {
   dataset: DebriefDataset;
@@ -25,7 +24,7 @@ export const EmployeeSatisfactionSlide: React.FC<SlideProps> = ({ dataset, curre
     <SlideFrame
       title="Employee Satisfaction (ESAT)"
       eyebrow="Human Resources & Workplace Culture"
-      footer="ESAT index (%) · Simulation Engine caps annual movement at ±5% per year"
+      footer="ESAT index (%) across all competing teams"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
@@ -33,8 +32,7 @@ export const EmployeeSatisfactionSlide: React.FC<SlideProps> = ({ dataset, curre
       <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between space-y-3">
         <TeamBarChart
           data={chartData}
-          formatter={(v) => formatDebriefPercent(v, 1)}
-          yUnit="%"
+          formatter={(v) => `${v.toFixed(1)}%`}
         />
 
         {/* Delta chips vs prior year */}

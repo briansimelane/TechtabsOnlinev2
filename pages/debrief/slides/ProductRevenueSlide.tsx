@@ -36,11 +36,13 @@ export const ProductRevenueSlide: React.FC<SlideProps> = ({
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <TeamBarChart
-        data={chartData}
-        formatter={(v) => formatDebriefCurrency(v, true, false)}
-        startFromZero={false}
-      />
+      <div className="w-full h-full flex-1 min-h-0 flex flex-col justify-between">
+        <TeamBarChart
+          data={chartData}
+          formatter={(v) => formatDebriefCurrency(v, true, false)}
+          startFromZero={false}
+        />
+      </div>
     </SlideFrame>
   );
 };

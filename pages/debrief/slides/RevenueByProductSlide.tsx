@@ -40,7 +40,7 @@ export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, currentSl
     >
       <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 65 }}>
+          <BarChart data={chartData} margin={{ top: 25, right: 30, left: 30, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
             <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />} tickLine={false} />
             <YAxis stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickFormatter={(v) => formatDebriefCurrency(v, true, false)} tickLine={false} axisLine={false} />
@@ -48,7 +48,7 @@ export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, currentSl
               contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
               formatter={(val: any) => [formatDebriefCurrency(Number(val), true, true), '']}
             />
-            <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '20px', fontWeight: 'bold', color: '#0F172A' }} />
+            <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '20px', fontWeight: 'bold', color: '#0F172A' }} />
             <Bar dataKey="TechBook" fill={PRODUCT_COLORS.techbook} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
             <Bar dataKey="Zroid" fill={PRODUCT_COLORS.zroid} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
             <Bar dataKey="iTab" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
