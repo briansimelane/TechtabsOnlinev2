@@ -4,12 +4,17 @@ import {
   Layers, 
   TrendingUp, 
   Table,
-  Info
+  Info,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  ChevronDown
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, STORE_COSTS, FINANCE_CONSTANTS, HR_ROLES, getMarketSize } from '../constants';
 import { computeMarketShareBackModel, getClosingFeatures } from '../utils/marketShareBackModel';
+import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
 
 const HR_ROLE_LABELS: Record<string, string> = {
   engineers: 'Engineers',
@@ -25,6 +30,9 @@ const MarketReports: React.FC = () => {
   const { currentTeam, currentRole, classes, currentClassId } = useSimulation();
   const [activeTab, setActiveTab] = useState<Tab>('decisions');
   const [selectedMobileTeam, setSelectedMobileTeam] = useState<number>(0);
+
+  const [exportPdfOpen, setExportPdfOpen] = useState(false);
+  const [exportCsvOpen, setExportCsvOpen] = useState(false);
 
   const currentClass = classes.find(c => c.id === currentClassId);
   const realTeams = React.useMemo(() => {
@@ -874,35 +882,284 @@ const MarketReports: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Market Reports</h1>
           <p className="text-slate-500 mt-1">Comparative industry analysis and competitive intelligence.</p>
         </div>
         
-        {/* Tab Navigation */}
-        {!shouldHideReports && (
-          <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
-              {[
-                  { id: 'decisions', label: 'Industry Decisions', icon: Layers },
-                  { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
-                  { id: 'marketData', label: 'Market Data', icon: Table },
-              ].map((tab) => (
-                  <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as Tab)}
-                      className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                          activeTab === tab.id 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : 'text-slate-600 hover:bg-slate-50'
-                      }`}
-                  >
-                      <tab.icon className="w-4 h-4 mr-2" />
-                      {tab.label}
-                  </button>
-              ))}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Facilitator Export Controls (Only visible to Facilitator/Admin) */}
+          {!isStudent && (
+            <div className="flex items-center gap-2">
+              {/* PDF Export Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setExportPdfOpen(!exportPdfOpen);
+                    setExportCsvOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-xs shadow-xs transition-all hover:scale-[1.02]"
+                >
+                  <FileText size={15} />
+                  <span>Download PDF</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                {exportPdfOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in duration-150">
+                    <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      PDF Export Options
+                    </div>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('all', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-extrabold text-slate-900 hover:bg-red-50 hover:text-red-700 flex items-center gap-2 transition-colors"
+                    >
+                      <Download size={14} className="text-red-600" />
+                      Download All Reports (Single PDF)
+                    </button>
+                    <div className="my-1 border-t border-slate-100"></div>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('decisions', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Industry Decisions PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('performance', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Income Statement PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('balance', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Balance Sheet PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('ratios', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Financial Ratios & KPIs PDF
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportPDF('market', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportPdfOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Market Share & Scores PDF
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* CSV Export Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => {
+                    setExportCsvOpen(!exportCsvOpen);
+                    setExportPdfOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-all hover:scale-[1.02]"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Download CSV</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                {exportCsvOpen && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in duration-150">
+                    <div className="px-3.5 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      CSV Export Options
+                    </div>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('all', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-extrabold text-slate-900 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 transition-colors"
+                    >
+                      <Download size={14} className="text-emerald-600" />
+                      Download All Reports (Combined CSV)
+                    </button>
+                    <div className="my-1 border-t border-slate-100"></div>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('decisions', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Industry Decisions CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('performance', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Income Statement CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('balance', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Balance Sheet CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('ratios', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Financial Ratios & KPIs CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        exportReportCSV('market', {
+                          className: currentClass?.name || 'Class Simulation',
+                          period: currentClass?.currentPeriod || 1,
+                          activeTeams,
+                          decisionsData: dynamicDecisionsData,
+                          performanceData: dynamicPerformanceData,
+                          marketData: dynamicMarketData
+                        });
+                        setExportCsvOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 font-medium transition-colors"
+                    >
+                      Market Share & Scores CSV
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Tab Navigation */}
+          {!shouldHideReports && (
+            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
+                {[
+                    { id: 'decisions', label: 'Industry Decisions', icon: Layers },
+                    { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
+                    { id: 'marketData', label: 'Market Data', icon: Table },
+                ].map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as Tab)}
+                        className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                            activeTab === tab.id 
+                            ? 'bg-blue-600 text-white shadow-sm' 
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                    >
+                        <tab.icon className="w-4 h-4 mr-2" />
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Content */}
