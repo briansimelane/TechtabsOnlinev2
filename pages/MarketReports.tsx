@@ -49,6 +49,36 @@ const MarketReports: React.FC = () => {
 
   const activeTeams = realTeams.length > 0 ? realTeams.map(t => t.name) : teams;
 
+  const getDecisionRefValue = React.useCallback((productName: string, field: string, teamIdx: number) => {
+    if (!currentClass || !realTeams[teamIdx]) return '—';
+    const t = realTeams[teamIdx];
+    const dec = t.draftDecisions || INITIAL_DECISIONS;
+    const pId = productName.toLowerCase() === 'techbook' ? 'techbook' : (productName.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
+
+    switch (field) {
+      case 'Price':
+        return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
+      case 'Payment Terms':
+        return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
+      case 'Availability':
+        return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
+      case 'Stores':
+        return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
+      case 'Agents':
+        return formatPercent(dec.marketing?.agentCommission ?? 0, 2, true);
+      case 'CS Headcount':
+        return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
+      case 'Cumulative Features':
+        return formatNumber(getClosingFeatures(t, dec, pId), 0);
+      case 'Company Advertising':
+        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
+      case 'Product Advertising':
+        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
+      default:
+        return '—';
+    }
+  }, [currentClass, realTeams]);
+
   // Dynamic Market Data calculation from actual backModel
   const dynamicMarketData = React.useMemo(() => {
     if (!currentClass || !realTeams || realTeams.length === 0) {
@@ -64,32 +94,6 @@ const MarketReports: React.FC = () => {
       'Zroid': 'zroid',
       'iTab': 'itab'
     };
-
-    const getCriterionDriverValue = (cName: string, pId: 'techbook' | 'zroid' | 'itab', t: typeof realTeams[0]) => {
-      const dec = t.draftDecisions || INITIAL_DECISIONS;
-      switch (cName) {
-        case 'Price':
-          return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
-        case 'Payment Terms':
-          return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
-        case 'Availability':
-          return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
-        case 'Stores':
-          return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
-        case 'Agents':
-          return `${((dec.marketing?.agentCommission ?? 0) * 100).toFixed(1)}%`;
-        case 'Staff Availability':
-          return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
-        case 'Product Innovation':
-          return `${getClosingFeatures(t, dec, pId)} feat`;
-        case 'Company Advertising':
-          return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
-        case 'Product Advertising':
-          return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
-        default:
-          return '';
-      }
-    };
     
     return ['TechBook', 'Zroid', 'iTab'].map(pName => {
       const pId = productKeys[pName];
@@ -104,12 +108,10 @@ const MarketReports: React.FC = () => {
         return {
           criteria: criteriaLabel,
           rating: c.rating,
-          scores: realTeams.map((t, tIdx) => {
+          scores: realTeams.map((_, tIdx) => {
             const isActive = result.activeByTeam[tIdx];
             if (!isActive) return '0.00';
-            const scoreStr = c.weightedByTeam[tIdx].toFixed(2);
-            const decVal = getCriterionDriverValue(c.name, pId, t);
-            return decVal ? `${decVal} (${scoreStr})` : scoreStr;
+            return c.weightedByTeam[tIdx].toFixed(2);
           })
         };
       });
@@ -137,13 +139,26 @@ const MarketReports: React.FC = () => {
         bold: true,
         bg: shareColor
       };
+
+      const decisionsRefRows = [
+        { label: 'Price', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Price', i)) },
+        { label: 'Payment Terms', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Payment Terms', i)) },
+        { label: 'Availability: Factory Capacity', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Availability', i)) },
+        { label: 'Stores', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Stores', i)) },
+        { label: 'Agents: Commission', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Agents', i)) },
+        { label: 'Staff Availability: CS Staff', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'CS Headcount', i)) },
+        { label: 'Product Innovation: Features', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Cumulative Features', i)) },
+        { label: 'Company Advertising: General', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Company Advertising', i)) },
+        { label: 'Product Advertising: Product Ad', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Product Advertising', i)) }
+      ];
       
       return {
         product: pName,
-        data: [...criteriaRows, totalScoresRow, shareRow]
+        data: [...criteriaRows, totalScoresRow, shareRow],
+        decisionsRef: decisionsRefRows
       };
     });
-  }, [currentClass, realTeams]);
+  }, [currentClass, realTeams, getDecisionRefValue]);
 
   // Dynamic Decisions Data mapping from actual team draftDecisions
   const dynamicDecisionsData = React.useMemo(() => {
@@ -781,35 +796,7 @@ const MarketReports: React.FC = () => {
 
 
 
-  const getDecisionRefValue = (productName: string, field: string, teamIdx: number) => {
-    if (!currentClass || !realTeams[teamIdx]) return '—';
-    const t = realTeams[teamIdx];
-    const dec = t.draftDecisions || INITIAL_DECISIONS;
-    const pId = productName.toLowerCase() === 'techbook' ? 'techbook' : (productName.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
 
-    switch (field) {
-      case 'Price':
-        return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
-      case 'Payment Terms':
-        return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
-      case 'Availability':
-        return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
-      case 'Stores':
-        return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
-      case 'Agents':
-        return formatPercent(dec.marketing?.agentCommission ?? 0, 2, true);
-      case 'CS Headcount':
-        return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
-      case 'Cumulative Features':
-        return formatNumber(getClosingFeatures(t, dec, pId), 0);
-      case 'Company Advertising':
-        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
-      case 'Product Advertising':
-        return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
-      default:
-        return '—';
-    }
-  };
 
   const activeDecisionsData = dynamicDecisionsData || { marketing: [], operations: [], hr: [], procurement: [], finance: [] };
   const activePerformanceData = dynamicPerformanceData || { income: [], balance: [], kpis: [] };

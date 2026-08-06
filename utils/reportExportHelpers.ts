@@ -20,6 +20,7 @@ interface ExportDataParams {
   marketData: {
     product: string;
     data: { criteria: string; rating: number | null; scores: string[]; bold?: boolean; bg?: string }[];
+    decisionsRef?: { label: string; values: string[] }[];
   }[] | null;
 }
 
@@ -89,13 +90,17 @@ export const exportReportCSV = (
   if (type === 'all' || type === 'market') {
     if (marketData) {
       marketData.forEach(p => {
-        csvContent += `=== MARKET DATA - ${p.product.toUpperCase()} ===\n`;
+        csvContent += `=== MARKET DATA - ${p.product.toUpperCase()} (SCORES) ===\n`;
         csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
         p.data.forEach(r => {
           const line = [`"${cleanValue(r.criteria)}"`, ...r.scores.map(s => `"${cleanValue(s)}"`)];
           csvContent += line.join(',') + '\n';
         });
         csvContent += '\n';
+
+        if (p.decisionsRef) {
+          appendTable(`Market Data - ${p.product} Decisions Reference`, p.decisionsRef);
+        }
       });
     }
   }
@@ -237,6 +242,10 @@ export const exportReportPDF = (
           bold: r.bold
         }));
         appendPDFTable(`Market Data — ${p.product}`, rows);
+
+        if (p.decisionsRef && p.decisionsRef.length > 0) {
+          appendPDFTable(`Market Data — ${p.product} (Decisions Reference)`, p.decisionsRef);
+        }
       });
     }
   }
