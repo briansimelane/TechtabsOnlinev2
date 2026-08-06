@@ -13,6 +13,17 @@ export interface Product {
   segment: 'Entry' | 'Mid' | 'Premium';
 }
 
+export interface PeriodMarketRecord {
+  marketSize: Record<ProductId, number>; // total market units for the year
+  forecastUnits: Record<ProductId, number>; // forecastedMarketShare% × marketSize
+  demandUnits: Record<ProductId, number>; // share earned × marketSize
+  actualUnits: Record<ProductId, number>; // min(demand, available)
+  availableUnits: Record<ProductId, number>;
+  actualShare: Record<ProductId, number>; // 0–1, realised
+  valueScore: Record<ProductId, number>;
+  valueScoreExPrice: Record<ProductId, number>;
+}
+
 export interface PeriodRecord {
   period: number;
   revenue: { total: number; byProduct: Record<ProductId, number> };
@@ -58,6 +69,9 @@ export interface PeriodRecord {
   prices?: Record<ProductId, number>;
   salaries?: Record<HRRole, number>;
   features?: Record<ProductId, number>;
+  market?: PeriodMarketRecord;
+  staffCounts?: Record<HRRole, number>;
+  requiredCS?: number;
 }
 
 export interface Team {

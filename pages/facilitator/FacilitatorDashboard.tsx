@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
+import { scoreCumulative } from '../../utils/leagueScoring';
 import { 
   Play, 
   RotateCcw, 
@@ -21,8 +22,10 @@ import {
   RefreshCw,
   Edit2,
   Check,
-  X
+  X,
+  Presentation
 } from 'lucide-react';
+import { DebriefRemote } from '../debrief/DebriefRemote';
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { SimulationConfig } from './SimulationConfig';
 import { ParameterTweaker } from './ParameterTweaker';
@@ -238,52 +241,12 @@ const FacilitatorDashboard: React.FC = () => {
 
   const maxScore = nTeams > 0 ? nTeams * 3 : 3;
 
-  // Calculate Previous Score for each team across past periods (Period 1 to Period currentPeriod - 1)
+  // Calculate Previous Score for each team across past periods using shared leagueScoring
+  const cumScores = scoreCumulative(realTeams, Math.max(0, period - 1));
   const prevScoresMap: Record<string, number> = {};
-  realTeams.forEach(t => {
-    prevScoresMap[t.id] = 0;
+  cumScores.forEach(c => {
+    prevScoresMap[c.teamId] = c.total;
   });
-
-  if (period > 1) {
-    for (let p = 1; p < period; p++) {
-      const pTeamsData = realTeams.map((t) => {
-        const hist = t.history?.[p];
-        let gpMargin = 0;
-        let npMargin = 0;
-        let roe = 0;
-
-        if (hist) {
-          const rev = hist.incomeStatement?.revenue || 0;
-          const gp = hist.incomeStatement?.grossProfit || 0;
-          const np = hist.incomeStatement?.netProfit || 0;
-          const eq = hist.balanceSheet?.equity || 0;
-
-          gpMargin = rev > 0 ? (gp / rev) * 100 : 0;
-          npMargin = rev > 0 ? (np / rev) * 100 : 0;
-          roe = eq > 0 ? (np / eq) * 100 : 0;
-        }
-
-        return { id: t.id, gpMargin, npMargin, roe };
-      });
-
-      const sortedP_GP = [...pTeamsData].sort((a, b) => a.gpMargin - b.gpMargin);
-      const gpPRank: Record<string, number> = {};
-      sortedP_GP.forEach((item, rIdx) => { gpPRank[item.id] = rIdx + 1; });
-
-      const sortedP_NP = [...pTeamsData].sort((a, b) => a.npMargin - b.npMargin);
-      const npPRank: Record<string, number> = {};
-      sortedP_NP.forEach((item, rIdx) => { npPRank[item.id] = rIdx + 1; });
-
-      const sortedP_ROE = [...pTeamsData].sort((a, b) => a.roe - b.roe);
-      const roePRank: Record<string, number> = {};
-      sortedP_ROE.forEach((item, rIdx) => { roePRank[item.id] = rIdx + 1; });
-
-      pTeamsData.forEach(item => {
-        const pScore = (gpPRank[item.id] || 1) + (npPRank[item.id] || 1) + (roePRank[item.id] || 1);
-        prevScoresMap[item.id] = (prevScoresMap[item.id] || 0) + pScore;
-      });
-    }
-  }
 
   const leaderboardTeams = teamsPerformance.map(t => {
     const gpPoints = gpRankMap[t.id] || 1;
@@ -364,6 +327,20 @@ const FacilitatorDashboard: React.FC = () => {
           <p className="text-slate-500 mt-1">Overview of {currentClass.name} - Period {currentClass.currentPeriod}</p>
         </div>
         <div className="flex space-x-3">
+             <button 
+                onClick={() => {
+                  const popupUrl = `${window.location.origin}${window.location.pathname}#/debrief/${currentClass.id}`;
+                  window.open(popupUrl, 'techtabs-debrief', 'popup,width=1600,height=900');
+                }}
+                disabled={period <= 1}
+                title={period <= 1 ? "Run Year 1 to unlock the debrief presentation" : "Open Debrief Presenter"}
+                className={`flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all ${
+                  period <= 1 ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+             >
+                <Presentation size={18} className="mr-2" />
+                Open Debrief
+             </button>
              <button className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium transition-colors">
                 <RotateCcw size={18} className="mr-2" />
                 Reset Round
@@ -382,6 +359,11 @@ const FacilitatorDashboard: React.FC = () => {
              </button>
         </div>
       </div>
+
+      {/* Debrief Remote Controller Panel */}
+      {period > 1 && (
+        <DebriefRemote classId={currentClass.id} currentPeriod={currentClass.currentPeriod} />
+      )}
 
       {/* Navigation Tabs */}
       <div className="bg-white rounded-lg border border-slate-200 p-1 flex gap-1">

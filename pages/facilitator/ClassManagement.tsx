@@ -26,8 +26,10 @@ import {
   Trash2,
   RefreshCw,
   Edit2,
-  X
+  X,
+  Presentation
 } from 'lucide-react';
+import { DebriefRemote } from '../debrief/DebriefRemote';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { DEFAULT_SURVEY_CONFIG } from '../../constants';
 import { SurveyConfig, SurveyQuestion } from '../../types';
@@ -300,7 +302,25 @@ const ClassManagement: React.FC = () => {
           <h1 className="text-3xl font-bold text-slate-900">Class Management</h1>
           <p className="text-slate-500 mt-1">{currentClass.name}</p>
         </div>
+        <button 
+           onClick={() => {
+             const popupUrl = `${window.location.origin}${window.location.pathname}#/debrief/${currentClass.id}`;
+             window.open(popupUrl, 'techtabs-debrief', 'popup,width=1600,height=900');
+           }}
+           disabled={currentClass.currentPeriod <= 1}
+           title={currentClass.currentPeriod <= 1 ? "Run Year 1 to unlock the debrief presentation" : "Open Debrief Presenter"}
+           className={`flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all ${
+             currentClass.currentPeriod <= 1 ? 'opacity-50 cursor-not-allowed' : ''
+           }`}
+        >
+           <Presentation size={18} className="mr-2" />
+           Open Debrief Presenter
+        </button>
       </div>
+
+      {currentClass.currentPeriod > 1 && (
+        <DebriefRemote classId={currentClass.id} currentPeriod={currentClass.currentPeriod} />
+      )}
 
       <div className="bg-white rounded-lg border border-slate-200 p-1 inline-flex shadow-sm flex-wrap gap-1">
           <button onClick={() => setActiveTab('students')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${activeTab === 'students' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>

@@ -638,7 +638,51 @@ export const processTurn = (
         kpis: newKPIs,
         prices: decisions.marketing.prices,
         salaries: decisions.hr.salaries,
-        features: newFeatures
+        features: newFeatures,
+        staffCounts: { ...staffCounts },
+        requiredCS: requiredCS,
+        market: {
+            marketSize: {
+                techbook: getMarketSize('techbook', team.currentPeriod),
+                zroid: getMarketSize('zroid', team.currentPeriod),
+                itab: getMarketSize('itab', team.currentPeriod)
+            },
+            forecastUnits: {
+                techbook: Math.round(((decisions.marketing.forecastedMarketShare?.techbook || 0) / 100) * getMarketSize('techbook', team.currentPeriod)),
+                zroid: Math.round(((decisions.marketing.forecastedMarketShare?.zroid || 0) / 100) * getMarketSize('zroid', team.currentPeriod)),
+                itab: Math.round(((decisions.marketing.forecastedMarketShare?.itab || 0) / 100) * getMarketSize('itab', team.currentPeriod))
+            },
+            demandUnits: {
+                techbook: Math.round(productDemands.techbook || 0),
+                zroid: Math.round(productDemands.zroid || 0),
+                itab: Math.round(productDemands.itab || 0)
+            },
+            actualUnits: {
+                techbook: unitsSold.techbook || 0,
+                zroid: unitsSold.zroid || 0,
+                itab: unitsSold.itab || 0
+            },
+            availableUnits: {
+                techbook: productAvailable.techbook || 0,
+                zroid: productAvailable.zroid || 0,
+                itab: productAvailable.itab || 0
+            },
+            actualShare: {
+                techbook: marketShares.techbook || 0,
+                zroid: marketShares.zroid || 0,
+                itab: marketShares.itab || 0
+            },
+            valueScore: {
+                techbook: productScores.techbook || 0,
+                zroid: productScores.zroid || 0,
+                itab: productScores.itab || 0
+            },
+            valueScoreExPrice: {
+                techbook: productScores.techbook || 0,
+                zroid: productScores.zroid || 0,
+                itab: productScores.itab || 0
+            }
+        }
     };
 
     return { newTeamState, kpis: newKPIs, periodRecord };

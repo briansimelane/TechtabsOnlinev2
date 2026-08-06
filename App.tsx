@@ -22,6 +22,7 @@ import GlobalClassManagement from './pages/admin/GlobalClassManagement';
 import { SimulationProvider, useSimulation } from './contexts/SimulationContext';
 import { Role } from './types';
 import Survey from './pages/Survey';
+import { DebriefPresenter } from './pages/debrief/DebriefPresenter';
 
 // Placeholder components for other routes
 const Placeholder = ({ title }: { title: string }) => (
@@ -123,7 +124,10 @@ const App: React.FC = () => {
   return (
     <SimulationProvider>
       <Router>
-        <AppLayout />
+        <Routes>
+          <Route path="/debrief/:classId" element={<DebriefPresenter />} />
+          <Route path="/*" element={<AppLayout />} />
+        </Routes>
       </Router>
     </SimulationProvider>
   );
