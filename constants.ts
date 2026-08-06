@@ -302,12 +302,32 @@ export const PRODUCT_DEMAND_SCHEDULE: Record<ProductId, Record<number, number>> 
   }
 };
 
+export function getOverriddenValue(path: string[], period: number, fallback: number): number {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('simulation_config_overrides') : null;
+    if (raw) {
+      const config = JSON.parse(raw);
+      let curr = config;
+      for (const p of path) {
+        curr = curr?.[p];
+      }
+      if (curr?.by_year && curr.by_year[period] !== undefined) {
+        return Number(curr.by_year[period]);
+      }
+      if (typeof curr === 'number') {
+        return Number(curr);
+      }
+    }
+  } catch (e) {}
+  return fallback;
+}
+
 export const getMarketSize = (productId: ProductId, period: number): number => {
   const pName = productId === 'techbook' ? 'TechBook' : (productId === 'zroid' ? 'Zroid' : 'iTab');
 
   // Check custom facilitator configuration overrides first
   try {
-    const overridesRaw = localStorage.getItem('simulation_config_overrides');
+    const overridesRaw = typeof window !== 'undefined' ? localStorage.getItem('simulation_config_overrides') : null;
     if (overridesRaw) {
       const overrides = JSON.parse(overridesRaw);
       const customYearly = overrides.market_demand?.[pName]?.yearly_units;

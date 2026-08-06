@@ -323,86 +323,154 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <Package className="w-5 h-5 text-blue-600" />
-            <span className="font-semibold text-lg">Supplier Configuration</span>
+            <span className="font-semibold text-lg">Supplier Configuration (Year 0 - Year 4)</span>
           </div>
           {expandedSections.suppliers ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.suppliers && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-            <div className="space-y-4">
-              {Object.entries(config.suppliers || {}).map(([supplierId, supplier]: [string, any]) => (
-                <div key={supplierId} className="bg-white p-4 rounded border border-slate-200">
-                  <div className="mb-3">
-                    <label className="text-sm text-slate-600 block mb-1">Supplier Name</label>
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Configure supplier component prices, finished goods prices, and performance attributes per year (Year 0 through Year 4).
+            </p>
+
+            {Object.entries(config.suppliers || {}).map(([supplierId, supplier]: [string, any]) => (
+              <div key={supplierId} className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="w-full max-w-sm">
+                    <label className="text-xs text-slate-500 uppercase block mb-1">Supplier Name</label>
                     <input
                       type="text"
                       value={supplier.name || ''}
                       onChange={(e) => updateConfig(['suppliers', supplierId, 'name'], e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-semibold"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold text-sm"
                     />
-                  </div>
-                  
-                  <div className="mb-3">
-                    <label className="text-sm text-slate-600 block mb-2">Performance Attributes</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {Object.entries(supplier.performance_attributes || {}).map(([attr, value]: [string, any]) => (
-                        <div key={attr}>
-                          <label className="text-xs text-slate-500">{attr.replace(/_/g, ' ')}</label>
-                          <NumberInput
-                            value={value}
-                            onChange={(val) => updateConfig(['suppliers', supplierId, 'performance_attributes', attr], val)}
-                            decimals={1}
-                            isFloat={true}
-                            className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mb-3">
-                    <label className="text-sm text-slate-600 block mb-1">Description</label>
-                    <textarea
-                      value={supplier.description || ''}
-                      onChange={(e) => updateConfig(['suppliers', supplierId, 'description'], e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                      rows={2}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700 block mb-2">Component Prices</label>
-                      {Object.entries(supplier.component_prices || {}).map(([prod, price]: [string, any]) => (
-                        <div key={prod} className="flex items-center gap-2 mb-2">
-                          <span className="text-sm flex-1">{prod}:</span>
-                          <NumberInput
-                            value={price}
-                            onChange={(val) => updateConfig(['suppliers', supplierId, 'component_prices', prod], val)}
-                            isFloat={true}
-                            className="w-24 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                    <div>
-                      <label className="text-sm font-semibold text-slate-700 block mb-2">Finished Goods Prices</label>
-                      {Object.entries(supplier.finished_goods_prices || {}).map(([prod, price]: [string, any]) => (
-                        <div key={prod} className="flex items-center gap-2 mb-2">
-                          <span className="text-sm flex-1">{prod}:</span>
-                          <NumberInput
-                            value={price}
-                            onChange={(val) => updateConfig(['suppliers', supplierId, 'finished_goods_prices', prod], val)}
-                            isFloat={true}
-                            className="w-24 px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                          />
-                        </div>
-                      ))}
-                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Component Prices Table */}
+                <div>
+                  <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-2">Component Prices by Year</h5>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b text-slate-700">
+                          <th className="py-2 px-3 text-left font-bold w-48">Product</th>
+                          {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                            <th key={idx} className="py-2 px-3 text-center font-bold">{yr}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {['TechBook', 'Zroid', 'iTab'].map(pName => {
+                          const basePrice = supplier.component_prices?.[pName] ?? 1200;
+                          const yearMap = supplier.component_prices?.[`${pName}_by_year`] || {};
+                          return (
+                            <tr key={pName} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-semibold text-slate-700">{pName}</td>
+                              {[0, 1, 2, 3, 4].map(y => (
+                                <td key={y} className="py-1 px-2 text-center">
+                                  <NumberInput
+                                    value={yearMap[y] ?? basePrice}
+                                    onChange={(val) => updateConfig(['suppliers', supplierId, 'component_prices', `${pName}_by_year`, String(y)], val)}
+                                    className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Finished Goods Prices Table */}
+                <div>
+                  <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-2">Finished Goods Prices by Year</h5>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b text-slate-700">
+                          <th className="py-2 px-3 text-left font-bold w-48">Product</th>
+                          {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                            <th key={idx} className="py-2 px-3 text-center font-bold">{yr}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {['TechBook', 'Zroid', 'iTab'].map(pName => {
+                          const basePrice = supplier.finished_goods_prices?.[pName] ?? 1600;
+                          const yearMap = supplier.finished_goods_prices?.[`${pName}_by_year`] || {};
+                          return (
+                            <tr key={pName} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-semibold text-slate-700">{pName}</td>
+                              {[0, 1, 2, 3, 4].map(y => (
+                                <td key={y} className="py-1 px-2 text-center">
+                                  <NumberInput
+                                    value={yearMap[y] ?? basePrice}
+                                    onChange={(val) => updateConfig(['suppliers', supplierId, 'finished_goods_prices', `${pName}_by_year`, String(y)], val)}
+                                    className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Performance Attributes Table */}
+                <div>
+                  <h5 className="font-bold text-xs text-slate-700 uppercase tracking-wider mb-2">Performance Attributes by Year</h5>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b text-slate-700">
+                          <th className="py-2 px-3 text-left font-bold w-48">Attribute</th>
+                          {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                            <th key={idx} className="py-2 px-3 text-center font-bold">{yr}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {Object.entries(supplier.performance_attributes || {}).map(([attr, val]: [string, any]) => {
+                          const baseVal = typeof val === 'number' ? val : 0;
+                          const yearMap = supplier.performance_attributes?.[`${attr}_by_year`] || {};
+                          return (
+                            <tr key={attr} className="hover:bg-slate-50">
+                              <td className="py-2 px-3 font-semibold text-slate-700">{attr.replace(/_/g, ' ')}</td>
+                              {[0, 1, 2, 3, 4].map(y => (
+                                <td key={y} className="py-1 px-2 text-center">
+                                  <NumberInput
+                                    value={yearMap[y] ?? baseVal}
+                                    onChange={(newVal) => updateConfig(['suppliers', supplierId, 'performance_attributes', `${attr}_by_year`, String(y)], newVal)}
+                                    decimals={1}
+                                    isFloat={true}
+                                    className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-slate-500 block mb-1">Description</label>
+                  <textarea
+                    value={supplier.description || ''}
+                    onChange={(e) => updateConfig(['suppliers', supplierId, 'description'], e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    rows={2}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -512,48 +580,90 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-purple-600" />
-            <span className="font-semibold text-lg">Training Programs & Productivity</span>
+            <span className="font-semibold text-lg">Training Programs & Productivity (Year 0 - Year 4)</span>
           </div>
           {expandedSections.training ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.training && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-            <div className="grid grid-cols-2 gap-4">
-              {Object.entries(config.training_programs || {}).map(([level, program]: [string, any]) => (
-                <div key={level} className="bg-white p-4 rounded border border-slate-200">
-                  <h4 className="font-semibold text-slate-900 mb-3">{level}</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Cost per Employee</label>
-                      <NumberInput
-                        value={program.cost_per_employee || 0}
-                        onChange={(val) => updateConfig(['training_programs', level, 'cost_per_employee'], val)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono text-right"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Productivity Effect (decimal)</label>
-                      <NumberInput
-                        value={program.productivity_effect || 0}
-                        onChange={(val) => updateConfig(['training_programs', level, 'productivity_effect'], val)}
-                        decimals={2}
-                        isFloat={true}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 font-mono text-right"
-                      />
-                      <div className="text-xs text-green-600 mt-1">= +{formatPercent(program.productivity_effect, 2)}</div>
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Description</label>
-                      <textarea
-                        value={program.description || ''}
-                        onChange={(e) => updateConfig(['training_programs', level, 'description'], e.target.value)}
-                        className="w-full px-2 py-1 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-purple-500"
-                        rows={2}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Set training program costs, productivity boost effects, and base staff productivity units per year (Year 0 through Year 4).
+            </p>
+
+            {/* Training Program Costs by Year Table */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">Training Program Cost per Employee by Year</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b text-slate-700">
+                      <th className="py-2.5 px-3 text-left font-bold w-48">Program Level</th>
+                      {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                        <th key={idx} className="py-2.5 px-3 text-center font-bold">{yr}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {['None', 'Basic', 'Moderate', 'Advanced'].map(level => {
+                      const baseVal = config.training_programs?.[level]?.cost_per_employee ?? (level === 'Basic' ? 9600 : level === 'Moderate' ? 32000 : level === 'Advanced' ? 48000 : 0);
+                      const yearMap = config.training_programs?.[level]?.cost_per_employee_by_year || {};
+                      return (
+                        <tr key={level} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-semibold text-slate-700">{level}</td>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-1.5 px-2 text-center">
+                              <NumberInput
+                                value={yearMap[y] ?? baseVal}
+                                onChange={(val) => updateConfig(['training_programs', level, 'cost_per_employee_by_year', String(y)], val)}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-purple-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Productivity Effect by Year Table */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">Training Productivity Effect (Decimal) by Year</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b text-slate-700">
+                      <th className="py-2.5 px-3 text-left font-bold w-48">Program Level</th>
+                      {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                        <th key={idx} className="py-2.5 px-3 text-center font-bold">{yr}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {['None', 'Basic', 'Moderate', 'Advanced'].map(level => {
+                      const baseVal = config.training_programs?.[level]?.productivity_effect ?? (level === 'Basic' ? 0.03 : level === 'Moderate' ? 0.055 : level === 'Advanced' ? 0.1 : 0);
+                      const yearMap = config.training_programs?.[level]?.productivity_effect_by_year || {};
+                      return (
+                        <tr key={level} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-semibold text-slate-700">{level}</td>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-1.5 px-2 text-center">
+                              <NumberInput
+                                value={yearMap[y] ?? baseVal}
+                                onChange={(val) => updateConfig(['training_programs', level, 'productivity_effect_by_year', String(y)], val)}
+                                decimals={3}
+                                isFloat={true}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-purple-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -567,87 +677,103 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <DollarSign className="w-5 h-5 text-emerald-600" />
-            <span className="font-semibold text-lg">Operating Costs</span>
+            <span className="font-semibold text-lg">Operating Costs Schedule (Year 0 - Year 4)</span>
           </div>
           {expandedSections.costs ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.costs && (
-          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded border border-slate-200">
-                <h4 className="font-semibold text-slate-900 mb-3">Store Operations</h4>
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-slate-500 block mb-1">Setup Cost</label>
-                    <NumberInput
-                      value={config.costs?.store_operations?.setup_cost || 0}
-                      onChange={(val) => updateConfig(['costs', 'store_operations', 'setup_cost'], val)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500 block mb-1">Close Cost</label>
-                    <NumberInput
-                      value={config.costs?.store_operations?.close_cost || 0}
-                      onChange={(val) => updateConfig(['costs', 'store_operations', 'close_cost'], val)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500 block mb-1">Running Cost</label>
-                    <NumberInput
-                      value={config.costs?.store_operations?.running_cost || 0}
-                      onChange={(val) => updateConfig(['costs', 'store_operations', 'running_cost'], val)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                    />
-                  </div>
-                </div>
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Configure store operations costs, unit production costs, capacity CAPEX per unit, and R&D feature costs per year (Year 0 through Year 4).
+            </p>
+
+            {/* Store Operations Costs Table */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">Store Operations Costs by Year</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b text-slate-700">
+                      <th className="py-2.5 px-3 text-left font-bold w-48">Cost Category</th>
+                      {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                        <th key={idx} className="py-2.5 px-3 text-center font-bold">{yr}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { key: 'setup_cost', label: 'Store Setup Cost', defaultVal: 8900000 },
+                      { key: 'close_cost', label: 'Store Close Cost', defaultVal: 2320000 },
+                      { key: 'running_cost', label: 'Store Running Cost', defaultVal: 5341584 }
+                    ].map(row => {
+                      const baseVal = config.costs?.store_operations?.[row.key] ?? row.defaultVal;
+                      const yearMap = config.costs?.store_operations?.[`${row.key}_by_year`] || {};
+                      return (
+                        <tr key={row.key} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-semibold text-slate-700">{row.label}</td>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-1.5 px-2 text-center">
+                              <NumberInput
+                                value={yearMap[y] ?? baseVal}
+                                onChange={(val) => updateConfig(['costs', 'store_operations', `${row.key}_by_year`, String(y)], val)}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white p-4 rounded border border-slate-200">
-                  <h4 className="font-semibold text-slate-900 mb-3">Production</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Cost per Unit</label>
-                      <NumberInput
-                        value={config.costs?.production?.cost_per_unit || 0}
-                        onChange={(val) => updateConfig(['costs', 'production', 'cost_per_unit'], val)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Capacity CAPEX per Unit</label>
-                      <NumberInput
-                        value={config.costs?.capacity?.capex_per_unit || 0}
-                        onChange={(val) => updateConfig(['costs', 'capacity', 'capex_per_unit'], val)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-white p-4 rounded border border-slate-200">
-                  <h4 className="font-semibold text-slate-900 mb-3">Innovation</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Base Cost per Feature</label>
-                      <NumberInput
-                        value={config.costs?.innovation?.base_cost_per_feature || 0}
-                        onChange={(val) => updateConfig(['costs', 'innovation', 'base_cost_per_feature'], val)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-slate-500 block mb-1">Cost Multiplier</label>
-                      <NumberInput
-                        value={config.costs?.innovation?.cost_multiplier || 0}
-                        onChange={(val) => updateConfig(['costs', 'innovation', 'cost_multiplier'], val)}
-                        decimals={1}
-                        isFloat={true}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 font-mono text-right"
-                      />
-                    </div>
-                  </div>
-                </div>
+            </div>
+
+            {/* Production & Capacity Costs Table */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">Production & Capacity Costs by Year</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b text-slate-700">
+                      <th className="py-2.5 px-3 text-left font-bold w-48">Cost Item</th>
+                      {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                        <th key={idx} className="py-2.5 px-3 text-center font-bold">{yr}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { path: ['costs', 'production', 'cost_per_unit'], label: 'Cost per Unit', defaultVal: 720 },
+                      { path: ['costs', 'capacity', 'capex_per_unit'], label: 'Capacity CAPEX per Unit', defaultVal: 750 },
+                      { path: ['costs', 'innovation', 'base_cost_per_feature'], label: 'R&D Base Cost per Feature', defaultVal: 2350000 }
+                    ].map(row => {
+                      let baseVal = config;
+                      for (const p of row.path) { baseVal = baseVal?.[p]; }
+                      baseVal = baseVal ?? row.defaultVal;
+
+                      const lastKey = row.path[row.path.length - 1];
+                      const parentPath = row.path.slice(0, row.path.length - 1);
+                      let parentObj = config;
+                      for (const p of parentPath) { parentObj = parentObj?.[p]; }
+                      const yearMap = parentObj?.[`${lastKey}_by_year`] || {};
+
+                      return (
+                        <tr key={lastKey} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-semibold text-slate-700">{row.label}</td>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-1.5 px-2 text-center">
+                              <NumberInput
+                                value={yearMap[y] ?? baseVal}
+                                onChange={(val) => updateConfig([...parentPath, `${lastKey}_by_year`, String(y)], val)}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-emerald-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -662,54 +788,87 @@ export const SimulationConfig: React.FC = () => {
         >
           <div className="flex items-center gap-3">
             <DollarSign className="w-5 h-5 text-blue-600" />
-            <span className="font-semibold text-lg">Financial Parameters</span>
+            <span className="font-semibold text-lg">Financial Parameters (Year 0 - Year 4)</span>
           </div>
           {expandedSections.financial ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
         {expandedSections.financial && (
+          <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 space-y-6">
+            <p className="text-xs text-slate-500">
+              Configure interest rates, corporate tax rates, overdraft interest rates, and WACC rates per year (Year 0 through Year 4).
+            </p>
+
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <h4 className="font-bold text-slate-900 text-base">Financial Rates Schedule by Year</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-slate-100 border-b text-slate-700">
+                      <th className="py-2.5 px-3 text-left font-bold w-48">Financial Rate (Decimal)</th>
+                      {['Year 0', 'Year 1', 'Year 2', 'Year 3', 'Year 4'].map((yr, idx) => (
+                        <th key={idx} className="py-2.5 px-3 text-center font-bold">{yr}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {[
+                      { key: 'interest_income_rate', label: 'Interest Income Rate', defaultVal: 0.065 },
+                      { key: 'overdraft_interest_rate', label: 'Overdraft Interest Rate', defaultVal: 0.15 },
+                      { key: 'tax_rate', label: 'Corporate Tax Rate', defaultVal: 0.28 },
+                      { key: 'wacc', label: 'WACC Rate', defaultVal: 0.132 }
+                    ].map(row => {
+                      const baseVal = config.financial_parameters?.[row.key] ?? row.defaultVal;
+                      const yearMap = config.financial_parameters?.[`${row.key}_by_year`] || {};
+                      return (
+                        <tr key={row.key} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 font-semibold text-slate-700">{row.label}</td>
+                          {[0, 1, 2, 3, 4].map(y => (
+                            <td key={y} className="py-1.5 px-2 text-center">
+                              <NumberInput
+                                value={yearMap[y] ?? baseVal}
+                                onChange={(val) => updateConfig(['financial_parameters', `${row.key}_by_year`, String(y)], val)}
+                                decimals={3}
+                                isFloat={true}
+                                className="w-20 px-2 py-1 border border-slate-300 rounded font-mono text-center text-xs font-semibold focus:ring-2 focus:ring-blue-500"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Calculation Rules */}
+      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <button
+          onClick={() => toggleSection('calculations')}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5 text-slate-600" />
+            <span className="font-semibold text-lg">Calculation Sequence</span>
+          </div>
+          {expandedSections.calculations ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+        </button>
+        {expandedSections.calculations && (
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
             <div className="bg-white p-4 rounded border border-slate-200">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm text-slate-600 block mb-1">Interest Income Rate</label>
-                  <NumberInput
-                    value={config.financial_parameters?.interest_income_rate || 0}
-                    onChange={(val) => updateConfig(['financial_parameters', 'interest_income_rate'], val)}
-                    decimals={3}
-                    isFloat={true}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                  />
-                  <div className="text-xs text-green-600 mt-1">
-                    = {formatPercent(config.financial_parameters?.interest_income_rate || 0, 2)}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm text-slate-600 block mb-1">Tax Rate</label>
-                  <NumberInput
-                    value={config.financial_parameters?.tax_rate || 0}
-                    onChange={(val) => updateConfig(['financial_parameters', 'tax_rate'], val)}
-                    decimals={2}
-                    isFloat={true}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                  />
-                  <div className="text-xs text-red-600 mt-1">
-                    = {formatPercent(config.financial_parameters?.tax_rate || 0, 2)}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm text-slate-600 block mb-1">WACC</label>
-                  <NumberInput
-                    value={config.financial_parameters?.wacc || 0}
-                    onChange={(val) => updateConfig(['financial_parameters', 'wacc'], val)}
-                    decimals={3}
-                    isFloat={true}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-right"
-                  />
-                  <div className="text-xs text-indigo-600 mt-1">
-                    = {formatPercent(config.financial_parameters?.wacc || 0, 2)}
-                  </div>
-                </div>
-              </div>
+              <ol className="space-y-2">
+                {calcRules.calculation_sequence?.sequence?.map((step: string, idx: number) => (
+                  <li key={idx} className="flex items-start gap-3">
+                    <span className="flex-shrink-0 w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-bold">
+                      {idx + 1}
+                    </span>
+                    <span className="text-sm text-slate-700">{step}</span>
+                  </li>
+                ))}
+              </ol>
             </div>
           </div>
         )}
