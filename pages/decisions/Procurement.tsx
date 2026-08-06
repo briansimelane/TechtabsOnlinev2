@@ -179,12 +179,34 @@ const Procurement: React.FC = () => {
   const componentsUnallocated = reqComponents - totalComponentsAllocated;
   const finishedGoodsUnallocated = reqFinishedGoods - totalFinishedGoodsAllocated;
 
-  // Negotiation Impact Helper
-  const getDiscountedCost = (baseCost: number, supplier: string) => {
-      if (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supplier) {
-          return baseCost * (1 - negotiation.agreedDiscount);
-      }
-      return baseCost;
+  // Supplier Override & Negotiation Cost Helpers
+  const getComponentCost = (pId: ProductId, supId: string) => {
+    const overrides = decisions.supplierOverrides;
+    const baseCost = overrides?.componentCosts?.[pId]?.[supId] ?? COMPONENT_COSTS[pId]?.[supId] ?? 400;
+    const discount = overrides?.discounts?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedDiscount : 0);
+    return Math.round(baseCost * (1 - discount));
+  };
+
+  const getFinishedGoodsCost = (pId: ProductId, supId: string) => {
+    const overrides = decisions.supplierOverrides;
+    const baseCost = overrides?.finishedGoodsCosts?.[pId]?.[supId] ?? FINISHED_GOODS_COSTS[pId]?.[supId] ?? 1200;
+    const discount = overrides?.discounts?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedDiscount : 0);
+    return Math.round(baseCost * (1 - discount));
+  };
+
+  const getSupplierMetric = (supId: string, metricKey: string) => {
+    const overrides = decisions.supplierOverrides;
+    if (metricKey === 'terms') {
+      return overrides?.paymentTerms?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supId]?.terms ?? 30);
+    }
+    if (metricKey === 'quality') {
+      return overrides?.quality?.[supId] ?? SUPPLIER_METRICS[supId]?.quality ?? 7;
+    }
+    if (metricKey === 'deliveryReliability') {
+      return overrides?.deliveryReliability?.[supId] ?? 0.95;
+    }
+    // @ts-ignore
+    return SUPPLIER_METRICS[supId]?.[metricKey] ?? 0;
   };
 
   return (
@@ -457,16 +479,12 @@ const Procurement: React.FC = () => {
                                 <tr key={metric.key}>
                                     <td className="py-3 text-left font-medium text-slate-700">{metric.label}</td>
                                     {SUPPLIERS.map(s => {
-                                        // Override Terms if negotiated
-                                        // @ts-ignore
-                                        let val = SUPPLIER_METRICS[s][metric.key];
-                                        if (metric.key === 'terms' && negotiation.status === 'AGREED' && negotiation.selectedSupplierId === s) {
-                                            val = negotiation.agreedPaymentTerms;
-                                        }
+                                        let val = getSupplierMetric(s, metric.key);
+                                        const isNegotiated = (metric.key === 'terms' && (decisions.supplierOverrides?.paymentTerms?.[s] !== undefined || (negotiation.selectedSupplierId === s && negotiation.status === 'AGREED')));
 
                                         return (
-                                            <td key={s} className={`py-3 px-2 border-l border-slate-100 text-slate-600 ${metric.key === 'terms' && negotiation.selectedSupplierId === s && negotiation.status === 'AGREED' ? 'font-bold text-emerald-600' : ''}`}>
-                                                {val.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                                            <td key={s} className={`py-3 px-2 border-l border-slate-100 text-slate-600 ${isNegotiated ? 'font-bold text-emerald-600' : ''}`}>
+                                                {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
                                             </td>
                                         );
                                     })}
@@ -496,13 +514,8 @@ const Procurement: React.FC = () => {
                                     { key: 'innovation', label: 'Product Innovation' },
                                     { key: 'terms', label: 'Terms (Days)' },
                                 ].map((metric) => {
-                                    // Override Terms if negotiated
-                                    // @ts-ignore
-                                    let val = SUPPLIER_METRICS[s][metric.key];
-                                    if (metric.key === 'terms' && negotiation.status === 'AGREED' && negotiation.selectedSupplierId === s) {
-                                        val = negotiation.agreedPaymentTerms;
-                                    }
-                                    const isNegotiated = metric.key === 'terms' && negotiation.selectedSupplierId === s && negotiation.status === 'AGREED';
+                                    let val = getSupplierMetric(s, metric.key);
+                                    const isNegotiated = (metric.key === 'terms' && (decisions.supplierOverrides?.paymentTerms?.[s] !== undefined || (negotiation.selectedSupplierId === s && negotiation.status === 'AGREED')));
 
                                     return (
                                         <div key={metric.key} className="flex justify-between items-center py-1">
@@ -542,8 +555,8 @@ const Procurement: React.FC = () => {
                                       <td className="py-2 text-left font-medium text-slate-700">{p.name}</td>
                                       {SUPPLIERS.map(s => {
                                           const baseCost = COMPONENT_COSTS[p.id][s];
-                                          const discountedCost = getDiscountedCost(baseCost, s);
-                                          const hasDiscount = discountedCost < baseCost;
+                                          const discountedCost = getComponentCost(p.id, s);
+                                          const hasDiscount = discountedCost !== baseCost;
 
                                           return (
                                             <td key={s} className={`py-2 px-2 border-l border-slate-100 text-slate-600 font-mono ${hasDiscount ? 'bg-emerald-50' : ''}`}>
@@ -572,8 +585,8 @@ const Procurement: React.FC = () => {
                               <div className="grid grid-cols-3 gap-2 text-xs">
                                   {SUPPLIERS.map(s => {
                                       const baseCost = COMPONENT_COSTS[p.id][s];
-                                      const discountedCost = getDiscountedCost(baseCost, s);
-                                      const hasDiscount = discountedCost < baseCost;
+                                      const discountedCost = getComponentCost(p.id, s);
+                                      const hasDiscount = discountedCost !== baseCost;
 
                                       return (
                                         <div key={s} className={`p-2 rounded-lg border text-center ${hasDiscount ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
@@ -614,8 +627,8 @@ const Procurement: React.FC = () => {
                                       <td className="py-2 text-left font-medium text-slate-700">{p.name}</td>
                                       {SUPPLIERS.map(s => {
                                           const baseCost = FINISHED_GOODS_COSTS[p.id][s];
-                                          const discountedCost = getDiscountedCost(baseCost, s);
-                                          const hasDiscount = discountedCost < baseCost;
+                                          const discountedCost = getFinishedGoodsCost(p.id, s);
+                                          const hasDiscount = discountedCost !== baseCost;
 
                                           return (
                                             <td key={s} className={`py-2 px-2 border-l border-slate-100 text-slate-600 font-mono ${hasDiscount ? 'bg-emerald-50' : ''}`}>
@@ -644,8 +657,8 @@ const Procurement: React.FC = () => {
                               <div className="grid grid-cols-3 gap-2 text-xs">
                                   {SUPPLIERS.map(s => {
                                       const baseCost = FINISHED_GOODS_COSTS[p.id][s];
-                                      const discountedCost = getDiscountedCost(baseCost, s);
-                                      const hasDiscount = discountedCost < baseCost;
+                                      const discountedCost = getFinishedGoodsCost(p.id, s);
+                                      const hasDiscount = discountedCost !== baseCost;
 
                                       return (
                                         <div key={s} className={`p-2 rounded-lg border text-center ${hasDiscount ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>

@@ -1,6 +1,8 @@
-import { Team, TurnDecisions, ProductId, HRRole } from '../types';
-import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS, SUPPLIER_METRICS } from '../constants';
+import { Team, TurnDecisions, ProductId, HRRole, PeriodRecord } from '../types';
+import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS, SUPPLIER_METRICS, YEAR_0_RECORD } from '../constants';
 import CONFIG from '../resources/config.json';
+import { processTurn } from './SimulationEngine';
+import { computeIndustryPerformance } from './industryPerformance';
 
 const EMPLOYEE_PRODUCTIVITY = (CONFIG as any).employee_productivity || {};
 const TRAINING_PROGRAMS = (CONFIG as any).training_programs || {};
@@ -249,6 +251,39 @@ export interface ProductMarketShareResult {
   unitsSoldByTeam: number[];
 }
 
+export function getDecisionsForTeamPeriod(team: Team, period: number): TurnDecisions {
+  const rec = team.history?.[period] || team.history?.[String(period)];
+  if (rec?.decisions) return rec.decisions;
+  if (rec?.draftDecisions) return rec.draftDecisions;
+
+  // Reconstruct executed decisions from history record if rec exists for past period
+  if (period < team.currentPeriod && rec) {
+    return {
+      ...INITIAL_DECISIONS,
+      marketing: {
+        ...INITIAL_DECISIONS.marketing,
+        prices: rec.prices || INITIAL_DECISIONS.marketing.prices,
+        advertisingBudget: rec.opex?.marketing ?? INITIAL_DECISIONS.marketing.advertisingBudget,
+      },
+      hr: {
+        ...INITIAL_DECISIONS.hr,
+        salaries: rec.salaries || INITIAL_DECISIONS.hr.salaries,
+      },
+      finance: {
+        ...INITIAL_DECISIONS.finance,
+        debtorsDays: rec.debtorDays || INITIAL_DECISIONS.finance.debtorsDays,
+      }
+    };
+  }
+
+  // Active period
+  if (period === team.currentPeriod && team.draftDecisions) {
+    return team.draftDecisions;
+  }
+
+  return INITIAL_DECISIONS;
+}
+
 // Main BackModel Market Share calculator
 export function computeMarketShareBackModel(
   teams: Team[],
@@ -273,7 +308,7 @@ export function computeMarketShareBackModel(
   return PRODUCTS.map(p => {
     let activeByTeam = sortedTeams.map((t, idx) => {
       if (idx >= numberOfTeams) return false;
-      const dec = t.draftDecisions || INITIAL_DECISIONS;
+      const dec = getDecisionsForTeamPeriod(t, period);
       const price = dec.marketing?.prices?.[p.id] ?? 0;
       const forecastedShare = dec.marketing?.forecastedMarketShare?.[p.id] ?? 0;
       const histRev = t.history?.[period]?.revenue?.byProduct?.[p.id] ?? 0;
@@ -292,7 +327,7 @@ export function computeMarketShareBackModel(
       
       const rawByTeam = sortedTeams.map((t, idx) => {
         if (!activeByTeam[idx]) return 0;
-        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        const dec = getDecisionsForTeamPeriod(t, period);
         
         switch (meta.id) {
           case 1: // Price
@@ -373,7 +408,7 @@ export function computeMarketShareBackModel(
     
     const availableByTeam = sortedTeams.map((t, idx) => {
       if (!activeByTeam[idx]) return 0;
-      const dec = t.draftDecisions || INITIAL_DECISIONS;
+      const dec = getDecisionsForTeamPeriod(t, period);
       const scaledProd = getScaledProduction(t, dec)[p.id] || 0;
       const purchased = Object.values(dec.procurement?.supplierAllocation?.[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
       const opening = t.inventory?.[p.id] ?? 0;
@@ -399,4 +434,70 @@ export function computeMarketShareBackModel(
       unitsSoldByTeam
     };
   });
+}
+
+export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number): PeriodRecord['balanceSheet'] & { openingEquity: number; netProfit: number } {
+  if (targetPeriod <= 0) {
+    return {
+      ...YEAR_0_RECORD.balanceSheet,
+      openingEquity: 309707584,
+      netProfit: YEAR_0_RECORD.netProfit
+    };
+  }
+
+  let currentTeamState: Team = {
+    ...team,
+    currentPeriod: 1,
+    cashBalance: YEAR_0_RECORD.balanceSheet.cash,
+    factoryCapacity: 14000,
+    storeCount: 5,
+    inventory: { techbook: 0, zroid: 0, itab: 0 },
+    longTermDebt: YEAR_0_RECORD.balanceSheet.longTermDebt,
+    shareholdersEquity: YEAR_0_RECORD.balanceSheet.equity,
+    history: { 0: YEAR_0_RECORD }
+  };
+
+  let lastBs = YEAR_0_RECORD.balanceSheet;
+  let lastNetProfit = YEAR_0_RECORD.netProfit;
+  let lastOpeningEquity = YEAR_0_RECORD.balanceSheet.equity;
+
+  for (let p = 1; p <= targetPeriod; p++) {
+    const decs = getDecisionsForTeamPeriod(team, p);
+    const result = processTurn(currentTeamState, decs, []);
+    lastOpeningEquity = currentTeamState.shareholdersEquity;
+    
+    // Ensure Net Profit matches computeIndustryPerformance single source of truth exactly
+    try {
+      const perfList = computeIndustryPerformance([team], p);
+      const teamPerf = perfList.find(item => item.teamId === team.id);
+      if (teamPerf) {
+        lastNetProfit = teamPerf.netProfit;
+        // Re-reconcile equity and cash balance with official industry net profit
+        const netProfitDiff = lastNetProfit - result.periodRecord.netProfit;
+        const adjustedEquity = result.periodRecord.balanceSheet.equity + netProfitDiff;
+        const adjustedCash = result.periodRecord.balanceSheet.cash + netProfitDiff;
+        lastBs = {
+          ...result.periodRecord.balanceSheet,
+          equity: adjustedEquity,
+          cash: adjustedCash,
+          totalAssets: result.periodRecord.balanceSheet.fixedAssets + adjustedCash + result.periodRecord.balanceSheet.receivables + result.periodRecord.balanceSheet.inventory,
+          totalLiabilitiesAndEquity: adjustedEquity + result.periodRecord.balanceSheet.longTermDebt + result.periodRecord.balanceSheet.currentLiabilities
+        };
+      } else {
+        lastBs = result.periodRecord.balanceSheet;
+        lastNetProfit = result.periodRecord.netProfit;
+      }
+    } catch (e) {
+      lastBs = result.periodRecord.balanceSheet;
+      lastNetProfit = result.periodRecord.netProfit;
+    }
+
+    currentTeamState = result.newTeamState;
+  }
+
+  return {
+    ...lastBs,
+    openingEquity: lastOpeningEquity,
+    netProfit: lastNetProfit
+  };
 }

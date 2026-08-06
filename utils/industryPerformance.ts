@@ -1,6 +1,25 @@
-import { Team, ProductId, HRRole, TrainingLevel } from '../types';
-import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize } from '../constants';
+import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions } from '../types';
+import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { computeMarketShareBackModel, getScaledProduction } from './marketShareBackModel';
+
+export function getSupplierComponentCost(productId: ProductId, supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  const baseCost = overrides?.componentCosts?.[productId]?.[supplier] ?? COMPONENT_COSTS[productId]?.[supplier] ?? (productId === 'techbook' ? 450 : (productId === 'zroid' ? 400 : 350));
+  const discount = overrides?.discounts?.[supplier] ?? (dec?.negotiation?.status === 'AGREED' && dec?.negotiation?.selectedSupplierId === supplier ? dec.negotiation.agreedDiscount : 0);
+  return Math.round(baseCost * (1 - discount));
+}
+
+export function getSupplierFinishedGoodsCost(productId: ProductId, supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  const baseCost = overrides?.finishedGoodsCosts?.[productId]?.[supplier] ?? FINISHED_GOODS_COSTS[productId]?.[supplier] ?? (productId === 'techbook' ? 1400 : (productId === 'zroid' ? 1200 : 1000));
+  const discount = overrides?.discounts?.[supplier] ?? (dec?.negotiation?.status === 'AGREED' && dec?.negotiation?.selectedSupplierId === supplier ? dec.negotiation.agreedDiscount : 0);
+  return Math.round(baseCost * (1 - discount));
+}
+
+export function getSupplierPaymentTerms(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.paymentTerms?.[supplier] ?? (dec?.negotiation?.status === 'AGREED' && dec?.negotiation?.selectedSupplierId === supplier ? dec.negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supplier]?.terms ?? 30);
+}
 
 export interface TeamIndustryPerformance {
   teamId: string;
@@ -102,8 +121,7 @@ export function computeIndustryPerformance(
         let compCount = 0;
         Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
           if (val && val.components > 0) {
-            const supMetric = (SUPPLIER_METRICS as any)[supId];
-            const supPrice = supMetric?.unitPrices?.[pId] ?? (pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000));
+            const supPrice = getSupplierComponentCost(pId, supId, dec);
             compSum += supPrice * val.components;
             compCount += val.components;
           }

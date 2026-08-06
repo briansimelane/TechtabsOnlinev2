@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
-import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator } from '../types';
+import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator } from '../types';
 import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
@@ -73,7 +73,10 @@ interface SimulationContextType extends SimulationState {
   restoreTeam: (classId: string, teamId: string) => Promise<void>;
   runClassSimulation: (classId: string) => Promise<void>;
   reopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
+  submitTeamDecisionsByFacilitator: (classId: string, teamId: string) => Promise<void>;
   requestReopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
+  updateTeamNegotiationByFacilitator: (classId: string, teamId: string, negotiationData: Partial<NegotiationDecision>) => Promise<void>;
+  updateTeamSupplierOverridesByFacilitator: (classId: string, teamId: string, overrides: TeamSupplierOverride) => Promise<void>;
 }
 
 const SimulationContext = createContext<SimulationContextType | undefined>(undefined);
@@ -2061,16 +2064,37 @@ BEHAVIOR RULES:
 
         const periodRecordWithIndustry = {
           ...result.periodRecord,
-          industry: teamPerf
+          decisions: decs,
+          draftDecisions: decs,
+          industry: teamPerf,
+          fullIndustryReport: industryPerfList
+        };
+
+        const carriedDecisions: TurnDecisions = {
+          ...decs,
+          operations: {
+            ...decs.operations,
+            capacityChange: 0,
+            reqFinishedGoods: { techbook: 0, zroid: 0, itab: 0 }
+          },
+          hr: {
+            ...decs.hr,
+            hiring: { engineers: 0, technicians: 0, semiSkilled: 0, adminSales: 0, customerService: 0 }
+          },
+          finance: {
+            ...decs.finance,
+            debtChange: 0,
+            equityChange: 0
+          },
+          negotiation: {
+            ...INITIAL_DECISIONS.negotiation
+          }
         };
 
         const newTeam: Team = {
           ...result.newTeamState,
           status: 'Saved',
-          draftDecisions: {
-            ...INITIAL_DECISIONS,
-            negotiation: { ...INITIAL_DECISIONS.negotiation }
-          },
+          draftDecisions: carriedDecisions,
           history: {
             ...(team.history || {}),
             [team.currentPeriod]: periodRecordWithIndustry
@@ -2104,7 +2128,7 @@ BEHAVIOR RULES:
         const myTeam = updatedTeams.find(t => t.id === prev.currentTeam.id);
         if (myTeam) {
           updatedCurrentTeam = myTeam;
-          updatedDecisions = INITIAL_DECISIONS;
+          updatedDecisions = myTeam.draftDecisions || INITIAL_DECISIONS;
           const lastPeriod = myTeam.currentPeriod - 1;
           updatedLastPeriodKPIs = myTeam.history?.[lastPeriod]?.kpis || prev.lastPeriodKPIs;
         }
@@ -2169,6 +2193,55 @@ BEHAVIOR RULES:
     });
   };
 
+  const submitTeamDecisionsByFacilitator = async (classId: string, teamId: string) => {
+    setState(prev => {
+      const cls = prev.classes.find(c => c.id === classId);
+      if (!cls) return prev;
+
+      const updatedTeams = cls.teams.map(team => {
+        if (team.id === teamId) {
+          const submittedTeam: Team = {
+            ...team,
+            status: 'Submitted',
+            reopenRequested: false
+          };
+
+          void saveTeamState(classId, submittedTeam).catch(err => 
+            console.error(`Failed to save team ${submittedTeam.id} in submitTeamDecisionsByFacilitator`, err)
+          );
+
+          return submittedTeam;
+        }
+        return team;
+      });
+
+      const updatedClass: SimulationClass = {
+        ...cls,
+        teams: updatedTeams
+      };
+
+      void saveClass(updatedClass).catch(err => 
+        console.error(`Failed to save class ${classId} in submitTeamDecisionsByFacilitator`, err)
+      );
+
+      const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+
+      let updatedCurrentTeam = prev.currentTeam;
+      if (prev.currentClassId === classId && prev.currentTeam.id === teamId) {
+        const foundTeam = updatedTeams.find(t => t.id === teamId);
+        if (foundTeam) {
+          updatedCurrentTeam = foundTeam;
+        }
+      }
+
+      return {
+        ...prev,
+        classes: updatedClasses,
+        currentTeam: updatedCurrentTeam
+      };
+    });
+  };
+
   const requestReopenTeamDecisions = async (classId: string, teamId: string) => {
     setState(prev => {
       const cls = prev.classes.find(c => c.id === classId);
@@ -2213,6 +2286,121 @@ BEHAVIOR RULES:
         ...prev,
         classes: updatedClasses,
         currentTeam: updatedCurrentTeam
+      };
+    });
+  };
+
+  const updateTeamNegotiationByFacilitator = async (
+    classId: string, 
+    teamId: string, 
+    negotiationData: Partial<NegotiationDecision>
+  ) => {
+    setState(prev => {
+      const cls = prev.classes.find(c => c.id === classId);
+      if (!cls) return prev;
+
+      let updatedTeamObj: Team | null = null;
+
+      const updatedTeams = cls.teams.map(team => {
+        if (team.id === teamId) {
+          const currentDraft = team.draftDecisions || INITIAL_DECISIONS;
+          const updatedDraft: TurnDecisions = {
+            ...currentDraft,
+            negotiation: {
+              ...currentDraft.negotiation,
+              ...negotiationData
+            }
+          };
+
+          const updatedTeam: Team = {
+            ...team,
+            draftDecisions: updatedDraft
+          };
+
+          updatedTeamObj = updatedTeam;
+
+          void saveTeamState(classId, updatedTeam).catch(err => 
+            console.error(`Failed to save team ${updatedTeam.id} in updateTeamNegotiationByFacilitator`, err)
+          );
+
+          return updatedTeam;
+        }
+        return team;
+      });
+
+      const updatedClasses = prev.classes.map(c => c.id === classId ? { ...c, teams: updatedTeams } : c);
+
+      let updatedCurrentTeam = prev.currentTeam;
+      let updatedDecisions = prev.decisions;
+
+      if (prev.currentClassId === classId && prev.currentTeam?.id === teamId) {
+        if (updatedTeamObj) {
+          updatedCurrentTeam = updatedTeamObj;
+          updatedDecisions = (updatedTeamObj as Team).draftDecisions || prev.decisions;
+        }
+      }
+
+      return {
+        ...prev,
+        classes: updatedClasses,
+        currentTeam: updatedCurrentTeam,
+        decisions: updatedDecisions
+      };
+    });
+  };
+
+  const updateTeamSupplierOverridesByFacilitator = async (
+    classId: string, 
+    teamId: string, 
+    overrides: TeamSupplierOverride
+  ) => {
+    setState(prev => {
+      const cls = prev.classes.find(c => c.id === classId);
+      if (!cls) return prev;
+
+      let updatedTeamObj: Team | null = null;
+
+      const updatedTeams = cls.teams.map(team => {
+        if (team.id === teamId) {
+          const currentDraft = team.draftDecisions || INITIAL_DECISIONS;
+          const updatedDraft: TurnDecisions = {
+            ...currentDraft,
+            supplierOverrides: overrides
+          };
+
+          const updatedTeam: Team = {
+            ...team,
+            draftDecisions: updatedDraft
+          };
+
+          updatedTeamObj = updatedTeam;
+
+          void saveTeamState(classId, updatedTeam).catch(err => 
+            console.error(`Failed to save team ${updatedTeam.id} in updateTeamSupplierOverridesByFacilitator`, err)
+          );
+
+          return updatedTeam;
+        }
+        return team;
+      });
+
+      const updatedClasses = prev.classes.map(c => c.id === classId ? { ...c, teams: updatedTeams } : c);
+
+      let updatedCurrentTeam = prev.currentTeam;
+      let updatedDecisions = prev.decisions;
+
+      if (prev.currentClassId === classId && prev.currentTeam?.id === teamId) {
+        if (updatedTeamObj) {
+          updatedCurrentTeam = updatedTeamObj;
+          updatedDecisions = (updatedTeamObj as Team).draftDecisions || prev.decisions;
+        }
+      }
+
+      return {
+        ...prev,
+        classes: updatedClasses,
+        currentTeam: updatedCurrentTeam,
+        decisions: updatedDecisions
       };
     });
   };
@@ -2428,7 +2616,10 @@ BEHAVIOR RULES:
         restoreTeam,
         runClassSimulation,
         reopenTeamDecisions,
-        requestReopenTeamDecisions
+        submitTeamDecisionsByFacilitator,
+        requestReopenTeamDecisions,
+        updateTeamNegotiationByFacilitator,
+        updateTeamSupplierOverridesByFacilitator
     }}>
       {children}
     </SimulationContext.Provider>

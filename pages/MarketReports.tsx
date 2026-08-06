@@ -8,14 +8,19 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
-  ChevronDown
+  ChevronDown,
+  Presentation
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
+import { Team } from '../types';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, STORE_COSTS, FINANCE_CONSTANTS, HR_ROLES, getMarketSize } from '../constants';
-import { computeMarketShareBackModel, getClosingFeatures } from '../utils/marketShareBackModel';
-import { computeIndustryPerformance } from '../utils/industryPerformance';
+import { computeMarketShareBackModel, getClosingFeatures, getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../utils/marketShareBackModel';
+import { processTurn } from '../utils/SimulationEngine';
+import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
 import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
+import { useDebriefData } from '../hooks/useDebriefData';
+import { compileDebriefSlides } from '../utils/debriefSlides';
 
 const HR_ROLE_LABELS: Record<string, string> = {
   engineers: 'Engineers',
@@ -25,7 +30,75 @@ const HR_ROLE_LABELS: Record<string, string> = {
   customerService: 'Customer Service'
 };
 
-type Tab = 'decisions' | 'performance' | 'marketData';
+type Tab = 'decisions' | 'performance' | 'marketData' | 'debriefSlides';
+
+const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ classId, period }) => {
+  const dataset = useDebriefData(classId, period);
+  const slides = React.useMemo(() => compileDebriefSlides(dataset), [dataset]);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  const currentSlide = slides[slideIndex] || slides[0];
+
+  if (dataset.loading) {
+    return (
+      <div className="p-12 text-center text-slate-500 font-medium bg-white rounded-xl">
+        Loading Debrief Presenter Slides for Year {period}...
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full flex flex-col gap-4 p-4 bg-slate-900 rounded-xl">
+      {/* Control Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-800 border border-slate-700 p-3 rounded-lg text-white gap-3">
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-xs font-extrabold text-blue-400 bg-blue-950 border border-blue-800 px-2.5 py-1 rounded">
+            Slide {slideIndex + 1} of {slides.length}
+          </span>
+          <span className="font-bold text-sm text-slate-100">{currentSlide?.title}</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={slideIndex}
+            onChange={(e) => setSlideIndex(Number(e.target.value))}
+            className="bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 rounded px-2.5 py-1"
+          >
+            {slides.map((s, idx) => (
+              <option key={idx} value={idx}>
+                {idx + 1}. {s.title}
+              </option>
+            ))}
+          </select>
+          <button
+            disabled={slideIndex === 0}
+            onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
+            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
+          >
+            ← Prev
+          </button>
+          <button
+            disabled={slideIndex === slides.length - 1}
+            onClick={() => setSlideIndex(prev => Math.min(slides.length - 1, prev + 1))}
+            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
+      {/* Slide Canvas */}
+      <div className="w-full aspect-[16/9] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 relative">
+        {currentSlide && currentSlide.render({
+          dataset,
+          revealStep: 0,
+          currentSlide: slideIndex + 1,
+          totalSlides: slides.length
+        })}
+      </div>
+    </div>
+  );
+};
 
 const MarketReports: React.FC = () => {
   const { currentTeam, currentRole, classes, currentClassId } = useSimulation();
@@ -53,7 +126,10 @@ const MarketReports: React.FC = () => {
   const getDecisionRefValue = React.useCallback((productName: string, field: string, teamIdx: number) => {
     if (!currentClass || !realTeams[teamIdx]) return '—';
     const t = realTeams[teamIdx];
-    const dec = t.draftDecisions || INITIAL_DECISIONS;
+    const isStudentRole = currentRole === 'STUDENT';
+    const currPeriod = isStudentRole ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+    const reportPeriod = currPeriod > 1 ? currPeriod - 1 : 1;
+    const dec = getDecisionsForTeamPeriod(t, reportPeriod);
     const pId = productName.toLowerCase() === 'techbook' ? 'techbook' : (productName.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
 
     switch (field) {
@@ -86,7 +162,7 @@ const MarketReports: React.FC = () => {
       return null;
     }
     
-    const period = currentClass.currentPeriod;
+    const period = currentClass.currentPeriod > 1 ? currentClass.currentPeriod - 1 : 1;
     const results = computeMarketShareBackModel(realTeams, period);
     
     // Map results to the structure expected by the render code
@@ -167,53 +243,58 @@ const MarketReports: React.FC = () => {
       return null;
     }
 
+    const isStudentRole = currentRole === 'STUDENT';
+    const currPeriod = isStudentRole ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+    const reportPeriod = currPeriod > 1 ? currPeriod - 1 : 1;
+    const getTeamDec = (t: Team) => getDecisionsForTeamPeriod(t, reportPeriod);
+
     const marketingRows = [
       {
         label: 'Price : TechBook',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatCurrency(dec.marketing?.prices?.techbook ?? 0, 0);
         })
       },
       {
         label: 'Price : Zroid',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatCurrency(dec.marketing?.prices?.zroid ?? 0, 0);
         })
       },
       {
         label: 'Price : iTab',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatCurrency(dec.marketing?.prices?.itab ?? 0, 0);
         })
       },
       {
         label: 'Market Share : TechBook',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${(dec.marketing?.forecastedMarketShare?.techbook ?? 0).toFixed(1)}%`;
         })
       },
       {
         label: 'Market Share : Zroid',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${(dec.marketing?.forecastedMarketShare?.zroid ?? 0).toFixed(1)}%`;
         })
       },
       {
         label: 'Market Share : iTab',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${(dec.marketing?.forecastedMarketShare?.itab ?? 0).toFixed(1)}%`;
         })
       },
       {
         label: 'Forecasted Units : TechBook',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.techbook ?? 0;
           const period = currentClass?.currentPeriod || 1;
           const units = Math.round((getMarketSize('techbook', period) * share) / 100);
@@ -223,7 +304,7 @@ const MarketReports: React.FC = () => {
       {
         label: 'Forecasted Units : Zroid',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.zroid ?? 0;
           const period = currentClass?.currentPeriod || 1;
           const units = Math.round((getMarketSize('zroid', period) * share) / 100);
@@ -233,7 +314,7 @@ const MarketReports: React.FC = () => {
       {
         label: 'Forecasted Units : iTab',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.itab ?? 0;
           const period = currentClass?.currentPeriod || 1;
           const units = Math.round((getMarketSize('itab', period) * share) / 100);
@@ -243,42 +324,42 @@ const MarketReports: React.FC = () => {
       {
         label: 'Advertising Budget',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatCurrency(dec.marketing?.advertisingBudget ?? 0, 0);
         })
       },
       {
         label: 'Advertising : TechBook',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.marketing?.adSplits?.techbook ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'Advertising : Zroid',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.marketing?.adSplits?.zroid ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'Advertising : iTab',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.marketing?.adSplits?.itab ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'Advertising : General',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.marketing?.generalAdSplit ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'Company stores (Open / Close)',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const openClose = dec.marketing?.openCloseStores ?? 0;
           return openClose > 0 ? `+${openClose}` : `${openClose}`;
         })
@@ -286,7 +367,7 @@ const MarketReports: React.FC = () => {
       {
         label: 'Agent Commission',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.marketing?.agentCommission ?? 0) * 100).toFixed(1)}%`;
         })
       }
@@ -296,28 +377,28 @@ const MarketReports: React.FC = () => {
       {
         label: 'TechBook : Units produced',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(dec.operations?.production?.techbook ?? 0, 0);
         })
       },
       {
         label: 'Zroid : Units produced',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(dec.operations?.production?.zroid ?? 0, 0);
         })
       },
       {
         label: 'iTab : Units produced',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(dec.operations?.production?.itab ?? 0, 0);
         })
       },
       {
         label: 'Production Capacity Change',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const change = dec.operations?.capacityChange ?? 0;
           return change > 0 ? `+${formatNumber(change, 0)}` : change < 0 ? `-${formatNumber(Math.abs(change), 0)}` : '0';
         })
@@ -325,49 +406,49 @@ const MarketReports: React.FC = () => {
       {
         label: 'Innovation Budget',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatCurrency(dec.operations?.rdBudget ?? 0, 0);
         })
       },
       {
         label: 'TechBook : Innovation Split',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.operations?.rdSplits?.techbook ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'Zroid : Innovation Split',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.operations?.rdSplits?.zroid ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'iTab : Innovation Split',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${((dec.operations?.rdSplits?.itab ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
         label: 'TechBook : Closing Features',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(getClosingFeatures(t, dec, 'techbook'), 0);
         })
       },
       {
         label: 'Zroid : Closing Features',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(getClosingFeatures(t, dec, 'zroid'), 0);
         })
       },
       {
         label: 'iTab : Closing Features',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return formatNumber(getClosingFeatures(t, dec, 'itab'), 0);
         })
       }
@@ -378,7 +459,7 @@ const MarketReports: React.FC = () => {
       hrRows.push({
         label: `${HR_ROLE_LABELS[role] || role} : Recruit/(Dismiss)`,
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const val = dec.hr?.hiring?.[role] ?? 0;
           return val > 0 ? `+${val}` : `${val}`;
         })
@@ -386,7 +467,7 @@ const MarketReports: React.FC = () => {
       hrRows.push({
         label: `${HR_ROLE_LABELS[role] || role} : Salary`,
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const val = dec.hr?.salaries?.[role] ?? 0;
           return formatCurrency(val, 0);
         })
@@ -394,7 +475,7 @@ const MarketReports: React.FC = () => {
       hrRows.push({
         label: `${HR_ROLE_LABELS[role] || role} : Training`,
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return dec.hr?.trainingLevels?.[role] ?? 'Basic';
         })
       });
@@ -406,28 +487,28 @@ const MarketReports: React.FC = () => {
     procurementRows.push({
       label: 'Preferred Supplier (Negotiation)',
       values: realTeams.map(t => {
-        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        const dec = getTeamDec(t);
         return dec.negotiation?.selectedSupplierId || '—';
       })
     });
     procurementRows.push({
       label: 'Negotiation Status',
       values: realTeams.map(t => {
-        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        const dec = getTeamDec(t);
         return dec.negotiation?.status || 'NOT_STARTED';
       })
     });
     procurementRows.push({
       label: 'Agreed Negotiation Discount',
       values: realTeams.map(t => {
-        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        const dec = getTeamDec(t);
         return dec.negotiation?.status === 'AGREED' ? `${((dec.negotiation.agreedDiscount ?? 0) * 100).toFixed(1)}%` : '—';
       })
     });
     procurementRows.push({
       label: 'Agreed Negotiation Terms',
       values: realTeams.map(t => {
-        const dec = t.draftDecisions || INITIAL_DECISIONS;
+        const dec = getTeamDec(t);
         return dec.negotiation?.status === 'AGREED' ? `${dec.negotiation.agreedPaymentTerms} days` : '—';
       })
     });
@@ -438,14 +519,14 @@ const MarketReports: React.FC = () => {
         procurementRows.push({
           label: `${s} : ${p.name} Components`,
           values: realTeams.map(t => {
-            const dec = t.draftDecisions || INITIAL_DECISIONS;
+            const dec = getTeamDec(t);
             return formatNumber(dec.procurement?.supplierAllocation?.[p.id]?.[s]?.components ?? 0, 0);
           })
         });
         procurementRows.push({
           label: `${s} : ${p.name} Finished Goods`,
           values: realTeams.map(t => {
-            const dec = t.draftDecisions || INITIAL_DECISIONS;
+            const dec = getTeamDec(t);
             return formatNumber(dec.procurement?.supplierAllocation?.[p.id]?.[s]?.finishedGoods ?? 0, 0);
           })
         });
@@ -456,28 +537,28 @@ const MarketReports: React.FC = () => {
       {
         label: 'TechBook : Debtor Days',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${dec.finance?.debtorsDays?.techbook ?? 0} days`;
         })
       },
       {
         label: 'Zroid : Debtor Days',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${dec.finance?.debtorsDays?.zroid ?? 0} days`;
         })
       },
       {
         label: 'iTab : Debtor Days',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           return `${dec.finance?.debtorsDays?.itab ?? 0} days`;
         })
       },
       {
         label: 'Debt (Raise / Pay)',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const debt = dec.finance?.debtChange ?? 0;
           return debt > 0 ? `+${formatCurrency(debt, 0)}` : debt < 0 ? `-${formatCurrency(Math.abs(debt), 0)}` : 'R 0';
         })
@@ -485,7 +566,7 @@ const MarketReports: React.FC = () => {
       {
         label: 'Equity (Raise / Retire)',
         values: realTeams.map(t => {
-          const dec = t.draftDecisions || INITIAL_DECISIONS;
+          const dec = getTeamDec(t);
           const equity = dec.finance?.equityChange ?? 0;
           return equity > 0 ? `+${formatCurrency(equity, 0)}` : equity < 0 ? `-${formatCurrency(Math.abs(equity), 0)}` : 'R 0';
         })
@@ -506,10 +587,11 @@ const MarketReports: React.FC = () => {
     if (!currentClass || !realTeams || realTeams.length === 0) {
       return null;
     }
-    const period = currentClass.currentPeriod;
-    const lastPeriod = period - 1;
+    const period = currentClass.currentPeriod > 1 ? currentClass.currentPeriod - 1 : 1;
+    const lastPeriod = Math.max(0, period - 1);
 
     const perfList = computeIndustryPerformance(realTeams, period);
+
     const perfMap = new Map(perfList.map(p => [p.teamId, p]));
     const getPerf = (t: typeof realTeams[0]) => perfMap.get(t.id);
 
@@ -541,52 +623,21 @@ const MarketReports: React.FC = () => {
     ];
 
     const getTeamBalance = (t: typeof realTeams[0]) => {
-      const dec = t.draftDecisions || INITIAL_DECISIONS;
-      const perf = getPerf(t);
-      const depr = perf?.depreciation ?? 1535965;
-      const totalRev = perf?.totalRevenue ?? 0;
-      const totalCogs = perf?.totalCogs ?? 0;
-      const netProf = perf?.netProfit ?? 0;
+      const bs = computeTeamPeriodBalanceSheet(t, period);
 
-      // 1. Non-Current Assets (Fixed Assets)
-      const startPPE = t.fixedAssets || 293500000;
-      const capex = (dec.operations?.capacityChange || 0) * 1500;
-      const nonCurrAssets = Math.max(0, startPPE + capex - depr);
-
-      // 2. Accounts Receivables
-      const debtorsDays = (dec.finance?.debtorsDays?.techbook || 30);
-      const recVal = Math.round((totalRev / 365) * debtorsDays);
-
-      // 3. Inventory Valuation (Unsold units * unit cost)
-      const pKeys: ('techbook' | 'zroid' | 'itab')[] = ['techbook', 'zroid', 'itab'];
-      let invVal = 0;
-      pKeys.forEach(pId => {
-        const u = perf?.units[pId];
-        const unitsSold = u?.actual ?? 0;
-        const available = u?.available ?? 0;
-        const unsold = Math.max(0, available - unitsSold);
-        const stdCost = pId === 'techbook' ? 1400 : (pId === 'zroid' ? 1350 : 1100);
-        invVal += unsold * stdCost;
-      });
-
-      // 4. Equity & Net Profit
-      const openEq = t.shareholdersEquity || 286564937;
-      const equityChange = dec.finance?.equityChange || 0;
-      const dividends = dec.finance?.dividends || 0;
-      const totEq = openEq + equityChange - dividends + netProf;
-
-      // 5. Liabilities
-      const longTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
-      const currentLiabilities = Math.round(totalCogs * 0.25);
-      const liab = longTermDebt + currentLiabilities;
-
-      // 6. Cash Balance
-      const startCash = t.cashBalance ?? 180000000;
-      const debtChange = dec.finance?.debtChange || 0;
-      const cashVal = startCash + netProf + debtChange + equityChange - dividends - capex;
-
+      const nonCurrAssets = bs.fixedAssets;
+      const cashVal = bs.cash;
+      const recVal = bs.receivables;
+      const invVal = bs.inventory;
       const totCurrAssets = cashVal + recVal + invVal;
-      const totAssets = nonCurrAssets + totCurrAssets;
+      const totAssets = bs.totalAssets;
+
+      const totEq = bs.equity;
+      const openEq = bs.openingEquity;
+      const netProf = bs.netProfit;
+      const longTermDebt = bs.longTermDebt;
+      const currentLiabilities = bs.currentLiabilities;
+      const liab = longTermDebt + currentLiabilities;
 
       return {
         nonCurrentAssets: nonCurrAssets,
@@ -598,6 +649,8 @@ const MarketReports: React.FC = () => {
         equity: totEq,
         openingEquity: openEq,
         netProfit: netProf,
+        longTermDebt,
+        currentLiabilities,
         liabilities: liab,
         totalEquityLiabilities: totEq + liab
       };
@@ -633,16 +686,18 @@ const MarketReports: React.FC = () => {
     };
 
     const balanceRows = [
-      { label: 'Total Non-Current Assets', values: realTeams.map(t => formatCurrency(getTeamBalance(t).nonCurrentAssets, 0)), bold: true },
+      { label: 'Non-Current Assets (Fixed Assets Net)', values: realTeams.map(t => formatCurrency(getTeamBalance(t).nonCurrentAssets, 0)), bold: true },
       { label: 'Total Current Assets', values: realTeams.map(t => formatCurrency(getTeamBalance(t).currentAssets, 0)), bold: true },
       { label: '   - Cash & Cash Equivalents', values: realTeams.map(t => formatCurrency(getTeamBalance(t).cash, 0)) },
-      { label: '   - Accounts Receivables', values: realTeams.map(t => formatCurrency(getTeamBalance(t).receivables, 0)) },
-      { label: '   - Inventory', values: realTeams.map(t => formatCurrency(getTeamBalance(t).inventory, 0)) },
+      { label: '   - Accounts Receivables (Debtors)', values: realTeams.map(t => formatCurrency(getTeamBalance(t).receivables, 0)) },
+      { label: '   - Inventories (Raw + Finished Goods)', values: realTeams.map(t => formatCurrency(getTeamBalance(t).inventory, 0)) },
       { label: 'TOTAL ASSETS', values: realTeams.map(t => formatCurrency(getTeamBalance(t).totalAssets, 0)), bold: true, bg: 'bg-slate-100' },
-      { label: 'Total Equity', values: realTeams.map(t => formatCurrency(getTeamBalance(t).equity, 0)), bold: true },
+      { label: 'Total Shareholders\' Equity', values: realTeams.map(t => formatCurrency(getTeamBalance(t).equity, 0)), bold: true },
       { label: '   - Opening Equity', values: realTeams.map(t => formatCurrency(getTeamBalance(t).openingEquity, 0)) },
       { label: '   - Current Net Profit', values: realTeams.map(t => formatCurrency(getTeamBalance(t).netProfit, 0)) },
       { label: 'Total Liabilities', values: realTeams.map(t => formatCurrency(getTeamBalance(t).liabilities, 0)), bold: true },
+      { label: '   - Long-Term Loans & Debt', values: realTeams.map(t => formatCurrency(getTeamBalance(t).longTermDebt, 0)) },
+      { label: '   - Current Liabilities (Payables/Overdraft)', values: realTeams.map(t => formatCurrency(getTeamBalance(t).currentLiabilities, 0)) },
       { label: 'TOTAL EQUITY & LIABILITIES', values: realTeams.map(t => formatCurrency(getTeamBalance(t).totalEquityLiabilities, 0)), bold: true, bg: 'bg-slate-100' }
     ];
 
@@ -746,6 +801,7 @@ const MarketReports: React.FC = () => {
   const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
   const isStudent = currentRole === 'STUDENT';
   const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+  const reportPeriod = currentPeriod > 1 ? currentPeriod - 1 : 1;
   const shouldHideReports = isStudent && currentPeriod === 1 && !showReportsSetting;
 
   return (
@@ -770,7 +826,13 @@ const MarketReports: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Market Reports</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold text-slate-900">Market Reports</h1>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-full font-mono text-xs font-extrabold shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+              Showing Reports for Year {reportPeriod}
+            </span>
+          </div>
           <p className="text-slate-500 mt-1">Comparative industry analysis and competitive intelligence.</p>
         </div>
         
@@ -801,7 +863,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('all', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -819,7 +881,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('decisions', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -835,7 +897,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('performance', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -851,7 +913,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('balance', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -867,7 +929,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('ratios', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -883,7 +945,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportPDF('market', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -922,7 +984,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('all', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -940,7 +1002,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('decisions', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -956,7 +1018,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('performance', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -972,7 +1034,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('balance', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -988,7 +1050,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('ratios', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -1004,7 +1066,7 @@ const MarketReports: React.FC = () => {
                       onClick={() => {
                         exportReportCSV('market', {
                           className: currentClass?.name || 'Class Simulation',
-                          period: currentClass?.currentPeriod || 1,
+                          period: reportPeriod,
                           activeTeams,
                           decisionsData: dynamicDecisionsData,
                           performanceData: dynamicPerformanceData,
@@ -1024,11 +1086,12 @@ const MarketReports: React.FC = () => {
 
           {/* Tab Navigation */}
           {!shouldHideReports && (
-            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
+            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex flex-wrap gap-1">
                 {[
                     { id: 'decisions', label: 'Industry Decisions', icon: Layers },
                     { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
                     { id: 'marketData', label: 'Market Data', icon: Table },
+                    { id: 'debriefSlides', label: 'Debrief Slides', icon: Presentation },
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -1063,8 +1126,13 @@ const MarketReports: React.FC = () => {
           </div>
         ) : (
           <>
+            {/* --- TAB 4: DEBRIEF PRESENTATION SLIDES --- */}
+            {activeTab === 'debriefSlides' && (
+              <DebriefSlidesViewer classId={currentClassId || ''} period={reportPeriod} />
+            )}
+
             {/* --- TAB 1: INDUSTRY DECISIONS --- */}
-         {activeTab === 'decisions' && (
+            {activeTab === 'decisions' && (
               <div className="p-0 lg:p-6">
                   {/* Desktop Matrix View */}
                   <div className="hidden lg:block overflow-x-auto">
@@ -1403,10 +1471,9 @@ const MarketReports: React.FC = () => {
                                                     <td className="py-2 px-4 font-semibold text-slate-700">Demand Forecasted (Units)</td>
                                                     {activeTeams.map((_, i) => {
                                                         const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const dec = realTeams[i]?.draftDecisions || INITIAL_DECISIONS;
+                                                        const dec = realTeams[i] ? getDecisionsForTeamPeriod(realTeams[i], reportPeriod) : INITIAL_DECISIONS;
                                                         const sharePct = dec.marketing?.forecastedMarketShare?.[pId] ?? 0;
-                                                        const period = currentClass?.currentPeriod || 1;
-                                                        const mktDemand = getMarketSize(pId, period);
+                                                        const mktDemand = getMarketSize(pId, reportPeriod);
                                                         const fcUnits = Math.round((sharePct / 100) * mktDemand);
                                                         return (
                                                             <td key={i} className="py-2 px-2 text-center font-mono font-medium text-slate-600 whitespace-nowrap">
@@ -1419,7 +1486,7 @@ const MarketReports: React.FC = () => {
                                                     <td className="py-2 px-4 font-bold text-blue-900">Demand Earned (Units)</td>
                                                     {activeTeams.map((_, i) => {
                                                         const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, currentClass?.currentPeriod || 1).find(r => r.productId === pId);
+                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
                                                         const earned = res ? Math.round(res.demandUnitsByTeam[i] || 0) : 0;
                                                         return (
                                                             <td key={i} className="py-2 px-2 text-center font-mono font-bold text-blue-900 whitespace-nowrap">
@@ -1432,7 +1499,7 @@ const MarketReports: React.FC = () => {
                                                     <td className="py-2 px-4 font-semibold text-slate-700">Available Units (Stock)</td>
                                                     {activeTeams.map((_, i) => {
                                                         const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, currentClass?.currentPeriod || 1).find(r => r.productId === pId);
+                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
                                                         const avail = res ? Math.round(res.availableByTeam[i] || 0) : 0;
                                                         return (
                                                             <td key={i} className="py-2 px-2 text-center font-mono font-medium text-slate-600 whitespace-nowrap">
@@ -1445,7 +1512,7 @@ const MarketReports: React.FC = () => {
                                                     <td className="py-2 px-4 font-bold text-emerald-900">Actual Units Sold</td>
                                                     {activeTeams.map((_, i) => {
                                                         const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, currentClass?.currentPeriod || 1).find(r => r.productId === pId);
+                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
                                                         const sold = res ? Math.round(res.unitsSoldByTeam[i] || 0) : 0;
                                                         return (
                                                             <td key={i} className="py-2 px-2 text-center font-mono font-bold text-emerald-900 whitespace-nowrap">
@@ -1542,11 +1609,10 @@ const MarketReports: React.FC = () => {
                                         </h4>
                                         {(() => {
                                             const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                            const res = computeMarketShareBackModel(realTeams, currentClass?.currentPeriod || 1).find(r => r.productId === pId);
-                                            const dec = realTeams[selectedMobileTeam]?.draftDecisions || INITIAL_DECISIONS;
+                                            const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
+                                            const dec = realTeams[selectedMobileTeam] ? getDecisionsForTeamPeriod(realTeams[selectedMobileTeam], reportPeriod) : INITIAL_DECISIONS;
                                             const sharePct = dec.marketing?.forecastedMarketShare?.[pId] ?? 0;
-                                            const period = currentClass?.currentPeriod || 1;
-                                            const mktDemand = getMarketSize(pId, period);
+                                            const mktDemand = getMarketSize(pId, reportPeriod);
                                             const fcUnits = Math.round((sharePct / 100) * mktDemand);
                                             const earned = res ? Math.round(res.demandUnitsByTeam[selectedMobileTeam] || 0) : 0;
                                             const avail = res ? Math.round(res.availableByTeam[selectedMobileTeam] || 0) : 0;

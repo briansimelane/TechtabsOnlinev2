@@ -26,6 +26,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { formatNumber, formatPercent } from '../utils/numberFormat';
 import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
 import { useFlashOnChange } from '../utils/useFlashOnChange';
+import { computeIndustryPerformance } from '../utils/industryPerformance';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -40,6 +41,7 @@ const Dashboard: React.FC = () => {
     submitTurn,
     currentRole,
     isDemoMode,
+    classes,
     currentClassId,
     requestReopenTeamDecisions
   } = useSimulation();
@@ -257,10 +259,29 @@ const Dashboard: React.FC = () => {
   const forecastedEBIT = grossProfit - totalOPEX;
   const forecastedNetProfit = forecastedEBIT - financeCosts;
   
+  const realTeams = React.useMemo(() => {
+    const cls = classes.find(c => c.id === currentClassId);
+    return cls?.teams ? cls.teams.filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)) : [];
+  }, [classes, currentClassId]);
+
+  let pastInd = pastPeriodRecord?.industry;
+  if (pastPeriod >= 1 && realTeams.length > 0) {
+    try {
+      const perfList = computeIndustryPerformance(realTeams, pastPeriod);
+      const livePastInd = perfList.find(p => p.teamId === currentTeam.id);
+      if (livePastInd) {
+        pastInd = livePastInd;
+      }
+    } catch (e) {
+      console.warn("Could not compute past industry performance for dashboard:", e);
+    }
+  }
+
+  const pastRevenue = pastInd?.totalRevenue ?? pastPeriodRecord?.revenue?.total ?? 0;
+  const pastNetProfit = pastInd?.netProfit ?? pastPeriodRecord?.netProfit ?? 0;
+
   const forecastedMargin = forecastedRevenue > 0 ? (forecastedNetProfit / forecastedRevenue) * 100 : 0;
-  const pastMargin = pastPeriodRecord && pastPeriodRecord.revenue.total > 0 
-    ? (pastPeriodRecord.netProfit / pastPeriodRecord.revenue.total) * 100 
-    : 0;
+  const pastMargin = pastRevenue > 0 ? (pastNetProfit / pastRevenue) * 100 : 0;
 
   const getMetricTrend = (curr: number, past: number) => {
     if (past === 0) return { text: 'No past data', isPositive: true };
@@ -271,11 +292,11 @@ const Dashboard: React.FC = () => {
     };
   };
 
-  const revChange = getMetricTrend(forecastedRevenue, pastPeriodRecord?.revenue?.total || 0);
-  const profitChange = getMetricTrend(forecastedNetProfit, pastPeriodRecord?.netProfit || 0);
+  const revChange = getMetricTrend(forecastedRevenue, pastRevenue);
+  const profitChange = getMetricTrend(forecastedNetProfit, pastNetProfit);
 
-  const prevESAT = lastPeriodKPIs.employeeSatisfaction || 0.70;
-  const prevCSAT = lastPeriodKPIs.customerSatisfaction || 0.70;
+  const prevESAT = (pastInd?.kpis?.employeeSatisfaction ?? lastPeriodKPIs.employeeSatisfaction ?? 0.70);
+  const prevCSAT = (pastInd?.kpis?.customerSatisfaction ?? lastPeriodKPIs.customerSatisfaction ?? 0.70);
 
   let totalStaffCount = 0;
   let sumSalaryChange = 0;
@@ -434,7 +455,7 @@ const Dashboard: React.FC = () => {
       value: `R ${formatNumber(forecastedRevenue / 1000000, 2)}M`, 
       change: revChange.text, 
       isPositive: revChange.isPositive,
-      pastValue: pastPeriodRecord ? `R ${formatNumber(pastPeriodRecord.revenue.total / 1000000, 0)}M` : 'R 0M',
+      pastValue: pastRevenue > 0 ? `R ${formatNumber(pastRevenue / 1000000, 2)}M` : 'R 0M',
       pastLabel: `Year ${pastPeriod}`,
       icon: DollarSign,
       color: 'bg-blue-500'
@@ -477,18 +498,41 @@ const Dashboard: React.FC = () => {
     pastYear: pastPeriodRecord?.revenue?.byProduct?.[p.id] || 0
   }));
 
-  const trendData = [
-    ...Object.entries(currentTeam.history || {})
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([period, record]) => ({
-        period: `Y${period} (Actual)`,
-        profit: Math.round((record as PeriodRecord).netProfit / 1000000)
-      })),
-    {
-      period: `Y${currentPeriod} (Forecast)`,
-      profit: Math.round(forecastedNetProfit / 1000000)
-    }
-  ];
+  const trendData = React.useMemo(() => {
+    const sortedHistory = Object.entries(currentTeam.history || {})
+      .sort(([a], [b]) => Number(a) - Number(b));
+
+    const pastItems = sortedHistory.map(([periodStr, record]) => {
+      const pNum = Number(periodStr);
+      const rec = record as any;
+      let np = rec?.industry?.netProfit ?? rec?.netProfit ?? 0;
+
+      if (pNum >= 1 && realTeams.length > 0) {
+        try {
+          const perfList = computeIndustryPerformance(realTeams, pNum);
+          const teamPerf = perfList.find(t => t.teamId === currentTeam.id);
+          if (teamPerf) {
+            np = teamPerf.netProfit;
+          }
+        } catch (e) {
+          console.warn(`Could not compute industry performance for trend period ${pNum}:`, e);
+        }
+      }
+
+      return {
+        period: `Y${periodStr} (Actual)`,
+        profit: Math.round(np / 1000000)
+      };
+    });
+
+    return [
+      ...pastItems,
+      {
+        period: `Y${currentPeriod} (Forecast)`,
+        profit: Math.round(forecastedNetProfit / 1000000)
+      }
+    ];
+  }, [currentTeam, realTeams, currentPeriod, forecastedNetProfit]);
 
   return (
     <div className="space-y-6">

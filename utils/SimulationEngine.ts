@@ -348,7 +348,7 @@ export const processTurn = (
     // 5. Profitability
     const grossProfit = totalRevenue - totalCOGS;
     const ebitda = grossProfit - totalOpex;
-    const depreciation = team.factoryCapacity * 20 + 500000; // Mock depr logic
+    const depreciation = 1535965;
     const longTermDebtInterest = (team.longTermDebt || 0) * FINANCE_CONSTANTS.interestRate;
     const overdraftInterest = team.cashBalance < 0 ? Math.abs(team.cashBalance) * (FINANCE_CONSTANTS.overdraftInterestRate || 0.15) : 0;
     const interest = longTermDebtInterest + overdraftInterest;
@@ -380,15 +380,17 @@ export const processTurn = (
 
     // Fetch prior period balance sheet
     const prevPeriod = team.currentPeriod - 1;
-    const prevRecord = team.history?.[prevPeriod];
+    const prevRecord = team.history?.[prevPeriod] ?? team.history?.[String(prevPeriod)] ?? YEAR_0_RECORD;
 
-    const startCash = team.cashBalance;
-    const startDebtors = prevRecord?.balanceSheet.receivables ?? 47500000;
-    const startInventoryValue = prevRecord?.balanceSheet.inventory ?? 49900000;
-    const startCreditors = prevRecord?.balanceSheet.currentLiabilities ?? 99000000;
-    const startPPE = prevRecord?.balanceSheet.fixedAssets ?? 293500000;
-    const startEquity = team.shareholdersEquity;
-    const startDebt = team.longTermDebt;
+    const startCash = team.cashBalance ?? prevRecord.balanceSheet.cash;
+    const startDebtors = prevRecord.balanceSheet?.receivables ?? 18547918;
+    const startInventoryValue = prevRecord.balanceSheet?.inventory ?? 112334926;
+    const startCreditors = prevRecord.balanceSheet?.currentLiabilities ?? 236598156;
+    const startPPE = prevRecord.balanceSheet?.fixedAssets ?? 299459535;
+    const startEquity = team.shareholdersEquity ?? prevRecord.balanceSheet?.equity ?? 341050070;
+    const startDebt = team.longTermDebt ?? prevRecord.balanceSheet?.longTermDebt ?? 0;
+
+    const dividends = decisions.finance?.dividends || 0;
 
     // Calculations
     const endPPE = startPPE + capeX - depreciation;
@@ -398,7 +400,7 @@ export const processTurn = (
     const endInventoryValue = Math.max(0, startInventoryValue + productionCost + totalComponentCost + totalFGCost - totalCOGS);
     const endCreditors = Math.max(0, startCreditors + totalComponentCost + totalFGCost - purchasesPaidThisPeriod);
     const endDebt = startDebt + debtChange;
-    const endEquity = startEquity + netProfit + equityChange;
+    const endEquity = startEquity + netProfit + equityChange - dividends;
 
     // Reconciled cash balance (makes balance sheet check net to 0)
     const endCash = endEquity + endDebt + endCreditors - endDebtors - endInventoryValue - endPPE;

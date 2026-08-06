@@ -32,7 +32,7 @@ const Marketing: React.FC = () => {
   const pastPeriodRecord = currentTeam.history?.[pastPeriod];
 
   const getPastPrice = (productId: ProductId) => {
-    return pastPeriodRecord?.prices?.[productId] ?? (productId === 'techbook' ? 3000 : productId === 'zroid' ? 4800 : 6500);
+    return pastPeriodRecord?.industry?.price?.[productId] ?? pastPeriodRecord?.prices?.[productId] ?? (productId === 'techbook' ? 3000 : productId === 'zroid' ? 4800 : 6500);
   };
 
     const [marketShareInputs, setMarketShareInputs] = useState<Record<ProductId, string>>({
@@ -223,7 +223,7 @@ const Marketing: React.FC = () => {
                      </div>
 
                      {/* Forecasted Units */}
-                     <div className="grid grid-cols-4 gap-4 items-center mb-6 border-b border-slate-100 pb-6">
+                     <div className="grid grid-cols-4 gap-4 items-center">
                          <div className="font-medium text-slate-700 text-sm">Forecasted Units</div>
                          {PRODUCTS.map(p => {
                              const share = marketing.forecastedMarketShare?.[p.id] || 0;
@@ -236,21 +236,25 @@ const Marketing: React.FC = () => {
                          })}
                      </div>
 
-                     {/* Last Year Data */}
-                     <div className="grid grid-cols-4 gap-4 items-center mb-3">
-                         <div className="font-medium text-slate-500 text-xs">Last year Market Share</div>
-                         {PRODUCTS.map(p => (
-                             // @ts-ignore
-                             <div key={p.id} className="text-center text-xs text-slate-500">{formatPercent(LAST_YEAR_DATA.marketShare[p.id], 2, false)}</div>
-                         ))}
-                     </div>
-                     <div className="grid grid-cols-4 gap-4 items-center">
-                         <div className="font-medium text-slate-500 text-xs">Last year Units Sold</div>
-                         {PRODUCTS.map(p => (
-                             // @ts-ignore
-                             <div key={p.id} className="text-center text-xs text-slate-500">{LAST_YEAR_DATA.unitsSold[p.id].toLocaleString()}</div>
-                         ))}
-                     </div>
+                     {/* Last Year Data (Hidden for Student View) */}
+                     {currentRole !== 'STUDENT' && (
+                         <div className="border-t border-slate-100 pt-6 mt-6 space-y-3">
+                             <div className="grid grid-cols-4 gap-4 items-center">
+                                 <div className="font-medium text-slate-500 text-xs">Last year Market Share</div>
+                                 {PRODUCTS.map(p => (
+                                     // @ts-ignore
+                                     <div key={p.id} className="text-center text-xs text-slate-500">{formatPercent(LAST_YEAR_DATA.marketShare[p.id], 2, false)}</div>
+                                 ))}
+                             </div>
+                             <div className="grid grid-cols-4 gap-4 items-center">
+                                 <div className="font-medium text-slate-500 text-xs">Last year Units Sold</div>
+                                 {PRODUCTS.map(p => (
+                                     // @ts-ignore
+                                     <div key={p.id} className="text-center text-xs text-slate-500">{LAST_YEAR_DATA.unitsSold[p.id].toLocaleString()}</div>
+                                 ))}
+                             </div>
+                         </div>
+                     )}
                  </div>
             </div>
 

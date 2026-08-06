@@ -8,25 +8,104 @@ import {
   ComposedChart, Line, Cell
 } from 'recharts';
 import { formatCurrency, formatNumber, formatPercent } from '../utils/numberFormat';
+import { computeIndustryPerformance } from '../utils/industryPerformance';
+import { processTurn } from '../utils/SimulationEngine';
+import { getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../utils/marketShareBackModel';
 
 // --- Types & Interfaces for Reports ---
 type ReportTab = 'summary' | 'income' | 'balance' | 'cashflow';
 
 const FinancialReports: React.FC = () => {
-  const { decisions, currentTeam, lastPeriodKPIs } = useSimulation();
+  const { decisions, currentTeam, lastPeriodKPIs, classes, currentClassId } = useSimulation();
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
 
+  const currentClass = classes.find(c => c.id === currentClassId);
+  const realTeams = useMemo(() => {
+    return currentClass?.teams ? currentClass.teams.filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)) : [];
+  }, [currentClass]);
+
   const actuals = useMemo(() => {
-    const prevPeriod = currentTeam.currentPeriod - 1;
-    return currentTeam.history?.[prevPeriod] || YEAR_0_RECORD;
-  }, [currentTeam]);
+    const prevPeriod = Math.max(0, currentTeam.currentPeriod - 1);
+    const rawRec = currentTeam.history?.[prevPeriod] || currentTeam.history?.[String(prevPeriod)];
+
+    // Direct tie-back to Industry Performance snapshot
+    let ind = rawRec?.industry;
+    if (!ind && prevPeriod >= 1 && realTeams.length > 0) {
+      try {
+        const perfList = computeIndustryPerformance(realTeams, prevPeriod);
+        ind = perfList.find(p => p.teamId === currentTeam.id);
+      } catch (e) {
+        console.warn("Could not compute prior industry performance fallback:", e);
+      }
+    }
+
+    const bs = computeTeamPeriodBalanceSheet(currentTeam, prevPeriod);
+
+    const prevRevenue = ind?.totalRevenue ?? rawRec?.revenue?.total ?? YEAR_0_RECORD.revenue.total;
+    const prevCogs = ind?.totalCogs ?? rawRec?.cogs?.total ?? YEAR_0_RECORD.cogs.total;
+    const prevGrossProfit = ind?.grossProfit ?? rawRec?.grossProfit?.total ?? YEAR_0_RECORD.grossProfit.total;
+    const prevEbitda = ind?.ebitda ?? rawRec?.ebitda ?? YEAR_0_RECORD.ebitda;
+    const prevDepr = ind?.depreciation ?? rawRec?.depreciation ?? YEAR_0_RECORD.depreciation;
+    const prevInterest = ind?.financeCharges ?? ind?.interest ?? rawRec?.interest ?? YEAR_0_RECORD.interest;
+    const prevEbt = ind?.ebt ?? rawRec?.ebt ?? YEAR_0_RECORD.ebt;
+    const prevTax = ind?.taxation ?? rawRec?.tax ?? YEAR_0_RECORD.tax;
+    const prevNetProfit = ind?.netProfit ?? bs.netProfit;
+
+    const prevOpex = {
+      marketing: ind?.opex?.marketing ?? rawRec?.opex?.marketing ?? YEAR_0_RECORD.opex.marketing,
+      store: ind?.opex?.store ?? rawRec?.opex?.store ?? YEAR_0_RECORD.opex.store,
+      agents: ind?.opex?.agents ?? rawRec?.opex?.agents ?? YEAR_0_RECORD.opex.agents,
+      payroll: ind?.opex?.payroll ?? rawRec?.opex?.payroll ?? YEAR_0_RECORD.opex.payroll,
+      training: ind?.opex?.training ?? rawRec?.opex?.training ?? YEAR_0_RECORD.opex.training,
+      rd: ind?.opex?.rd ?? rawRec?.opex?.rd ?? YEAR_0_RECORD.opex.rd,
+      other: ind?.opex?.other ?? rawRec?.opex?.other ?? YEAR_0_RECORD.opex.other,
+      total: ind?.opex?.total ?? ind?.totalOpex ?? rawRec?.opex?.total ?? YEAR_0_RECORD.opex.total
+    };
+
+    return {
+      period: prevPeriod,
+      revenue: {
+        total: prevRevenue,
+        byProduct: ind?.revenueByProduct || rawRec?.revenue?.byProduct || YEAR_0_RECORD.revenue.byProduct
+      },
+      cogs: {
+        total: prevCogs,
+        byProduct: ind?.cogsByProduct || rawRec?.cogs?.byProduct || YEAR_0_RECORD.cogs.byProduct
+      },
+      grossProfit: {
+        total: prevGrossProfit,
+        byProduct: ind?.gpByProduct || rawRec?.grossProfit?.byProduct || YEAR_0_RECORD.grossProfit.byProduct
+      },
+      ebitda: prevEbitda,
+      depreciation: prevDepr,
+      interest: prevInterest,
+      ebt: prevEbt,
+      tax: prevTax,
+      netProfit: prevNetProfit,
+      opex: prevOpex,
+      balanceSheet: {
+        cash: bs.cash,
+        receivables: bs.receivables,
+        inventory: bs.inventory,
+        fixedAssets: bs.fixedAssets,
+        totalAssets: bs.totalAssets,
+        equity: ind?.equity ?? bs.equity,
+        openingEquity: bs.openingEquity,
+        netProfit: prevNetProfit,
+        longTermDebt: bs.longTermDebt,
+        currentLiabilities: bs.currentLiabilities,
+        totalLiabilities: bs.longTermDebt + bs.currentLiabilities,
+        totalLiabilitiesAndEquity: bs.totalLiabilitiesAndEquity
+      }
+    };
+  }, [currentTeam, realTeams]);
 
   const prevActuals = useMemo(() => {
     const prevPrevPeriod = currentTeam.currentPeriod - 2;
     if (prevPrevPeriod >= 0 && currentTeam.history?.[prevPrevPeriod]) {
       return currentTeam.history[prevPrevPeriod];
     }
-    // Fallback for Year 0's prior period (Year -1 opening balances) to balance Year 0 Cash Flow exactly
+    // Fallback for Year 0's prior period (Year -1 opening balances)
     return {
       period: -1,
       revenue: { total: 0, byProduct: { techbook: 0, zroid: 0, itab: 0 } },
@@ -96,184 +175,206 @@ const FinancialReports: React.FC = () => {
     // 1. Revenue & COGS
     const revenueByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
     let totalRevenue = 0;
-    // 1. Production Staff Costs (Technicians & Semi-skilled)
+    
+    // Production Staff Costs (Technicians & Semi-skilled)
     let productionPayroll = 0;
-    let opexPayroll = 0;
-    let opexTraining = 0;
-    
-    const hrRoles = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const;
-    hrRoles.forEach(r => {
-      const count = (currentTeam.staffCounts[r] || 0) + (decisions.hr.hiring[r] || 0);
-      const monthlySalary = decisions.hr.salaries[r] || 0;
-      const trainingLevel = decisions.hr.trainingLevels[r] || 'None';
-      const trainingCostPer = HR_CONSTANTS.trainingCosts[trainingLevel] || 0;
-      
-      opexTraining += count * trainingCostPer; // Training remains in OPEX
-      
-      if (r === 'technicians' || r === 'semiSkilled') {
-        productionPayroll += count * monthlySalary * 8;
-      } else {
-        opexPayroll += count * monthlySalary * 8;
-      }
-    });
-    
-    const totalProductionStaffCost = productionPayroll;
-    const totalProductionUnits = PRODUCTS.reduce((sum, p) => sum + (decisions.operations.production[p.id] || 0), 0);
-    const laborCostPerUnit = totalProductionUnits > 0 ? (totalProductionStaffCost / totalProductionUnits) : 0;
+    const techCount = (currentTeam.staffCounts?.technicians || 0) + (decisions.hr.hiring.technicians || 0);
+    const techSalary = decisions.hr.salaries.technicians || 0;
+    productionPayroll += techCount * techSalary * 8;
 
-    const standardCosts: Record<ProductId, number> = { techbook: 1400, zroid: 1350, itab: 1100 };
+    const semiCount = (currentTeam.staffCounts?.semiSkilled || 0) + (decisions.hr.hiring.semiSkilled || 0);
+    const semiSalary = decisions.hr.salaries.semiSkilled || 0;
+    productionPayroll += semiCount * semiSalary * 8;
+
+    const totalProdUnitsPlanned = (decisions.operations.production.techbook || 0) + 
+                                  (decisions.operations.production.zroid || 0) + 
+                                  (decisions.operations.production.itab || 0);
+
+    const laborCostPerUnit = totalProdUnitsPlanned > 0 ? (productionPayroll / totalProdUnitsPlanned) : 350;
+
     const cogsByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
-    let totalCOGS = 0;
-    
+    let totalCogs = 0;
+
     PRODUCTS.forEach(p => {
-        const share = decisions.marketing.forecastedMarketShare[p.id] || 0;
-        const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
-        const available = getAvailableInventory(p.id);
-        const unitsSold = Math.min(demand, available);
+      const price = decisions.marketing.prices[p.id] || 0;
+      const share = (decisions.marketing.forecastedMarketShare[p.id] || 0) / 100;
+      const totalMarketSize = getMarketSize(p.id, currentPeriod);
+      const demandUnits = Math.round(totalMarketSize * share);
+      const availableUnits = getAvailableInventory(p.id);
+      const salesUnits = Math.min(demandUnits, availableUnits);
 
-        const revenue = unitsSold * decisions.marketing.prices[p.id];
-        revenueByProduct[p.id] = revenue;
-        totalRevenue += revenue;
+      const prodRev = salesUnits * price;
+      revenueByProduct[p.id] = prodRev;
+      totalRevenue += prodRev;
 
-        // Dynamic unit cost split
-        const manufacturedUnits = decisions.operations.production[p.id] || 0;
-        const fgUnits = (Object.values(decisions.procurement.supplierAllocation[p.id] || {}) as { finishedGoods?: number }[]).reduce((s, v) => s + (v.finishedGoods || 0), 0);
-        
-        const mfgCost = standardCosts[p.id] + laborCostPerUnit;
-        const fgCost = standardCosts[p.id];
-        
-        const totalUnits = manufacturedUnits + fgUnits;
-        const unitCost = totalUnits > 0 
-            ? ((manufacturedUnits * mfgCost) + (fgUnits * fgCost)) / totalUnits 
-            : standardCosts[p.id] + laborCostPerUnit;
+      // Calculate component cost based on procurement allocation
+      let componentCost = p.id === 'techbook' ? 1200 : (p.id === 'zroid' ? 1400 : 1000);
+      const alloc = decisions.procurement.supplierAllocation[p.id] || {};
+      let totalAllocComponents = 0;
+      let totalAllocCost = 0;
 
-        const cost = unitsSold * unitCost;
-        cogsByProduct[p.id] = cost;
-        totalCOGS += cost;
+      Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
+        if (val && val.components > 0) {
+          const supMetric = (SUPPLIERS as any)[supId];
+          const supPrice = supMetric?.unitPrices?.[p.id] ?? componentCost;
+          totalAllocCost += supPrice * val.components;
+          totalAllocComponents += val.components;
+        }
+      });
+
+      if (totalAllocComponents > 0) {
+        componentCost = totalAllocCost / totalAllocComponents;
+      }
+
+      const unitCogs = componentCost + laborCostPerUnit;
+      const prodCogs = salesUnits * unitCogs;
+      cogsByProduct[p.id] = prodCogs;
+      totalCogs += prodCogs;
     });
 
-    if (totalProductionUnits === 0) {
-        totalCOGS += totalProductionStaffCost;
-    }
+    const grossProfitTotal = totalRevenue - totalCogs;
+    const grossProfitByProduct: Record<ProductId, number> = {
+      techbook: revenueByProduct.techbook - cogsByProduct.techbook,
+      zroid: revenueByProduct.zroid - cogsByProduct.zroid,
+      itab: revenueByProduct.itab - cogsByProduct.itab,
+    };
 
-    const grossProfit = totalRevenue - totalCOGS;
+    // 2. Opex
+    const marketingOpex = decisions.marketing.advertisingBudget || 0;
 
-    const marketingSpend = decisions.marketing.advertisingBudget;
-    
-    const finalStoreCount = currentTeam.storeCount + decisions.marketing.openCloseStores;
-    const storeCosts = (finalStoreCount * STORE_COSTS.running) + 
-                       (decisions.marketing.openCloseStores > 0 ? decisions.marketing.openCloseStores * STORE_COSTS.opening : 0) + 
-                       (decisions.marketing.openCloseStores < 0 ? Math.abs(decisions.marketing.openCloseStores) * STORE_COSTS.closing : 0);
+    const openingStores = currentTeam.storeCount || 0;
+    const netStoreChange = decisions.marketing.openCloseStores || 0;
+    const totalStores = Math.max(0, openingStores + netStoreChange);
+    const storeRunCost = totalStores * STORE_COSTS.running;
+    const storeTransCost = netStoreChange > 0 
+      ? netStoreChange * STORE_COSTS.opening 
+      : (netStoreChange < 0 ? Math.abs(netStoreChange) * STORE_COSTS.closing : 0);
+    const storeOpex = storeRunCost + storeTransCost;
 
-    // Agent Commission (approx 52% of sales via agents)
-    const agentSales = totalRevenue * 0.52;
-    const agentCommission = agentSales * decisions.marketing.agentCommission;
+    const agentCommissionOpex = Math.round(totalRevenue * 0.52 * (decisions.marketing.agentCommission || 0));
 
-    // Payroll (excluding production staff, who are allocated to COGS)
-    const payroll = opexPayroll;
+    // Non-production payroll (Engineers, Admin, CS)
+    let nonProdPayroll = 0;
 
-    // Training (excluding production staff, who are allocated to COGS)
-    const training = opexTraining;
+    const engCount = (currentTeam.staffCounts?.engineers || 0) + (decisions.hr.hiring.engineers || 0);
+    nonProdPayroll += engCount * (decisions.hr.salaries.engineers || 0) * 8;
 
-    const rdSpend = decisions.operations.rdBudget;
-    const sumOtherExpenses = marketingSpend + storeCosts + agentCommission + payroll + training + rdSpend;
-    const year0OtherOpexSum = YEAR_0_RECORD.opex.marketing + YEAR_0_RECORD.opex.store + YEAR_0_RECORD.opex.agents + YEAR_0_RECORD.opex.payroll + YEAR_0_RECORD.opex.training + YEAR_0_RECORD.opex.rd;
-    const otherOpexRatio = YEAR_0_RECORD.opex.other / year0OtherOpexSum;
-    const otherOpex = Math.round(sumOtherExpenses * otherOpexRatio);
-    
-    const totalOpex = sumOtherExpenses + otherOpex;
+    const adminCount = (currentTeam.staffCounts?.adminSales || 0) + (decisions.hr.hiring.adminSales || 0);
+    nonProdPayroll += adminCount * (decisions.hr.salaries.adminSales || 0) * 8;
 
-    const ebitda = grossProfit - totalOpex;
-    
-    // 4. Below EBITDA
-    const depreciation = 1535965; // Aligned with Year 0 Depreciation
-    const forecastedLongTermDebt = currentTeam.longTermDebt + decisions.finance.debtChange;
-    const debtInterest = forecastedLongTermDebt > 0 ? Math.round(forecastedLongTermDebt * FINANCE_CONSTANTS.interestRate) : 0;
-    const startCash = currentTeam.cashBalance || 0;
-    const overdraftInterest = startCash < 0 ? Math.round(Math.abs(startCash) * (FINANCE_CONSTANTS.overdraftInterestRate || 0.15)) : 0;
-    const financeCharges = debtInterest + overdraftInterest;
-    const ebt = ebitda - depreciation - financeCharges;
+    const csCount = (currentTeam.staffCounts?.customerService || 0) + (decisions.hr.hiring.customerService || 0);
+    nonProdPayroll += csCount * (decisions.hr.salaries.customerService || 0) * 8;
+
+    const trainingCosts: Record<string, number> = { None: 0, Basic: 5000, Advanced: 15000, Specialized: 30000 };
+    let trainingOpex = 0;
+    (['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const).forEach(r => {
+      const count = (currentTeam.staffCounts?.[r] || 0) + (decisions.hr.hiring?.[r] || 0);
+      const level = decisions.hr?.trainingLevels?.[r] || 'None';
+      trainingOpex += count * (trainingCosts[level] || 0);
+    });
+    const rdOpex = decisions.operations.rdBudget || 0;
+
+    const subtotalOpex = marketingOpex + storeOpex + agentCommissionOpex + nonProdPayroll + trainingOpex + rdOpex;
+    const otherOpex = subtotalOpex * 0.0797;
+    const totalOpex = subtotalOpex + otherOpex;
+
+    const opexBreakdown = {
+      marketing: marketingOpex,
+      store: storeOpex,
+      agents: agentCommissionOpex,
+      payroll: nonProdPayroll,
+      training: trainingOpex,
+      rd: rdOpex,
+      other: otherOpex,
+      total: totalOpex
+    };
+
+    const ebitda = grossProfitTotal - totalOpex;
+
+    // Depreciation
+    const currentFixedAssets = actuals.balanceSheet.fixedAssets;
+    const capacityExpansionCost = Math.max(0, decisions.operations.capacityChange) * 15000;
+    const storeOpeningCapEx = Math.max(0, decisions.marketing.openCloseStores) * STORE_COSTS.opening;
+    const totalCapEx = capacityExpansionCost + storeOpeningCapEx;
+    const newFixedAssetsBase = currentFixedAssets + totalCapEx;
+    const depreciation = newFixedAssetsBase * 0.05;
+    const fixedAssets = newFixedAssetsBase - depreciation;
+
+    // Debt & Interest
+    const currentDebt = actuals.balanceSheet.longTermDebt;
+    const debtChange = decisions.finance.debtChange || 0;
+    const longTermDebt = Math.max(0, currentDebt + debtChange);
+    const interest = longTermDebt * FINANCE_CONSTANTS.interestRate;
+
+    const ebt = ebitda - depreciation - interest;
     const tax = ebt > 0 ? ebt * FINANCE_CONSTANTS.taxRate : 0;
     const netProfit = ebt - tax;
 
-    // 5. Balance Sheet Items
-    const startPPE = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.fixedAssets ?? 293500000;
-    const fixedAssets = startPPE + decisions.operations.capacityChange * 1500 - depreciation;
+    // Balance Sheet Items
+    const openingEquity = actuals.balanceSheet.equity;
+    const equityChange = decisions.finance.equityChange || 0;
+    const endingEquity = openingEquity + equityChange + netProfit;
 
-    const startInventoryValue = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.inventory ?? 49900000;
-    const totalSalesUnits = PRODUCTS.reduce((s, p) => {
-        const share = decisions.marketing.forecastedMarketShare[p.id] || 0;
-        const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
-        const available = getAvailableInventory(p.id);
-        const unitsSold = Math.min(demand, available);
-        return s + unitsSold;
-    }, 0);
-    const inventoryValue = Math.max(0, startInventoryValue + (totalProductionUnits - totalSalesUnits) * 1500);
-
-    const avgDebtorsDays = (Object.values(decisions.finance.debtorsDays) as number[]).reduce((a, b) => a + b, 0) / 3 || 30;
-    const receivables = (totalRevenue / 365) * avgDebtorsDays;
-
-    const startDebtors = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.receivables ?? 47500000;
-    const startCreditors = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.currentLiabilities ?? 99000000;
-    
-    // Calculate forecasted purchases and payments to get ending creditors dynamically
-    let totalPurchases = 0;
-    let purchasesPaidThisPeriod = 0;
-    const isDealActive = decisions.negotiation.status === 'AGREED';
-    
+    let receivables = 0;
     PRODUCTS.forEach(p => {
-        const productProc = decisions.procurement.supplierAllocation[p.id] || {};
-        SUPPLIERS.forEach(s => {
-            const alloc = productProc[s];
-            if (!alloc) return;
-            const discountMultiplier = (isDealActive && decisions.negotiation.selectedSupplierId === s) ? (1 - decisions.negotiation.agreedDiscount) : 1;
-            const compCost = (COMPONENT_COSTS[p.id]?.[s] || 0) * (alloc.components || 0) * discountMultiplier;
-            const fgCost = (FINISHED_GOODS_COSTS[p.id]?.[s] || 0) * (alloc.finishedGoods || 0) * discountMultiplier;
-            totalPurchases += compCost + fgCost;
-
-            const agreedTerms = (isDealActive && decisions.negotiation.selectedSupplierId === s && decisions.negotiation.agreedPaymentTerms) ? decisions.negotiation.agreedPaymentTerms : (s === 'Alpha' ? 60 : s === 'Neepo' ? 30 : 45);
-            const termKey = `${agreedTerms}_days`;
-            const paymentFactor = termKey === '30_days' ? 1.0 : termKey === '45_days' ? 0.9 : 0.8;
-            purchasesPaidThisPeriod += (compCost + fgCost) * paymentFactor;
-        });
+      const pRev = revenueByProduct[p.id];
+      const pDays = decisions.finance.debtorsDays[p.id] || 30;
+      receivables += pRev * (pDays / 365);
     });
-    
-    const currentLiabilities = Math.max(0, startCreditors + totalPurchases - purchasesPaidThisPeriod);
 
-    const endingEquity = currentTeam.shareholdersEquity + netProfit + decisions.finance.equityChange;
-    const longTermDebt = currentTeam.longTermDebt + decisions.finance.debtChange;
+    let totalRawComponentsCount = 0;
+    PRODUCTS.forEach(p => {
+      const plannedProd = decisions.operations.production[p.id] || 0;
+      const alloc = decisions.procurement.supplierAllocation[p.id] || {};
+      Object.values(alloc).forEach((val: any) => {
+        if (val && val.components > 0) {
+          totalRawComponentsCount += val.components;
+        }
+      });
+    });
+    const estimatedRawMaterialsVal = totalRawComponentsCount * 1200;
 
-    const endingCash = endingEquity + longTermDebt + currentLiabilities - fixedAssets - receivables - inventoryValue;
+    let totalFGCount = 0;
+    PRODUCTS.forEach(p => {
+      const alloc = decisions.procurement.supplierAllocation[p.id] || {};
+      Object.values(alloc).forEach((val: any) => {
+        if (val && val.finishedGoods > 0) {
+          totalFGCount += val.finishedGoods;
+        }
+      });
+    });
+    const estimatedFGVal = totalFGCount * 2500;
+    const inventoryValue = estimatedRawMaterialsVal + estimatedFGVal;
 
-    const investingCashFlow = -1 * (decisions.operations.capacityChange > 0 ? decisions.operations.capacityChange * 1500 : 0); // Capex
-    const financingCashFlow = decisions.finance.debtChange + decisions.finance.equityChange;
-    const netCashFlow = endingCash - currentTeam.cashBalance;
-    const operatingCashFlow = netCashFlow - investingCashFlow - financingCashFlow;
+    const totalAssets = fixedAssets + receivables + inventoryValue; 
+    const currentLiabilities = Math.max(0, totalAssets - (endingEquity + longTermDebt));
 
-    const totalCurrentAssets = endingCash + inventoryValue + receivables;
-    const totalAssets = fixedAssets + totalCurrentAssets;
+    // Cash Flow & Ending Cash
+    const operatingCashFlow = netProfit + depreciation;
+    const investingCashFlow = -totalCapEx;
+    const financingCashFlow = debtChange + equityChange;
+    const netCashFlow = operatingCashFlow + investingCashFlow + financingCashFlow;
+
+    const openingCash = actuals.balanceSheet.cash;
+    const endingCash = openingCash + netCashFlow;
 
     return {
-        revenue: { total: totalRevenue, byProduct: revenueByProduct },
-        cogs: { total: totalCOGS, byProduct: cogsByProduct },
-        grossProfit: { total: grossProfit, byProduct: {
-            techbook: revenueByProduct.techbook - cogsByProduct.techbook,
-            zroid: revenueByProduct.zroid - cogsByProduct.zroid,
-            itab: revenueByProduct.itab - cogsByProduct.itab
-        }},
-        opex: {
-            marketing: marketingSpend,
-            store: storeCosts,
-            agents: agentCommission,
-            payroll,
-            training,
-            rd: rdSpend,
-            other: otherOpex,
-            total: totalOpex
+        revenue: {
+            total: totalRevenue,
+            byProduct: revenueByProduct
         },
+        cogs: {
+            total: totalCogs,
+            byProduct: cogsByProduct
+        },
+        grossProfit: {
+            total: grossProfitTotal,
+            byProduct: grossProfitByProduct
+        },
+        opex: opexBreakdown,
         ebitda,
         depreciation,
-        financeCharges,
+        interest,
         ebt,
         tax,
         netProfit,
@@ -295,10 +396,7 @@ const FinancialReports: React.FC = () => {
             net: netCashFlow
         }
     };
-  }, [decisions, currentTeam]);
-
-  // --- Render Helpers ---
-
+  }, [decisions, currentTeam, actuals]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -307,7 +405,7 @@ const FinancialReports: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Financial Reports</h1>
-          <p className="text-slate-500 mt-1">Comprehensive financial analysis and decision summary.</p>
+          <p className="text-slate-500 mt-1">Comprehensive financial analysis and decision summary (Actuals tied to Industry Performance).</p>
         </div>
         
         {/* Tabs */}
@@ -353,70 +451,53 @@ const FinancialReports: React.FC = () => {
                              <span className="text-slate-600">Team Name:</span>
                              <span className="font-bold">{currentTeam.name}</span>
                          </div>
-                          <div className="flex justify-between">
-                              <span className="text-slate-600">Team Leader:</span>
-                              <span className="font-bold">{currentTeam.ceoName || 'Not Appointed'}</span>
-                          </div>
+                         <div className="flex justify-between border-b border-slate-100 pb-2">
+                             <span className="text-slate-600">Cash Balance:</span>
+                             <span className="font-mono text-emerald-600 font-bold">R {currentTeam.cashBalance.toLocaleString()}</span>
+                         </div>
+                         <div className="flex justify-between">
+                             <span className="text-slate-600">Store Count:</span>
+                             <span className="font-bold">{currentTeam.storeCount}</span>
+                         </div>
                      </div>
                  </div>
 
                  {/* Marketing */}
-                 <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden md:row-span-2">
-                     <div className="bg-blue-600 px-4 py-2 text-white font-bold text-sm">Marketing & Sales Decisions</div>
-                     <div className="p-4 space-y-4 text-sm">
+                 <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                     <div className="bg-blue-600 px-4 py-2 text-white font-bold text-sm">Marketing Decisions</div>
+                     <div className="p-4 space-y-3 text-sm">
                          <div>
-                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Market Share Forecast</p>
+                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Prices</p>
                              {PRODUCTS.map(p => (
                                  <div key={p.id} className="flex justify-between py-1">
                                      <span className="text-slate-600">{p.name}</span>
-                                     <span className="font-mono">{formatPercent(decisions.marketing.forecastedMarketShare[p.id], 2, false)}</span>
+                                     <span className="font-mono">R {decisions.marketing.prices[p.id]?.toLocaleString() || 0}</span>
                                  </div>
                              ))}
                          </div>
                          <div>
-                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Pricing</p>
+                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Forecasted Share</p>
                              {PRODUCTS.map(p => (
                                  <div key={p.id} className="flex justify-between py-1">
                                      <span className="text-slate-600">{p.name}</span>
-                                     <span className="font-mono">R {decisions.marketing.prices[p.id].toLocaleString()}</span>
+                                     <span className="font-mono">{formatPercent(decisions.marketing.forecastedMarketShare[p.id] || 0, 2)}</span>
                                  </div>
                              ))}
                          </div>
                          <div>
-                              <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Advertising</p>
-                              <div className="flex justify-between py-1">
-                                  <span className="text-slate-600">Total Budget</span>
-                                  <span className="font-mono">R {decisions.marketing.advertisingBudget.toLocaleString()}</span>
-                              </div>
-                              {PRODUCTS.map(p => (
-                                  <div key={p.id} className="flex justify-between py-1 pl-2 text-xs">
-                                      <span className="text-slate-500">Split: {p.name}</span>
-                                      <span className="font-mono">{formatPercent(decisions.marketing.adSplits[p.id], 2)}</span>
-                                  </div>
-                              ))}
-                              <div className="flex justify-between py-1 pl-2 text-xs border-t border-slate-50 mt-1">
-                                  <span className="text-slate-500">Brand Equity</span>
-                                  <span className="font-mono">{formatPercent(decisions.marketing.generalAdSplit, 2)}</span>
-                              </div>
-                          </div>
-                         <div>
-                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Distribution</p>
+                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Advertising</p>
                              <div className="flex justify-between py-1">
-                                 <span className="text-slate-600">Stores Change</span>
-                                 <span className="font-mono">{decisions.marketing.openCloseStores}</span>
-                             </div>
-                             <div className="flex justify-between py-1">
-                                 <span className="text-slate-600">Agents' Comm.</span>
-                                 <span className="font-mono">{formatPercent(decisions.marketing.agentCommission, 2)}</span>
+                                 <span className="text-slate-600">Budget</span>
+                                 <span className="font-mono">R {decisions.marketing.advertisingBudget.toLocaleString()}</span>
                              </div>
                          </div>
                      </div>
                  </div>
 
                  {/* Operations */}
-                 <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden md:row-span-2">
+                 <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
                      <div className="bg-blue-600 px-4 py-2 text-white font-bold text-sm">Operations Decisions</div>
-                     <div className="p-4 space-y-4 text-sm">
+                     <div className="p-4 space-y-3 text-sm">
                          <div>
                              <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Production Units</p>
                              {PRODUCTS.map(p => (
@@ -519,13 +600,13 @@ const FinancialReports: React.FC = () => {
                                   <div key={p.id} className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
                                       <p className="font-bold text-slate-800 mb-1">{p.name}</p>
                                       {hasAllocations ? (
-                                          <div className="space-y-1 pl-2 text-xs">
-                                              {allocEntries.map(([supplier, val]) => {
-                                                  if (val.components === 0 && val.finishedGoods === 0) return null;
+                                          <div className="space-y-1 pl-2">
+                                              {allocEntries.map(([supKey, val]) => {
+                                                  if (val.components <= 0 && val.finishedGoods <= 0) return null;
                                                   return (
-                                                      <div key={supplier} className="flex justify-between text-slate-600 py-0.5">
-                                                          <span>{supplier}:</span>
-                                                          <span className="font-mono font-medium">
+                                                      <div key={supKey} className="flex justify-between text-xs">
+                                                          <span className="text-slate-600 capitalize">{supKey}</span>
+                                                          <span className="font-mono">
                                                               {val.components > 0 && `${val.components.toLocaleString()} Comp`}
                                                               {val.components > 0 && val.finishedGoods > 0 && " | "}
                                                               {val.finishedGoods > 0 && `${val.finishedGoods.toLocaleString()} FG`}
@@ -548,529 +629,331 @@ const FinancialReports: React.FC = () => {
 
           {/* 2. INCOME STATEMENT */}
           {activeTab === 'income' && (
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div>
                   
                   {/* Table */}
-                  <div className="xl:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                       <div className="p-4 sm:p-6">
                            <h3 className="text-lg font-bold text-slate-800 mb-4">Income Statement Forecast</h3>
                            <div className="overflow-x-auto">
                                <table className="w-full text-xs sm:text-sm whitespace-nowrap">
-                              <thead>
-                                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                                      <th className="py-3 px-4 text-left">Item</th>
-                                      <th className="py-3 px-4 text-right">Forecast Year {currentTeam.currentPeriod}</th>
-                                      <th className="py-3 px-4 text-right">Actual Year {currentTeam.currentPeriod - 1}</th>
-                                      <th className="py-3 px-4 text-right w-20">Var %</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                  {/* Revenue */}
-                                  <tr className="font-bold bg-slate-50/50">
-                                      <td className="py-2 px-4">Total Revenue</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(forecast.revenue.total)}</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(actuals.revenue.total)}</td>
-                                      <td className={`py-2 px-4 text-right ${getVarColor(forecast.revenue.total, actuals.revenue.total)}`}>
-                                          {calculateVar(forecast.revenue.total, actuals.revenue.total)}
-                                      </td>
-                                  </tr>
-                                  {PRODUCTS.map(p => (
-                                      <tr key={`rev-${p.id}`}>
-                                          <td className="py-1 px-8 text-slate-500">- {p.name} Revenue</td>
-                                          <td className="py-1 px-4 text-right">{formatCurrency(forecast.revenue.byProduct[p.id])}</td>
-                                          <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.revenue.byProduct[p.id])}</td>
-                                          <td className="py-1 px-4 text-right text-slate-400">{calculateVar(forecast.revenue.byProduct[p.id], actuals.revenue.byProduct[p.id])}</td>
-                                      </tr>
-                                  ))}
-                                  
-                                  {/* COGS */}
-                                  <tr className="font-bold bg-slate-50/50 border-t border-slate-200">
-                                      <td className="py-2 px-4">Total COGS</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(forecast.cogs.total)}</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(actuals.cogs.total)}</td>
-                                      <td className={`py-2 px-4 text-right ${getVarColor(forecast.cogs.total, actuals.cogs.total, true)}`}>
-                                          {calculateVar(forecast.cogs.total, actuals.cogs.total)}
-                                      </td>
-                                  </tr>
-                                  {PRODUCTS.map(p => (
-                                      <tr key={`cogs-${p.id}`}>
-                                          <td className="py-1 px-8 text-slate-500">- {p.name} COGS</td>
-                                          <td className="py-1 px-4 text-right">{formatCurrency(forecast.cogs.byProduct[p.id])}</td>
-                                          <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.cogs.byProduct[p.id])}</td>
-                                          <td className="py-1 px-4 text-right text-slate-400">{calculateVar(forecast.cogs.byProduct[p.id], actuals.cogs.byProduct[p.id])}</td>
-                                      </tr>
-                                  ))}
-                                  
-                                  {/* Gross Profit */}
-                                  <tr className="font-bold bg-blue-50 text-blue-900 border-t border-blue-100">
-                                      <td className="py-2 px-4">Total Gross Profit</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(forecast.grossProfit.total)}</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(actuals.grossProfit.total)}</td>
-                                      <td className={`py-2 px-4 text-right ${getVarColor(forecast.grossProfit.total, actuals.grossProfit.total)}`}>
-                                          {calculateVar(forecast.grossProfit.total, actuals.grossProfit.total)}
-                                      </td>
-                                  </tr>
+                               <thead>
+                                   <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                       <th className="py-3 px-4 text-left">Item</th>
+                                       <th className="py-3 px-4 text-right">Forecast Year {currentTeam.currentPeriod}</th>
+                                       <th className="py-3 px-4 text-right">Actual Year {currentTeam.currentPeriod - 1}</th>
+                                       <th className="py-3 px-4 text-right w-20">Var %</th>
+                                   </tr>
+                               </thead>
+                               <tbody className="divide-y divide-slate-100">
+                                   {/* Revenue */}
+                                   <tr className="font-bold bg-slate-50/50">
+                                       <td className="py-2 px-4">Total Revenue</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(forecast.revenue.total)}</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(actuals.revenue.total)}</td>
+                                       <td className={`py-2 px-4 text-right ${getVarColor(forecast.revenue.total, actuals.revenue.total)}`}>
+                                           {calculateVar(forecast.revenue.total, actuals.revenue.total)}
+                                       </td>
+                                   </tr>
+                                   {PRODUCTS.map(p => (
+                                       <tr key={`rev-${p.id}`}>
+                                           <td className="py-1 px-8 text-slate-500">- {p.name} Revenue</td>
+                                           <td className="py-1 px-4 text-right">{formatCurrency(forecast.revenue.byProduct[p.id])}</td>
+                                           <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.revenue.byProduct[p.id])}</td>
+                                           <td className="py-1 px-4 text-right text-slate-400">{calculateVar(forecast.revenue.byProduct[p.id], actuals.revenue.byProduct[p.id])}</td>
+                                       </tr>
+                                   ))}
+                                   
+                                   {/* COGS */}
+                                   <tr className="font-bold bg-slate-50/50 border-t border-slate-200">
+                                       <td className="py-2 px-4">Total COGS</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(forecast.cogs.total)}</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(actuals.cogs.total)}</td>
+                                       <td className={`py-2 px-4 text-right ${getVarColor(forecast.cogs.total, actuals.cogs.total, true)}`}>
+                                           {calculateVar(forecast.cogs.total, actuals.cogs.total)}
+                                       </td>
+                                   </tr>
+                                   {PRODUCTS.map(p => (
+                                       <tr key={`cogs-${p.id}`}>
+                                           <td className="py-1 px-8 text-slate-500">- {p.name} COGS</td>
+                                           <td className="py-1 px-4 text-right">{formatCurrency(forecast.cogs.byProduct[p.id])}</td>
+                                           <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.cogs.byProduct[p.id])}</td>
+                                           <td className="py-1 px-4 text-right text-slate-400">{calculateVar(forecast.cogs.byProduct[p.id], actuals.cogs.byProduct[p.id])}</td>
+                                       </tr>
+                                   ))}
 
-                                  {/* Opex Details */}
-                                  <tr className="text-slate-700 pt-4"><td colSpan={4} className="py-2 px-4 font-semibold text-slate-500 uppercase text-xs">Operating Expenses</td></tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Advertising & Marketing</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.marketing)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.marketing)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.marketing, actuals.opex.marketing, true)}`}>{calculateVar(forecast.opex.marketing, actuals.opex.marketing)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Store Costs</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.store)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.store)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.store, actuals.opex.store, true)}`}>{calculateVar(forecast.opex.store, actuals.opex.store)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Payroll</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.payroll)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.payroll)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.payroll, actuals.opex.payroll, true)}`}>{calculateVar(forecast.opex.payroll, actuals.opex.payroll)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">R & D</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.rd)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.rd)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.rd, actuals.opex.rd, true)}`}>{calculateVar(forecast.opex.rd, actuals.opex.rd)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Agent Commissions</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.agents)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.agents)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.agents, actuals.opex.agents, true)}`}>{calculateVar(forecast.opex.agents, actuals.opex.agents)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Staff Development</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.training)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.training)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.training, actuals.opex.training, true)}`}>{calculateVar(forecast.opex.training, actuals.opex.training)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-8">Other Operational Expenses</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.opex.other)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.opex.other)}</td>
-                                      <td className={`text-right px-4 text-xs ${getVarColor(forecast.opex.other, actuals.opex.other, true)}`}>{calculateVar(forecast.opex.other, actuals.opex.other)}</td>
-                                  </tr>
-                                  
-                                  {/* EBITDA */}
-                                  <tr className="font-bold bg-slate-100 border-t-2 border-slate-200">
-                                      <td className="py-3 px-4">EBITDA</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(forecast.ebitda)}</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(actuals.ebitda)}</td>
-                                      <td className={`py-3 px-4 text-right ${getVarColor(forecast.ebitda, actuals.ebitda)}`}>
-                                          {calculateVar(forecast.ebitda, actuals.ebitda)}
-                                      </td>
-                                  </tr>
+                                   {/* Gross Profit */}
+                                   <tr className="font-bold bg-blue-50/30 text-blue-900 border-t border-b border-blue-100">
+                                       <td className="py-2.5 px-4">Gross Profit</td>
+                                       <td className="py-2.5 px-4 text-right">{formatCurrency(forecast.grossProfit.total)}</td>
+                                       <td className="py-2.5 px-4 text-right">{formatCurrency(actuals.grossProfit.total)}</td>
+                                       <td className={`py-2.5 px-4 text-right ${getVarColor(forecast.grossProfit.total, actuals.grossProfit.total)}`}>
+                                           {calculateVar(forecast.grossProfit.total, actuals.grossProfit.total)}
+                                       </td>
+                                   </tr>
 
-                                  <tr>
-                                      <td className="py-1 px-4 text-slate-500">- Depreciation</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.depreciation)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.depreciation)}</td>
-                                      <td />
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-4 text-slate-500">- Finance Charges</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.financeCharges)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.interest)}</td>
-                                      <td />
-                                  </tr>
+                                   {/* Opex Header */}
+                                   <tr className="font-bold bg-slate-50/50">
+                                       <td className="py-2 px-4" colSpan={4}>Operating Expenses</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Marketing & Advertising</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.marketing)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.marketing)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.marketing, actuals.opex.marketing, true)}`}>{calculateVar(forecast.opex.marketing, actuals.opex.marketing)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Store Lease & Recurrent</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.store)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.store)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.store, actuals.opex.store, true)}`}>{calculateVar(forecast.opex.store, actuals.opex.store)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Sales Agent Commission</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.agents)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.agents)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.agents, actuals.opex.agents, true)}`}>{calculateVar(forecast.opex.agents, actuals.opex.agents)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Non-Prod Staff Payroll</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.payroll)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.payroll)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.payroll, actuals.opex.payroll, true)}`}>{calculateVar(forecast.opex.payroll, actuals.opex.payroll)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Staff Development & Training</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.training)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.training)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.training, actuals.opex.training, true)}`}>{calculateVar(forecast.opex.training, actuals.opex.training)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">R & D Investment</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.rd)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.rd)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.rd, actuals.opex.rd, true)}`}>{calculateVar(forecast.opex.rd, actuals.opex.rd)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-600">Other Overhead (Admin/Util)</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.opex.other)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.opex.other)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.opex.other, actuals.opex.other, true)}`}>{calculateVar(forecast.opex.other, actuals.opex.other)}</td>
+                                   </tr>
+                                   
+                                   <tr className="font-bold bg-slate-50 border-t border-slate-200">
+                                       <td className="py-2 px-4">Total Operating Expenses</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(forecast.opex.total)}</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(actuals.opex.total)}</td>
+                                       <td className={`py-2 px-4 text-right ${getVarColor(forecast.opex.total, actuals.opex.total, true)}`}>{calculateVar(forecast.opex.total, actuals.opex.total)}</td>
+                                   </tr>
 
-                                  <tr className="font-bold border-t border-slate-200">
-                                      <td className="py-2 px-4">EBT</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(forecast.ebt)}</td>
-                                      <td className="py-2 px-4 text-right">{formatCurrency(actuals.ebt)}</td>
-                                      <td className={`py-2 px-4 text-right ${getVarColor(forecast.ebt, actuals.ebt)}`}>
-                                          {calculateVar(forecast.ebt, actuals.ebt)}
-                                      </td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-1 px-4 text-slate-500">- Tax</td>
-                                      <td className="text-right px-4">{formatCurrency(forecast.tax)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.tax)}</td>
-                                      <td />
-                                  </tr>
+                                   {/* EBITDA */}
+                                   <tr className="font-bold">
+                                       <td className="py-2 px-4">EBITDA</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(forecast.ebitda)}</td>
+                                       <td className="py-2 px-4 text-right">{formatCurrency(actuals.ebitda)}</td>
+                                       <td className={`py-2 px-4 text-right ${getVarColor(forecast.ebitda, actuals.ebitda)}`}>{calculateVar(forecast.ebitda, actuals.ebitda)}</td>
+                                   </tr>
 
-                                  <tr className="font-bold bg-emerald-50 text-emerald-900 border-t-2 border-emerald-200 text-lg">
-                                      <td className="py-3 px-4">Net Profit</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(forecast.netProfit)}</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(actuals.netProfit)}</td>
-                                      <td className={`py-3 px-4 text-right ${getVarColor(forecast.netProfit, actuals.netProfit)}`}>
-                                          {calculateVar(forecast.netProfit, actuals.netProfit)}
-                                      </td>
-                                  </tr>
-                              </tbody>
+                                   {/* Depreciation & Interest */}
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-500">Less: Depreciation</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.depreciation)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.depreciation)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.depreciation, actuals.depreciation, true)}`}>{calculateVar(forecast.depreciation, actuals.depreciation)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-500">Less: Interest Expense</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.interest)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.interest)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.interest, actuals.interest, true)}`}>{calculateVar(forecast.interest, actuals.interest)}</td>
+                                   </tr>
+
+                                   {/* EBT & Tax */}
+                                   <tr className="font-bold border-t border-slate-100">
+                                       <td className="py-1.5 px-4">Earnings Before Tax (EBT)</td>
+                                       <td className="py-1.5 px-4 text-right">{formatCurrency(forecast.ebt)}</td>
+                                       <td className="py-1.5 px-4 text-right">{formatCurrency(actuals.ebt)}</td>
+                                       <td className={`py-1.5 px-4 text-right ${getVarColor(forecast.ebt, actuals.ebt)}`}>{calculateVar(forecast.ebt, actuals.ebt)}</td>
+                                   </tr>
+                                   <tr>
+                                       <td className="py-1 px-8 text-slate-500">Less: Taxation (28%)</td>
+                                       <td className="py-1 px-4 text-right">{formatCurrency(forecast.tax)}</td>
+                                       <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.tax)}</td>
+                                       <td className={`py-1 px-4 text-right ${getVarColor(forecast.tax, actuals.tax, true)}`}>{calculateVar(forecast.tax, actuals.tax)}</td>
+                                   </tr>
+
+                                   {/* Net Profit */}
+                                   <tr className="font-black text-base bg-emerald-50 text-emerald-950 border-t-2 border-b-2 border-emerald-300">
+                                       <td className="py-3 px-4">Net Profit After Tax</td>
+                                       <td className="py-3 px-4 text-right">{formatCurrency(forecast.netProfit)}</td>
+                                       <td className="py-3 px-4 text-right">{formatCurrency(actuals.netProfit)}</td>
+                                       <td className={`py-3 px-4 text-right ${getVarColor(forecast.netProfit, actuals.netProfit)}`}>{calculateVar(forecast.netProfit, actuals.netProfit)}</td>
+                                   </tr>
+                               </tbody>
                                </table>
                            </div>
-                       </div>
-                   </div>
-
-                  {/* Charts & KPIs */}
-                  <div className="space-y-6">
-                      
-                      <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-                           <h4 className="font-bold text-slate-800 mb-4 text-center">Revenue vs Opex</h4>
-                           <div className="h-64">
-                               <ResponsiveContainer width="100%" height="100%">
-                                   <BarChart data={[
-                                       { name: 'Revenue', value: forecast.revenue.total, fill: '#3B82F6' },
-                                       { name: 'Opex', value: forecast.opex.total, fill: '#EF4444' }
-                                   ]}>
-                                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                       <XAxis dataKey="name" />
-                                       <YAxis tickFormatter={(val) => `R ${(val/1000000).toFixed(0)}M`} />
-                                       <Tooltip formatter={(val: number) => formatCurrency(val)} />
-                                       <Bar dataKey="value" barSize={60} radius={[4, 4, 0, 0]} />
-                                   </BarChart>
-                               </ResponsiveContainer>
-                           </div>
                       </div>
-
-                      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="bg-blue-600 px-4 py-2 text-white font-bold text-center">Profitability Ratios (Forecast vs Actual)</div>
-                            <div className="p-4 grid grid-cols-2 gap-4">
-                                <div className="text-center p-3 bg-slate-50 rounded">
-                                    <div className="text-xs text-slate-500 uppercase">GP Margin</div>
-                                    <div className="text-lg font-bold text-slate-800">
-                                        {formatPercent(forecast.grossProfit.total / forecast.revenue.total, 2)}
-                                    </div>
-                                    <div className="text-xs text-slate-400">
-                                        Act: {formatPercent(actuals.grossProfit.total / actuals.revenue.total, 2)}
-                                    </div>
-                                </div>
-                                <div className="text-center p-3 bg-slate-50 rounded">
-                                    <div className="text-xs text-slate-500 uppercase">Net Margin</div>
-                                    <div className="text-lg font-bold text-emerald-600">
-                                        {formatPercent(forecast.netProfit / forecast.revenue.total, 2)}
-                                    </div>
-                                    <div className="text-xs text-slate-400">
-                                        Act: {formatPercent(actuals.netProfit / actuals.revenue.total, 2)}
-                                    </div>
-                                </div>
-                                <div className="text-center p-3 bg-slate-50 rounded">
-                                    <div className="text-xs text-slate-500 uppercase">ROE</div>
-                                    <div className="text-lg font-bold text-slate-800">
-                                        {formatPercent(forecast.netProfit / forecast.balanceSheet.equity, 2)}
-                                    </div>
-                                    <div className="text-xs text-slate-400">
-                                        Act: {formatPercent(actuals.netProfit / actuals.balanceSheet.equity, 2)}
-                                    </div>
-                                </div>
-                                <div className="text-center p-3 bg-slate-50 rounded">
-                                    <div className="text-xs text-slate-500 uppercase">RONA</div>
-                                    <div className="text-lg font-bold text-slate-800">
-                                        {formatPercent(forecast.netProfit / (forecast.balanceSheet.fixedAssets + (forecast.balanceSheet.cash + forecast.balanceSheet.inventory + forecast.balanceSheet.receivables - forecast.balanceSheet.currentLiabilities)), 2)}
-                                    </div>
-                                    <div className="text-xs text-slate-400">
-                                        Act: {formatPercent(actuals.netProfit / (actuals.balanceSheet.fixedAssets + (actuals.balanceSheet.cash + actuals.balanceSheet.inventory + actuals.balanceSheet.receivables - actuals.balanceSheet.currentLiabilities)), 2)}
-                                    </div>
-                                </div>
-                            </div>
-                      </div>
-
                   </div>
+
               </div>
           )}
 
-          {/* 3. BALANCE SHEET */}
-          {activeTab === 'balance' && (
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                 <div className="xl:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                     <div className="p-4 sm:p-6">
-                           <h3 className="text-lg font-bold text-slate-800 mb-4">Balance Sheet Forecast</h3>
-                           <div className="overflow-x-auto">
-                               <table className="w-full text-xs sm:text-sm whitespace-nowrap">
-                              <thead>
-                                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                                      <th className="py-3 px-4 text-left">Item</th>
-                                      <th className="py-3 px-4 text-right">Forecast Year {currentTeam.currentPeriod}</th>
-                                      <th className="py-3 px-4 text-right">Actual Year {currentTeam.currentPeriod - 1}</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100">
-                                  {/* Assets */}
-                                  <tr className="font-bold bg-slate-50/50"><td className="py-2 px-4" colSpan={3}>ASSETS</td></tr>
-                                  <tr>
-                                      <td className="py-2 px-8 text-slate-700 font-semibold">Non-Current Assets</td>
-                                      <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.fixedAssets)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.fixedAssets)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-2 px-8 text-slate-700 font-semibold">Current Assets</td>
-                                      <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.cash + forecast.balanceSheet.inventory + forecast.balanceSheet.receivables)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.cash + actuals.balanceSheet.inventory + actuals.balanceSheet.receivables)}</td>
-                                  </tr>
-                                  <tr><td className="py-1 px-12 text-slate-500">- Cash & Equiv.</td><td className="text-right px-4">{formatCurrency(forecast.balanceSheet.cash)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.balanceSheet.cash)}</td></tr>
-                                  <tr><td className="py-1 px-12 text-slate-500">- Receivables</td><td className="text-right px-4">{formatCurrency(forecast.balanceSheet.receivables)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.balanceSheet.receivables)}</td></tr>
-                                  <tr><td className="py-1 px-12 text-slate-500">- Inventory</td><td className="text-right px-4">{formatCurrency(forecast.balanceSheet.inventory)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.balanceSheet.inventory)}</td></tr>
-                                  
-                                  <tr className="font-bold bg-blue-50 text-blue-900 border-t border-blue-200">
-                                      <td className="py-3 px-4">TOTAL ASSETS</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(forecast.balanceSheet.totalAssets)}</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(actuals.balanceSheet.totalAssets)}</td>
-                                  </tr>
-
-                                  {/* Equity & Liabilities */}
-                                  <tr className="font-bold bg-slate-50/50 border-t-4 border-white"><td className="py-2 px-4" colSpan={3}>EQUITY & LIABILITIES</td></tr>
-                                  <tr>
-                                      <td className="py-2 px-8 text-slate-700 font-semibold">Total Equity</td>
-                                      <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.equity)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.equity)}</td>
-                                  </tr>
-                                  <tr><td className="py-1 px-12 text-slate-500">- Opening Equity</td><td className="text-right px-4">{formatCurrency(forecast.balanceSheet.equity - forecast.netProfit)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.balanceSheet.equity - actuals.netProfit)}</td></tr>
-                                  <tr><td className="py-1 px-12 text-slate-500">- Current Net Profit</td><td className="text-right px-4">{formatCurrency(forecast.netProfit)}</td><td className="text-right px-4 text-slate-400">{formatCurrency(actuals.netProfit)}</td></tr>
-                                  <tr>
-                                      <td className="py-2 px-8 text-slate-700 font-semibold">Non-Current Liabilities</td>
-                                      <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.longTermDebt)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.longTermDebt)}</td>
-                                  </tr>
-                                  <tr>
-                                      <td className="py-2 px-8 text-slate-700 font-semibold">Current Liabilities</td>
-                                      <td className="text-right px-4 font-bold">{formatCurrency(forecast.balanceSheet.currentLiabilities)}</td>
-                                      <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.balanceSheet.currentLiabilities)}</td>
-                                  </tr>
-
-                                  <tr className="font-bold bg-blue-50 text-blue-900 border-t border-blue-200">
-                                      <td className="py-3 px-4">TOTAL EQUITY & LIABILITIES</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(forecast.balanceSheet.totalLiabilitiesAndEquity)}</td>
-                                      <td className="py-3 px-4 text-right">{formatCurrency(actuals.balanceSheet.totalLiabilitiesAndEquity)}</td>
-                                  </tr>
-                                  
-                                  <tr className="font-bold bg-slate-100 text-slate-700 border-t border-slate-200 text-xs">
-                                      <td className="py-2 px-4 text-slate-500">Balance check (Equity + Liabilities - Assets)</td>
-                                      <td className="py-2 px-4 text-right">R 0</td>
-                                      <td className="py-2 px-4 text-right">R 0</td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                     </div>
-                 </div>
-              </div>
-
-                 {/* Charts */}
-                 <div className="space-y-6">
-                     <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-                           <h4 className="font-bold text-slate-800 mb-4 text-center">Funding Structure</h4>
-                           <div className="h-64">
-                               <ResponsiveContainer width="100%" height="100%">
-                                   <BarChart data={[
-                                       { name: 'Structure', Equity: forecast.balanceSheet.equity, Debt: forecast.balanceSheet.longTermDebt + forecast.balanceSheet.currentLiabilities }
-                                   ]} barSize={60}>
-                                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                       <XAxis dataKey="name" hide />
-                                       <YAxis tickFormatter={(val) => `R ${(val/1000000).toFixed(0)}M`} />
-                                       <Tooltip formatter={(val: number) => formatCurrency(val)} />
-                                       <Legend />
-                                       <Bar dataKey="Equity" stackId="a" fill="#3B82F6" />
-                                       <Bar dataKey="Debt" stackId="a" fill="#EF4444" />
-                                   </BarChart>
-                               </ResponsiveContainer>
-                           </div>
-                      </div>
-                      
-                      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="bg-blue-600 px-4 py-2 text-white font-bold text-center">Liquidity KPIs (Forecast vs Actual)</div>
-                            <div className="p-4 space-y-2 text-sm">
-                                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                    <span className="text-slate-600">Debt / Equity</span>
-                                    <div className="text-right">
-                                        <span className="font-bold font-mono text-slate-900">
-                                            {formatPercent(forecast.balanceSheet.longTermDebt / forecast.balanceSheet.equity, 2)}
-                                        </span>
-                                        <span className="text-xs text-slate-400 block">
-                                            Act: {formatPercent(actuals.balanceSheet.longTermDebt / actuals.balanceSheet.equity, 2)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                    <span className="text-slate-600">Current Ratio</span>
-                                    <div className="text-right">
-                                        <span className="font-bold font-mono text-emerald-600">
-                                            {formatNumber((forecast.balanceSheet.cash + forecast.balanceSheet.inventory + forecast.balanceSheet.receivables) / forecast.balanceSheet.currentLiabilities, 2)}
-                                        </span>
-                                        <span className="text-xs text-slate-400 block">
-                                            Act: {formatNumber((actuals.balanceSheet.cash + actuals.balanceSheet.inventory + actuals.balanceSheet.receivables) / actuals.balanceSheet.currentLiabilities, 2)}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                                    <span className="text-slate-600">Interest Coverage</span>
-                                    <div className="text-right">
-                                        <span className="font-bold font-mono text-slate-900">
-                                            {formatNumber(forecast.financeCharges > 0 ? (forecast.ebt + forecast.financeCharges) / forecast.financeCharges : 0, 2)}
-                                        </span>
-                                        <span className="text-xs text-slate-400 block">
-                                            Act: {formatNumber(actuals.interestCoverage, 2)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                      </div>
-                 </div>
-              </div>
-          )}
-
-          {/* 4. CASH FLOW */}
-          {activeTab === 'cashflow' && (() => {
-              const startDebtors = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.receivables ?? 47500000;
-              const startInventoryValue = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.inventory ?? 49900000;
-              const startCreditors = currentTeam.history?.[currentTeam.currentPeriod - 1]?.balanceSheet.currentLiabilities ?? 99000000;
-
-              const forecastChangeInDebtors = forecast.balanceSheet.receivables - startDebtors;
-              const forecastChangeInInventory = forecast.balanceSheet.inventory - startInventoryValue;
-              const forecastChangeInCreditors = forecast.balanceSheet.currentLiabilities - startCreditors;
-
-              const actualChangeInDebtors = actuals.balanceSheet.receivables - prevActuals.balanceSheet.receivables;
-              const actualChangeInInventory = actuals.balanceSheet.inventory - prevActuals.balanceSheet.inventory;
-              const actualChangeInCreditors = actuals.balanceSheet.currentLiabilities - prevActuals.balanceSheet.currentLiabilities;
-
-              return (
-               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+           {/* 3. BALANCE SHEET */}
+           {activeTab === 'balance' && (
+               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                    
-                   {/* Table */}
-                   <div className="xl:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                       <div className="p-4 sm:p-6">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4">Cash Flow Statement Forecast</h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs sm:text-sm whitespace-nowrap">
-                                <thead>
-                                    <tr className="text-slate-500 border-b border-slate-100 text-left font-bold">
-                                        <th className="py-2 px-4">Category</th>
-                                        <th className="text-right px-4">Forecast (Year {currentTeam.currentPeriod})</th>
-                                        <th className="text-right px-4">Actual (Year {currentTeam.currentPeriod - 1})</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {/* Operating */}
-                                    <tr className="bg-slate-50/50 font-bold">
-                                        <td className="py-2 px-4">Cash from Operating Activities</td>
-                                        <td className="text-right px-4">{formatCurrency(forecast.cashFlow.operating)}</td>
-                                        <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.cashFlow.operating)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Net Profit</td>
-                                        <td className="text-right px-4 text-slate-500 font-medium">{formatCurrency(forecast.netProfit)}</td>
-                                        <td className="text-right px-4 text-slate-400">{formatCurrency(actuals.netProfit)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Depreciation (Add-back)</td>
-                                        <td className="text-right px-4 text-slate-500 font-medium">{formatCurrency(forecast.depreciation)}</td>
-                                        <td className="text-right px-4 text-slate-400">{formatCurrency(actuals.depreciation)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Decrease / (Increase) in Debtors</td>
-                                        <td className={`text-right px-4 font-medium ${forecastChangeInDebtors <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {formatCurrency(-1 * forecastChangeInDebtors)}
-                                        </td>
-                                        <td className={`text-right px-4 text-slate-400 ${actualChangeInDebtors <= 0 ? 'text-slate-600' : 'text-slate-400'}`}>
-                                            {formatCurrency(-1 * actualChangeInDebtors)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Decrease / (Increase) in Inventory</td>
-                                        <td className={`text-right px-4 font-medium ${forecastChangeInInventory <= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {formatCurrency(-1 * forecastChangeInInventory)}
-                                        </td>
-                                        <td className={`text-right px-4 text-slate-400 ${actualChangeInInventory <= 0 ? 'text-slate-600' : 'text-slate-400'}`}>
-                                            {formatCurrency(-1 * actualChangeInInventory)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Increase / (Decrease) in Creditors</td>
-                                        <td className={`text-right px-4 font-medium ${forecastChangeInCreditors >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                            {formatCurrency(forecastChangeInCreditors)}
-                                        </td>
-                                        <td className={`text-right px-4 text-slate-400 ${actualChangeInCreditors >= 0 ? 'text-slate-600' : 'text-slate-400'}`}>
-                                            {formatCurrency(actualChangeInCreditors)}
-                                        </td>
-                                    </tr>
-                                    
-                                    {/* Investing */}
-                                    <tr className="bg-slate-50/50 font-bold border-t border-slate-200">
-                                        <td className="py-2 px-4">Cash from Investing Activities</td>
-                                        <td className="text-right px-4">{formatCurrency(forecast.cashFlow.investing)}</td>
-                                        <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.cashFlow.investing)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">CAPEX</td>
-                                        <td className="text-right px-4 text-slate-500 font-medium">{formatCurrency(forecast.cashFlow.investing)}</td>
-                                        <td className="text-right px-4 text-slate-400">{formatCurrency(actuals.cashFlow.investing)}</td>
-                                    </tr>
-
-                                    {/* Financing */}
-                                    <tr className="bg-slate-50/50 font-bold border-t border-slate-200">
-                                        <td className="py-2 px-4">Cash from Financing Activities</td>
-                                        <td className="text-right px-4">{formatCurrency(forecast.cashFlow.financing)}</td>
-                                        <td className="text-right px-4 text-slate-500">{formatCurrency(actuals.cashFlow.financing)}</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Debt Change</td>
-                                        <td className="text-right px-4 text-slate-500 font-medium">{formatCurrency(decisions.finance.debtChange)}</td>
-                                        <td className="text-right px-4 text-slate-400">
-                                            {formatCurrency(actuals.period === 0 ? 0 : actuals.cashFlow.financing)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className="py-1.5 px-8 text-slate-500">Equity Change</td>
-                                        <td className="text-right px-4 text-slate-500 font-medium">{formatCurrency(decisions.finance.equityChange)}</td>
-                                        <td className="text-right px-4 text-slate-400">R 0</td>
-                                    </tr>
-
-                                    {/* Net */}
-                                    <tr className="font-bold border-t-2 border-slate-300 text-base">
-                                        <td className="py-3 px-4">Net Cash Movement</td>
-                                        <td className={`text-right px-4 ${forecast.cashFlow.net > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {formatCurrency(forecast.cashFlow.net)}
-                                        </td>
-                                        <td className={`text-right px-4 ${actuals.cashFlow.net > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {formatCurrency(actuals.cashFlow.net)}
-                                        </td>
-                                    </tr>
-
-                                    <tr className="bg-slate-50/50 text-slate-800 font-bold border-t border-slate-200">
-                                        <td className="py-2.5 px-4">Opening Cash Balance</td>
-                                        <td className="py-2.5 px-4 text-right">{formatCurrency(currentTeam.cashBalance)}</td>
-                                        <td className="py-2.5 px-4 text-right text-slate-500">{formatCurrency(prevActuals.balanceSheet.cash)}</td>
-                                    </tr>
-
-                                    <tr className="bg-blue-50 text-blue-900 font-bold border-t border-blue-200 text-base">
-                                        <td className="py-3 px-4">Closing Cash Balance</td>
-                                        <td className="py-3 px-4 text-right">{formatCurrency(forecast.balanceSheet.cash)}</td>
-                                        <td className="py-3 px-4 text-right">{formatCurrency(actuals.balanceSheet.cash)}</td>
-                                    </tr>
-                                </tbody>
-                                </table>
-                            </div>
-                       </div>
-                   </div>
-
-                   {/* Waterfall Chart */}
+                   {/* Assets Table */}
                    <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
-                        <h4 className="font-bold text-slate-800 mb-4 text-center">Cash Flow Movement</h4>
-                        <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={[
-                                    { name: 'Open', value: currentTeam.cashBalance, fill: '#64748B' },
-                                    { name: 'Operating', value: forecast.cashFlow.operating, fill: '#10B981' },
-                                    { name: 'Investing', value: forecast.cashFlow.investing, fill: '#EF4444' },
-                                    { name: 'Financing', value: forecast.cashFlow.financing, fill: '#3B82F6' },
-                                    { name: 'Close', value: forecast.balanceSheet.cash, fill: '#0F172A' },
-                                ]}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" tick={{fontSize: 10}} />
-                                    <YAxis tickFormatter={(val) => `${(val/1000000).toFixed(0)}M`} />
-                                    <Tooltip formatter={(val: number) => formatCurrency(val)} />
-                                    <Bar dataKey="value" barSize={40} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                       <h3 className="text-lg font-bold text-slate-800 mb-4">Assets</h3>
+                       <table className="w-full text-sm">
+                           <thead>
+                               <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                   <th className="py-2 px-3 text-left">Asset Item</th>
+                                   <th className="py-2 px-3 text-right">Forecast Year {currentTeam.currentPeriod}</th>
+                                   <th className="py-2 px-3 text-right">Actual Year {currentTeam.currentPeriod - 1}</th>
+                               </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100">
+                               <tr className="font-bold bg-slate-50/50">
+                                   <td className="py-2 px-3">Non-Current Assets (Fixed Assets Net)</td>
+                                   <td className="py-2 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.fixedAssets)}</td>
+                                   <td className="py-2 px-3 text-right font-mono text-slate-600">{formatCurrency(actuals.balanceSheet.fixedAssets)}</td>
+                               </tr>
+                               <tr className="font-bold bg-slate-50/50 border-t border-slate-200">
+                                   <td className="py-2 px-3" colSpan={3}>Current Assets</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Cash & Cash Equivalents</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.cash)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.balanceSheet.cash)}</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Accounts Receivable (Debtors)</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.receivables)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.balanceSheet.receivables)}</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Inventories (Raw + Finished Goods)</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.inventory)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.balanceSheet.inventory)}</td>
+                               </tr>
+                               <tr className="font-semibold bg-slate-100/50">
+                                   <td className="py-2 px-3">Total Current Assets</td>
+                                   <td className="py-2 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.cash + forecast.balanceSheet.receivables + forecast.balanceSheet.inventory)}</td>
+                                   <td className="py-2 px-3 text-right font-mono text-slate-600">{formatCurrency(actuals.balanceSheet.cash + actuals.balanceSheet.receivables + actuals.balanceSheet.inventory)}</td>
+                               </tr>
+                               <tr className="font-bold bg-blue-50 text-blue-950 border-t-2 border-slate-300">
+                                   <td className="py-2.5 px-3">Total Assets</td>
+                                   <td className="py-2.5 px-3 text-right font-mono text-blue-700">{formatCurrency(forecast.balanceSheet.totalAssets)}</td>
+                                   <td className="py-2.5 px-3 text-right font-mono text-slate-900">{formatCurrency(actuals.balanceSheet.totalAssets)}</td>
+                               </tr>
+                           </tbody>
+                       </table>
                    </div>
+
+                   {/* Liabilities & Equity Table */}
+                   <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
+                       <h3 className="text-lg font-bold text-slate-800 mb-4">Liabilities & Shareholders' Equity</h3>
+                       <table className="w-full text-sm">
+                           <thead>
+                               <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                                   <th className="py-2 px-3 text-left">Liabilities / Equity Item</th>
+                                   <th className="py-2 px-3 text-right">Forecast Year {currentTeam.currentPeriod}</th>
+                                   <th className="py-2 px-3 text-right">Actual Year {currentTeam.currentPeriod - 1}</th>
+                               </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100">
+                               <tr className="font-bold bg-slate-50/50">
+                                   <td className="py-2 px-3" colSpan={3}>Shareholders' Equity</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Opening Equity</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(actuals.balanceSheet.equity)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency((actuals.balanceSheet as any).openingEquity ?? 0)}</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Net Profit for the Period</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.netProfit)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.netProfit)}</td>
+                               </tr>
+                               <tr className="font-semibold bg-emerald-50/50 text-emerald-950">
+                                   <td className="py-2 px-3">Total Shareholders' Equity</td>
+                                   <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">{formatCurrency(forecast.balanceSheet.equity)}</td>
+                                   <td className="py-2 px-3 text-right font-mono text-slate-700">{formatCurrency(actuals.balanceSheet.equity)}</td>
+                               </tr>
+
+                               <tr className="font-bold bg-slate-50/50 border-t border-slate-200">
+                                   <td className="py-2 px-3" colSpan={3}>Liabilities</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Long-Term Loans & Debt</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.longTermDebt)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.balanceSheet.longTermDebt)}</td>
+                               </tr>
+                               <tr>
+                                   <td className="py-1.5 px-6 text-slate-600">- Current Liabilities (Payables/Overdraft)</td>
+                                   <td className="py-1.5 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.currentLiabilities)}</td>
+                                   <td className="py-1.5 px-3 text-right font-mono text-slate-400">{formatCurrency(actuals.balanceSheet.currentLiabilities)}</td>
+                               </tr>
+                               <tr className="font-semibold bg-slate-100/50">
+                                   <td className="py-2 px-3">Total Liabilities</td>
+                                   <td className="py-2 px-3 text-right font-mono">{formatCurrency(forecast.balanceSheet.longTermDebt + forecast.balanceSheet.currentLiabilities)}</td>
+                                   <td className="py-2 px-3 text-right font-mono text-slate-600">{formatCurrency((actuals.balanceSheet as any).totalLiabilities ?? (actuals.balanceSheet.longTermDebt + actuals.balanceSheet.currentLiabilities))}</td>
+                               </tr>
+                               <tr className="font-bold bg-blue-50 text-blue-950 border-t-2 border-slate-300">
+                                   <td className="py-2.5 px-3">Total Liabilities & Equity</td>
+                                   <td className="py-2.5 px-3 text-right font-mono text-blue-700">{formatCurrency(forecast.balanceSheet.totalLiabilitiesAndEquity)}</td>
+                                   <td className="py-2.5 px-3 text-right font-mono text-slate-900">{formatCurrency(actuals.balanceSheet.totalLiabilitiesAndEquity)}</td>
+                               </tr>
+                           </tbody>
+                       </table>
+                   </div>
+
                </div>
-              );
-          })()}
+           )}
+
+          {/* 4. CASH FLOW STATEMENT */}
+          {activeTab === 'cashflow' && (
+              <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 max-w-4xl mx-auto">
+                  <h3 className="text-lg font-bold text-slate-800 mb-4">Cash Flow Statement Forecast</h3>
+                  <table className="w-full text-sm">
+                      <thead>
+                          <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                              <th className="py-2.5 px-4 text-left">Cash Flow Activity</th>
+                              <th className="py-2.5 px-4 text-right">Forecast Year {currentTeam.currentPeriod}</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                          <tr>
+                              <td className="py-2 px-4 font-sans text-slate-700">Cash Flow from Operating Activities (Net Profit + Depr)</td>
+                              <td className="py-2 px-4 text-right font-bold text-slate-900">{formatCurrency(forecast.cashFlow.operating)}</td>
+                          </tr>
+                          <tr>
+                              <td className="py-2 px-4 font-sans text-slate-700">Cash Flow from Investing Activities (CapEx / Store Expansion)</td>
+                              <td className="py-2 px-4 text-right text-rose-600">{formatCurrency(forecast.cashFlow.investing)}</td>
+                          </tr>
+                          <tr>
+                              <td className="py-2 px-4 font-sans text-slate-700">Cash Flow from Financing Activities (Debt / Equity Changes)</td>
+                              <td className="py-2 px-4 text-right text-blue-600">{formatCurrency(forecast.cashFlow.financing)}</td>
+                          </tr>
+                          <tr className="font-bold bg-slate-50 border-t-2 border-slate-200">
+                              <td className="py-2.5 px-4 font-sans text-slate-900">Net Increase / (Decrease) in Cash</td>
+                              <td className={`py-2.5 px-4 text-right font-black ${forecast.cashFlow.net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  {formatCurrency(forecast.cashFlow.net)}
+                              </td>
+                          </tr>
+                          <tr>
+                              <td className="py-2 px-4 font-sans text-slate-500">Add: Opening Cash Balance</td>
+                              <td className="py-2 px-4 text-right text-slate-500">{formatCurrency(actuals.balanceSheet.cash)}</td>
+                          </tr>
+                          <tr className="font-extrabold text-base bg-blue-50 text-blue-900 border-t-2 border-b-2 border-blue-200">
+                              <td className="py-3 px-4 font-sans">Ending Cash Balance</td>
+                              <td className="py-3 px-4 text-right font-black">{formatCurrency(forecast.balanceSheet.cash)}</td>
+                          </tr>
+                      </tbody>
+                  </table>
+              </div>
+          )}
 
       </div>
     </div>

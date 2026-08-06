@@ -213,6 +213,16 @@ export interface NegotiationDecision {
   extras?: string[];
 }
 
+export interface TeamSupplierOverride {
+  componentCosts?: Partial<Record<ProductId, Record<string, number>>>;
+  finishedGoodsCosts?: Partial<Record<ProductId, Record<string, number>>>;
+  paymentTerms?: Record<string, number>;
+  discounts?: Record<string, number>;
+  quality?: Record<string, number>;
+  deliveryReliability?: Record<string, number>;
+  status?: Record<string, 'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED'>;
+}
+
 export interface TurnDecisions {
   marketing: MarketingDecisions;
   operations: OperationsDecisions;
@@ -220,6 +230,7 @@ export interface TurnDecisions {
   procurement: ProcurementDecisions;
   finance: FinanceDecisions;
   negotiation: NegotiationDecision;
+  supplierOverrides?: TeamSupplierOverride;
 }
 
 // Reporting Types

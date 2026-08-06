@@ -23,8 +23,10 @@ import {
   Edit2,
   Check,
   X,
-  Presentation
+  Presentation,
+  Handshake
 } from 'lucide-react';
+import { SupplierNegotiationsManager } from './SupplierNegotiationsManager';
 import { DebriefRemote } from '../debrief/DebriefRemote';
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { SimulationConfig } from './SimulationConfig';
@@ -35,9 +37,9 @@ import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_
 import { computeMarketShareBackModel } from '../../utils/marketShareBackModel';
 
 const FacilitatorDashboard: React.FC = () => {
-  const { currentClassId, classes, runClassSimulation, selectClass, reopenTeamDecisions, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
+  const { currentClassId, classes, runClassSimulation, selectClass, reopenTeamDecisions, submitTeamDecisionsByFacilitator, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
   const [processing, setProcessing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'config' | 'tweaker' | 'teams' | 'marketModel'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'config' | 'tweaker' | 'teams' | 'marketModel' | 'negotiations'>('overview');
   const [teamFilterTab, setTeamFilterTab] = useState<'active' | 'archived'>('active');
   const [selectedMarketProduct, setSelectedMarketProduct] = useState<'techbook' | 'zroid' | 'itab'>('techbook');
   const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
@@ -385,6 +387,17 @@ const FacilitatorDashboard: React.FC = () => {
           Teams & Decisions
         </button>
         <button
+          onClick={() => setActiveTab('negotiations')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-colors ${
+            activeTab === 'negotiations'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Handshake size={18} />
+          Supplier Deals
+        </button>
+        <button
           onClick={() => setActiveTab('config')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-md font-medium transition-colors ${
             activeTab === 'config'
@@ -624,13 +637,33 @@ const FacilitatorDashboard: React.FC = () => {
                                   </span>
                               </td>
                               <td className="px-5 py-4 text-center">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                      team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
-                                      team.status === 'Saved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                      'bg-slate-100 text-slate-800 border border-slate-200'
-                                  }`}>
-                                      {team.status}
-                                  </span>
+                                  <div className="flex items-center justify-center gap-2">
+                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                          team.status === 'Submitted' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                                          team.status === 'Saved' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                          'bg-slate-100 text-slate-800 border border-slate-200'
+                                      }`}>
+                                          {team.status}
+                                      </span>
+                                      {team.status !== 'Submitted' && (
+                                          <button 
+                                              onClick={async () => {
+                                                  if (confirm(`Submit decisions on behalf of "${team.name}"? This will lock their decisions for Period ${currentClass.currentPeriod}. No PIN required.`)) {
+                                                      try {
+                                                          await submitTeamDecisionsByFacilitator(currentClass.id, team.id);
+                                                      } catch (err: any) {
+                                                          alert("Failed to submit decisions: " + err.message);
+                                                      }
+                                                  }
+                                              }}
+                                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded shadow-xs transition-all flex items-center gap-1 shrink-0"
+                                              title="Submit decisions on behalf of team (No PIN required)"
+                                          >
+                                              <CheckCircle2 size={12} />
+                                              Submit
+                                          </button>
+                                      )}
+                                  </div>
                               </td>
                           </tr>
                       ))}
@@ -842,7 +875,7 @@ const FacilitatorDashboard: React.FC = () => {
                                                     </button>
                                                 ) : (
                                                     <>
-                                                        {team.status === 'Submitted' && (
+                                                        {team.status === 'Submitted' ? (
                                                             <button 
                                                                 onClick={() => handleReopenClick(team.id)}
                                                                 className={`px-3 py-1 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center justify-center ${
@@ -852,6 +885,23 @@ const FacilitatorDashboard: React.FC = () => {
                                                                 }`}
                                                             >
                                                                 Reopen
+                                                            </button>
+                                                        ) : (
+                                                            <button 
+                                                                onClick={async () => {
+                                                                    if (confirm(`Submit decisions on behalf of "${team.name}"? This will lock their decisions for Period ${currentClass.currentPeriod}. No PIN required.`)) {
+                                                                        try {
+                                                                            await submitTeamDecisionsByFacilitator(currentClass.id, team.id);
+                                                                        } catch (err: any) {
+                                                                            alert("Failed to submit decisions: " + err.message);
+                                                                        }
+                                                                    }
+                                                                }}
+                                                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-all shadow-sm flex items-center gap-1 shrink-0"
+                                                                title="Submit decisions on behalf of team without PIN"
+                                                            >
+                                                                <CheckCircle2 size={13} />
+                                                                Submit
                                                             </button>
                                                         )}
                                                         <button 
@@ -1095,6 +1145,9 @@ const FacilitatorDashboard: React.FC = () => {
 
       {/* Backend Config Viewer */}
       {activeTab === 'config' && <SimulationConfig />}
+
+      {/* Supplier Negotiations Manager */}
+      {activeTab === 'negotiations' && <SupplierNegotiationsManager classId={currentClass.id} />}
 
       {/* Parameter Tweaker */}
       {activeTab === 'tweaker' && <ParameterTweaker />}

@@ -126,7 +126,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
           : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, []).periodRecord);
 
         const prior = rawPriorRec ? ensurePeriodMarketRecord(rawPriorRec) : undefined;
-        const perf: TeamIndustryPerformance = rawRec?.industry || livePerfMap.get(t.id) || livePerfList[index];
+        const perf: TeamIndustryPerformance = livePerfMap.get(t.id) || rawRec?.industry || livePerfList[index];
 
         const match = t.id.match(/\d+/);
         const teamNum = match ? match[0] : String(index + 1);
