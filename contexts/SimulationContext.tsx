@@ -1394,6 +1394,8 @@ BEHAVIOR RULES:
         teams: teams,
         teamCodes: teamCodes,
         createdAt: new Date().toISOString(),
+        createdByEmail: currentUser?.email || undefined,
+        creatorUid: currentUser?.uid || undefined,
         activeEvents: [],
         surveyConfig: DEFAULT_SURVEY_CONFIG,
         surveyResponses: []

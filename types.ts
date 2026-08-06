@@ -103,6 +103,8 @@ export interface SimulationClass {
   teams: Team[];
   teamCodes: Record<string, string>; // TeamId -> AccessCode
   createdAt: string;
+  createdByEmail?: string;
+  creatorUid?: string;
   // Period -> SupplierId -> Instruction
   negotiationOverrides?: Record<number, Record<string, string>>;
   activeEvents?: MarketEvent[];
@@ -110,6 +112,8 @@ export interface SimulationClass {
   surveyResponses?: SurveyResponse[];
   showSurvey?: boolean;
   showMarketReportsYear1?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
 }
 
 

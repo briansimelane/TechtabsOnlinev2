@@ -4,14 +4,27 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock, Archive, RefreshCw } from 'lucide-react';
 
 const FacilitatorClasses: React.FC = () => {
-  const { classes, currentRole, currentClassId, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
+  const { classes, currentRole, currentClassId, currentUser, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
   const navigate = useNavigate();
 
-  // Master accounts (ADMIN, FAC-8819 / currentClassId === null) see ALL classes.
-  // Class-specific facilitators see ONLY their assigned class.
-  const userClasses = (currentRole === 'FACILITATOR' && currentClassId) 
-    ? classes.filter(c => c.id === currentClassId)
-    : classes;
+  const userEmail = (currentUser?.email || '').toLowerCase().trim();
+  const isMasterAccount = 
+    currentRole === 'ADMIN' || 
+    userEmail.includes('briansimelane') || 
+    userEmail.includes('brian@techtabs') ||
+    userEmail === 'briansimelane@gmail.com' ||
+    userEmail === 'admin@techtabs.com' ||
+    (!currentClassId && currentRole === 'ADMIN');
+
+  // Super Admin & FAC-8819 (Brian Simelane) see ALL classes in the system no matter who created them.
+  // Other facilitators ONLY see classes they created (or assigned to them).
+  const userClasses = isMasterAccount 
+    ? classes
+    : classes.filter(c => 
+        (userEmail && c.createdByEmail && c.createdByEmail.toLowerCase().trim() === userEmail) ||
+        (currentUser?.uid && c.creatorUid === currentUser.uid) ||
+        (currentClassId && c.id === currentClassId)
+      );
 
   const activeClasses = userClasses.filter(c => !c.isArchived);
   const archivedClasses = userClasses.filter(c => c.isArchived);

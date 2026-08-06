@@ -252,7 +252,7 @@ const Login: React.FC = () => {
                     type="text"
                     id="adminCode"
                     className="block w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm font-mono tracking-wider uppercase focus:ring-blue-500 focus:border-blue-500 placeholder:normal-case placeholder:tracking-normal font-bold"
-                    placeholder="e.g. FAC-8819 or Class Code"
+                    placeholder="e.g. FAC-5678 or Access Code"
                     value={adminCode}
                     onChange={(e) => {
                       setAdminCode(e.target.value);
