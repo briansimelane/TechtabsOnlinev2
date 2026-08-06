@@ -332,11 +332,8 @@ const FacilitatorDashboard: React.FC = () => {
                   const popupUrl = `${window.location.origin}${window.location.pathname}#/debrief/${currentClass.id}`;
                   window.open(popupUrl, 'techtabs-debrief', 'popup,width=1600,height=900');
                 }}
-                disabled={period <= 1}
-                title={period <= 1 ? "Run Year 1 to unlock the debrief presentation" : "Open Debrief Presenter"}
-                className={`flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all ${
-                  period <= 1 ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
+                title="Open Debrief Presenter"
+                className="flex items-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg font-bold shadow-sm transition-all"
              >
                 <Presentation size={18} className="mr-2" />
                 Open Debrief
@@ -361,9 +358,7 @@ const FacilitatorDashboard: React.FC = () => {
       </div>
 
       {/* Debrief Remote Controller Panel */}
-      {period > 1 && (
-        <DebriefRemote classId={currentClass.id} currentPeriod={currentClass.currentPeriod} />
-      )}
+      <DebriefRemote classId={currentClass.id} currentPeriod={currentClass.currentPeriod} />
 
       {/* Navigation Tabs */}
       <div className="bg-white rounded-lg border border-slate-200 p-1 flex gap-1">

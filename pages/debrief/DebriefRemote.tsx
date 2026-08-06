@@ -10,7 +10,7 @@ interface DebriefRemoteProps {
 }
 
 export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPeriod }) => {
-  const { state, updateState } = useDebriefState(classId, Math.max(1, currentPeriod - 1));
+  const { state, updateState } = useDebriefState(classId, currentPeriod || 1);
   const dataset = useDebriefData(classId, state.period);
   const slides = compileDebriefSlides(dataset);
 
@@ -40,7 +40,7 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
     window.open(popupUrl, 'techtabs-debrief', 'popup,width=1600,height=900');
   };
 
-  const yearsAvailable = Array.from({ length: Math.max(1, currentPeriod - 1) }, (_, i) => i + 1);
+  const yearsAvailable = Array.from({ length: Math.max(1, currentPeriod) }, (_, i) => i + 1);
 
   return (
     <div className="bg-[#0B1220] border border-[#22304A] rounded-2xl p-5 text-[#E8EDF7] shadow-xl space-y-4 my-4">

@@ -4,6 +4,9 @@ import { getAppDb } from '../firebase';
 import { PeriodRecord, SimulationClass, Team } from '../types';
 import { ensurePeriodMarketRecord } from '../utils/debriefBackfill';
 
+import { processTurn } from '../utils/SimulationEngine';
+import { INITIAL_DECISIONS } from '../constants';
+
 export interface DebriefTeam {
   id: string;
   name: string;
@@ -55,20 +58,10 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const rawRec = t.history?.[period];
         const rawPriorRec = t.history?.[period - 1];
 
-        const record = rawRec ? ensurePeriodMarketRecord(rawRec) : ensurePeriodMarketRecord({
-          period,
-          revenue: { total: 0, byProduct: { techbook: 0, zroid: 0, itab: 0 } },
-          cogs: { total: 0, byProduct: { techbook: 0, zroid: 0, itab: 0 } },
-          grossProfit: { total: 0, byProduct: { techbook: 0, zroid: 0, itab: 0 } },
-          opex: { marketing: 0, store: 0, agents: 0, payroll: 0, training: 0, rd: 0, other: 0, total: 0 },
-          ebitda: 0, depreciation: 0, interest: 0, ebt: 0, tax: 0, netProfit: 0,
-          balanceSheet: { cash: 0, receivables: 0, inventory: 0, fixedAssets: 0, totalAssets: 0, equity: 0, longTermDebt: 0, currentLiabilities: 0, totalLiabilitiesAndEquity: 0 },
-          cashFlow: { operating: 0, investing: 0, financing: 0, net: 0 },
-          debtorDays: { techbook: 30, zroid: 30, itab: 30 },
-          creditorDays: 30,
-          interestCoverage: 0,
-          kpis: { revenue: 0, netProfit: 0, marketShare: { techbook: 0, zroid: 0, itab: 0 }, customerSatisfaction: 0.7, employeeSatisfaction: 0.7 }
-        });
+        // If history for this period is not committed yet, compute live via processTurn
+        const record = rawRec 
+          ? ensurePeriodMarketRecord(rawRec) 
+          : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, []).periodRecord);
 
         const prior = rawPriorRec ? ensurePeriodMarketRecord(rawPriorRec) : undefined;
 
