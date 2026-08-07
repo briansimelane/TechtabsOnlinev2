@@ -15,7 +15,16 @@ import { useSimulation } from '../contexts/SimulationContext';
 import { Team } from '../types';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, STORE_COSTS, FINANCE_CONSTANTS, HR_ROLES, getMarketSize } from '../constants';
-import { computeMarketShareBackModel, getClosingFeatures, getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../utils/marketShareBackModel';
+import { 
+  computeMarketShareBackModel, 
+  getClosingFeatures, 
+  getDecisionsForTeamPeriod, 
+  computeTeamPeriodBalanceSheet,
+  getTeamCapacityForPeriod,
+  getTeamStoreCountForPeriod,
+  getTeamCSHeadcountForPeriod,
+  getTeamFeaturesForPeriod
+} from '../utils/marketShareBackModel';
 import { processTurn } from '../utils/SimulationEngine';
 import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
 import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
@@ -174,15 +183,15 @@ const MarketReports: React.FC = () => {
       case 'Payment Terms':
         return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
       case 'Availability':
-        return formatNumber((t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0), 0);
+        return formatNumber(getTeamCapacityForPeriod(t, reportPeriod), 0);
       case 'Stores':
-        return formatNumber((t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0), 0);
+        return formatNumber(getTeamStoreCountForPeriod(t, reportPeriod), 0);
       case 'Agents':
         return formatPercent(dec.marketing?.agentCommission ?? 0, 2, true);
       case 'CS Headcount':
-        return formatNumber(Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0)), 0);
+        return formatNumber(getTeamCSHeadcountForPeriod(t, reportPeriod), 0);
       case 'Cumulative Features':
-        return formatNumber(getClosingFeatures(t, dec, pId), 0);
+        return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, pId), 0);
       case 'Company Advertising':
         return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
       case 'Product Advertising':
@@ -274,7 +283,7 @@ const MarketReports: React.FC = () => {
           rating: null as number | null,
           scores: realTeams.map((t) => {
             const dec = getDecisionsForTeamPeriod(t, reportPeriod);
-            return formatNumber(getClosingFeatures(t, dec, pId), 0);
+            return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, pId), 0);
           })
         }
       ];
@@ -470,22 +479,19 @@ const MarketReports: React.FC = () => {
       {
         label: 'TechBook : Closing Features',
         values: realTeams.map(t => {
-          const dec = getTeamDec(t);
-          return formatNumber(getClosingFeatures(t, dec, 'techbook'), 0);
+          return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, 'techbook'), 0);
         })
       },
       {
         label: 'Zroid : Closing Features',
         values: realTeams.map(t => {
-          const dec = getTeamDec(t);
-          return formatNumber(getClosingFeatures(t, dec, 'zroid'), 0);
+          return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, 'zroid'), 0);
         })
       },
       {
         label: 'iTab : Closing Features',
         values: realTeams.map(t => {
-          const dec = getTeamDec(t);
-          return formatNumber(getClosingFeatures(t, dec, 'itab'), 0);
+          return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, 'itab'), 0);
         })
       }
     ];

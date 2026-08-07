@@ -198,31 +198,111 @@ export function getScaledProduction(team: Team, decisions: TurnDecisions): Recor
   return scaled;
 }
 
+// Helper: Calculate baseline starting capacity before simulation period 1
+function getTeamBaseCapacity(team: Team): number {
+  if ((team.history?.[0] as any)?.factoryCapacity) return (team.history[0] as any).factoryCapacity;
+  let executedChanges = 0;
+  for (let p = 1; p < team.currentPeriod; p++) {
+    const rec = team.history?.[p] || team.history?.[String(p)];
+    if (rec?.decisions?.operations?.capacityChange) {
+      executedChanges += rec.decisions.operations.capacityChange;
+    }
+  }
+  return Math.max(0, (team.factoryCapacity || 40000) - executedChanges);
+}
+
+// Helper: Get total factory capacity for a specific period P
+export function getTeamCapacityForPeriod(team: Team, targetPeriod: number): number {
+  const baseCap = getTeamBaseCapacity(team);
+  let cumulativeChanges = 0;
+  for (let p = 1; p <= targetPeriod; p++) {
+    const dec = getDecisionsForTeamPeriod(team, p);
+    cumulativeChanges += dec.operations?.capacityChange ?? 0;
+  }
+  return Math.max(0, baseCap + cumulativeChanges);
+}
+
+// Helper: Calculate baseline starting stores before simulation period 1
+function getTeamBaseStores(team: Team): number {
+  if ((team.history?.[0] as any)?.storeCount) return (team.history[0] as any).storeCount;
+  let executedChanges = 0;
+  for (let p = 1; p < team.currentPeriod; p++) {
+    const rec = team.history?.[p] || team.history?.[String(p)];
+    if (rec?.decisions?.marketing?.openCloseStores) {
+      executedChanges += rec.decisions.marketing.openCloseStores;
+    }
+  }
+  return Math.max(0, (team.storeCount || 5) - executedChanges);
+}
+
+// Helper: Get total stores for a specific period P
+export function getTeamStoreCountForPeriod(team: Team, targetPeriod: number): number {
+  const baseStores = getTeamBaseStores(team);
+  let cumulativeChanges = 0;
+  for (let p = 1; p <= targetPeriod; p++) {
+    const dec = getDecisionsForTeamPeriod(team, p);
+    cumulativeChanges += dec.marketing?.openCloseStores ?? 0;
+  }
+  return Math.max(0, baseStores + cumulativeChanges);
+}
+
+// Helper: Calculate baseline starting CS headcount before simulation period 1
+function getTeamBaseCSHeadcount(team: Team): number {
+  if (team.history?.[0]?.staffCounts?.customerService) return team.history[0].staffCounts.customerService;
+  let executedChanges = 0;
+  for (let p = 1; p < team.currentPeriod; p++) {
+    const rec = team.history?.[p] || team.history?.[String(p)];
+    if (rec?.decisions?.hr?.hiring?.customerService) {
+      executedChanges += rec.decisions.hr.hiring.customerService;
+    }
+  }
+  return Math.max(0, (team.staffCounts?.customerService || 3) - executedChanges);
+}
+
+// Helper: Get total CS headcount for a specific period P
+export function getTeamCSHeadcountForPeriod(team: Team, targetPeriod: number): number {
+  const baseCS = getTeamBaseCSHeadcount(team);
+  let cumulativeChanges = 0;
+  for (let p = 1; p <= targetPeriod; p++) {
+    const dec = getDecisionsForTeamPeriod(team, p);
+    cumulativeChanges += dec.hr?.hiring?.customerService ?? 0;
+  }
+  return Math.max(0, baseCS + cumulativeChanges);
+}
+
+// Helper: Get total closing features for product up to a specific period P
+export function getTeamFeaturesForPeriod(team: Team, targetPeriod: number, productId: ProductId): number {
+  let features = team.history?.[0]?.features?.[productId] ?? 0;
+  for (let p = 1; p <= targetPeriod; p++) {
+    const dec = getDecisionsForTeamPeriod(team, p);
+    const splitVal = Number(dec.operations?.rdSplits?.[productId]) || 0;
+    const investment = Number(dec.operations?.rdBudget ?? 0) * splitVal;
+    
+    const alloc = dec.procurement?.supplierAllocation?.[productId] || {};
+    let totalAlloc = 0;
+    let sumInnov = 0;
+    SUPPLIERS.forEach(s => {
+      const compVal = Number(alloc[s]?.components) || 0;
+      const fgVal = Number(alloc[s]?.finishedGoods) || 0;
+      const totalVal = compVal + fgVal;
+      if (totalVal > 0) {
+        const supplierInnov = dec.supplierOverrides?.innovation?.[s] ?? SUPPLIER_METRICS[s as keyof typeof SUPPLIER_METRICS]?.innovation ?? 5.0;
+        sumInnov += supplierInnov * totalVal;
+        totalAlloc += totalVal;
+      }
+    });
+    const supplierInnovScore = totalAlloc > 0 ? (sumInnov / totalAlloc) : 6.0;
+    const baseFeatures = investment / 2000000;
+    const featuresDeveloped = baseFeatures * (supplierInnovScore / 6.0);
+    const developed = Math.min(10, Math.ceil(featuresDeveloped));
+    features += developed;
+  }
+  return features;
+}
+
 // Calculate closing features developed
 export function getClosingFeatures(team: Team, decisions: TurnDecisions, productId: ProductId): number {
-  const prevFeatures = team.features?.[productId] ?? 0;
-  const splitVal = Number(decisions.operations?.rdSplits?.[productId]) || 0;
-  const investment = Number(decisions.operations?.rdBudget) * splitVal;
-  
-  const alloc = decisions.procurement?.supplierAllocation?.[productId] || {};
-  let totalAlloc = 0;
-  let sumInnov = 0;
-  SUPPLIERS.forEach(s => {
-    const compVal = Number(alloc[s]?.components) || 0;
-    const fgVal = Number(alloc[s]?.finishedGoods) || 0;
-    const totalVal = compVal + fgVal;
-    if (totalVal > 0) {
-      const supplierInnov = decisions.supplierOverrides?.innovation?.[s] ?? SUPPLIER_METRICS[s as keyof typeof SUPPLIER_METRICS]?.innovation ?? 5.0;
-      sumInnov += supplierInnov * totalVal;
-      totalAlloc += totalVal;
-    }
-  });
-  const supplierInnovScore = totalAlloc > 0 ? (sumInnov / totalAlloc) : 6.0;
-  const baseFeatures = investment / 2000000;
-  const featuresDeveloped = baseFeatures * (supplierInnovScore / 6.0);
-  const developed = Math.min(10, Math.ceil(featuresDeveloped));
-  
-  return prevFeatures + developed;
+  return getTeamFeaturesForPeriod(team, team.currentPeriod, productId);
 }
 
 export interface CriterionBreakdown {
@@ -335,15 +415,15 @@ export function computeMarketShareBackModel(
           case 2: // Payment Terms
             return dec.finance?.debtorsDays?.[p.id] ?? 0;
           case 3: // Availability
-            return (t.factoryCapacity || 0) + (dec.operations?.capacityChange ?? 0);
+            return getTeamCapacityForPeriod(t, period);
           case 4: // Stores
-            return (t.storeCount || 0) + (dec.marketing?.openCloseStores ?? 0);
+            return getTeamStoreCountForPeriod(t, period);
           case 5: // Agents
             return dec.marketing?.agentCommission ?? 0;
           case 6: // Staff Availability (CS headcount)
-            return Math.max(0, (t.staffCounts?.customerService || 0) + (dec.hr?.hiring?.customerService ?? 0));
+            return getTeamCSHeadcountForPeriod(t, period);
           case 7: // Product Innovation (Closing features)
-            return getClosingFeatures(t, dec, p.id);
+            return getTeamFeaturesForPeriod(t, period, p.id);
           case 8: // Company Advertising
             return (dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0);
           case 9: // Product Advertising
