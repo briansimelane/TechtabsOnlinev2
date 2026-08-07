@@ -15,7 +15,10 @@ import {
   Award,
   Truck,
   Copy,
-  DollarSign
+  Clock,
+  Headphones,
+  Database,
+  Sparkles
 } from 'lucide-react';
 
 interface Props {
@@ -47,11 +50,21 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
   const [paymentTerms, setPaymentTerms] = useState<number>(45);
   const [agreedDiscount, setAgreedDiscount] = useState<number>(0.05);
   const [quality, setQuality] = useState<number>(8);
+  const [leadTime, setLeadTime] = useState<number>(3);
+  const [service, setService] = useState<number>(8);
+  const [capacity, setCapacity] = useState<number>(4);
+  const [innovation, setInnovation] = useState<number>(8);
   const [deliveryReliability, setDeliveryReliability] = useState<number>(0.95);
   const [status, setStatus] = useState<'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED'>('AGREED');
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [confirmDetails, setConfirmDetails] = useState<{
+    targetName: string;
+    supplierId: string;
+    isAllTeams: boolean;
+  } | null>(null);
 
   // Default team selection
   useEffect(() => {
@@ -65,7 +78,7 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
 
   // Load active team & supplier values when selection changes
   useEffect(() => {
-    const defaultMetrics = SUPPLIER_METRICS[supplierId] || { quality: 7, terms: 30 };
+    const defaultMetrics = (SUPPLIER_METRICS as any)[supplierId] || { quality: 7, terms: 30, leadTime: 5, service: 7, capacity: 6, innovation: 6 };
     
     // 1. Component Costs
     setComponentPrices({
@@ -81,10 +94,14 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
       itab: existingOverrides.finishedGoodsCosts?.itab?.[supplierId] ?? FINISHED_GOODS_COSTS.itab[supplierId] ?? 1000
     });
 
-    // 3. Terms & Discounts
+    // 3. Terms, Performance Indicators & Discounts
     setPaymentTerms(existingOverrides.paymentTerms?.[supplierId] ?? defaultMetrics.terms ?? 45);
     setAgreedDiscount(existingOverrides.discounts?.[supplierId] ?? (existingOverrides.status?.[supplierId] === 'AGREED' ? 0.05 : 0));
     setQuality(existingOverrides.quality?.[supplierId] ?? defaultMetrics.quality ?? 7);
+    setLeadTime(existingOverrides.leadTime?.[supplierId] ?? defaultMetrics.leadTime ?? 5);
+    setService(existingOverrides.service?.[supplierId] ?? defaultMetrics.service ?? 7);
+    setCapacity(existingOverrides.capacity?.[supplierId] ?? defaultMetrics.capacity ?? 6);
+    setInnovation(existingOverrides.innovation?.[supplierId] ?? defaultMetrics.innovation ?? 6);
     setDeliveryReliability(existingOverrides.deliveryReliability?.[supplierId] ?? 0.95);
     setStatus(existingOverrides.status?.[supplierId] ?? 'AGREED');
   }, [selectedTeamId, supplierId, selectedTeam]);
@@ -121,6 +138,22 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
           ...(existingOverrides.quality || {}),
           [supplierId]: quality
         },
+        leadTime: {
+          ...(existingOverrides.leadTime || {}),
+          [supplierId]: leadTime
+        },
+        service: {
+          ...(existingOverrides.service || {}),
+          [supplierId]: service
+        },
+        capacity: {
+          ...(existingOverrides.capacity || {}),
+          [supplierId]: capacity
+        },
+        innovation: {
+          ...(existingOverrides.innovation || {}),
+          [supplierId]: innovation
+        },
         deliveryReliability: {
           ...(existingOverrides.deliveryReliability || {}),
           [supplierId]: deliveryReliability
@@ -133,6 +166,12 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
 
       await updateTeamSupplierOverridesByFacilitator(classId, selectedTeamId, newOverrides);
       setSaveSuccess(true);
+      setConfirmDetails({
+        targetName: selectedTeam?.name || 'Selected Team',
+        supplierId,
+        isAllTeams: false,
+      });
+      setShowConfirmModal(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to save facilitator supplier overrides", err);
@@ -175,6 +214,22 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
             ...(teamExist.quality || {}),
             [supplierId]: quality
           },
+          leadTime: {
+            ...(teamExist.leadTime || {}),
+            [supplierId]: leadTime
+          },
+          service: {
+            ...(teamExist.service || {}),
+            [supplierId]: service
+          },
+          capacity: {
+            ...(teamExist.capacity || {}),
+            [supplierId]: capacity
+          },
+          innovation: {
+            ...(teamExist.innovation || {}),
+            [supplierId]: innovation
+          },
           deliveryReliability: {
             ...(teamExist.deliveryReliability || {}),
             [supplierId]: deliveryReliability
@@ -188,6 +243,12 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
         await updateTeamSupplierOverridesByFacilitator(classId, t.id, teamNewOverrides);
       }
       setSaveSuccess(true);
+      setConfirmDetails({
+        targetName: 'All Teams in Class',
+        supplierId,
+        isAllTeams: true,
+      });
+      setShowConfirmModal(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error("Failed to apply supplier overrides to all teams", err);
@@ -372,93 +433,180 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
               </div>
             </div>
 
-            {/* 3. Payment Terms, Discount, Quality, Reliability */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+            {/* 3. Performance Indicators & Terms */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <label className="text-xs font-bold uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
+                <Award size={15} className="text-indigo-600" />
+                Performance Indicators & Credit Terms
+              </label>
               
-              {/* Payment Terms */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Calendar size={14} className="text-indigo-600" />
-                  Payment Credit Terms (Days)
-                </label>
-                <div className="grid grid-cols-5 gap-1">
-                  {[15, 30, 45, 60, 90].map(days => (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => setPaymentTerms(days)}
-                      className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
-                        paymentTerms === days
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {days}d
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Discount % */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <div className="flex justify-between items-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                {/* Payment Terms */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Percent size={14} className="text-indigo-600" />
-                    Overall Discount (%)
+                    <Calendar size={14} className="text-indigo-600" />
+                    Payment Credit Terms (Days)
                   </label>
-                  <span className="text-xs font-extrabold text-emerald-600">{formatPercent(agreedDiscount, 1)}</span>
+                  <div className="grid grid-cols-5 gap-1">
+                    {[15, 30, 45, 60, 90].map(days => (
+                      <button
+                        key={days}
+                        type="button"
+                        onClick={() => setPaymentTerms(days)}
+                        className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                          paymentTerms === days
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        {days}d
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="0.30"
-                  step="0.01"
-                  value={agreedDiscount}
-                  onChange={(e) => setAgreedDiscount(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
 
-              {/* Quality Rating */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Award size={14} className="text-indigo-600" />
-                    Quality Rating (1–10)
-                  </label>
-                  <span className="text-xs font-extrabold text-indigo-600">{quality} / 10</span>
+                {/* Overall Discount % */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Percent size={14} className="text-indigo-600" />
+                      Overall Discount (%)
+                    </label>
+                    <span className="text-xs font-extrabold text-emerald-600">{formatPercent(agreedDiscount, 1)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.30"
+                    step="0.01"
+                    value={agreedDiscount}
+                    onChange={(e) => setAgreedDiscount(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  step="1"
-                  value={quality}
-                  onChange={(e) => setQuality(parseInt(e.target.value, 10))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
 
-              {/* Delivery Reliability */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Truck size={14} className="text-indigo-600" />
-                    Delivery Reliability (%)
-                  </label>
-                  <span className="text-xs font-extrabold text-indigo-600">{formatPercent(deliveryReliability, 0)}</span>
+                {/* Quality Rating */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Award size={14} className="text-indigo-600" />
+                      Quality Rating (1–10)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{quality} / 10</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={quality}
+                    onChange={(e) => setQuality(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="0.50"
-                  max="1.00"
-                  step="0.05"
-                  value={deliveryReliability}
-                  onChange={(e) => setDeliveryReliability(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                />
-              </div>
 
+                {/* Lead Time */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Clock size={14} className="text-indigo-600" />
+                      Lead Time Rating (1–10)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{leadTime} / 10</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={leadTime}
+                    onChange={(e) => setLeadTime(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+
+                {/* After Sales Service */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Headphones size={14} className="text-indigo-600" />
+                      After Sales Service (1–10)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{service} / 10</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={service}
+                    onChange={(e) => setService(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+
+                {/* Capacity Rating */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Database size={14} className="text-indigo-600" />
+                      Capacity Rating (1–10)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{capacity} / 10</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={capacity}
+                    onChange={(e) => setCapacity(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+
+                {/* Product Innovation */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Sparkles size={14} className="text-indigo-600" />
+                      Product Innovation (1–10)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{innovation} / 10</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    step="0.5"
+                    value={innovation}
+                    onChange={(e) => setInnovation(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+
+                {/* Delivery Reliability */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Truck size={14} className="text-indigo-600" />
+                      Delivery Reliability (%)
+                    </label>
+                    <span className="text-xs font-extrabold text-indigo-600">{formatPercent(deliveryReliability, 0)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.50"
+                    max="1.00"
+                    step="0.05"
+                    value={deliveryReliability}
+                    onChange={(e) => setDeliveryReliability(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  />
+                </div>
+
+              </div>
             </div>
 
             {/* 4. Negotiation Agreement Status */}
@@ -504,6 +652,52 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
         </div>
 
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && confirmDetails && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle2 size={32} />
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900">Supplier Variables Saved!</h3>
+              <p className="text-xs text-slate-500">
+                Custom supplier settings for <span className="font-bold text-indigo-600">{confirmDetails.supplierId}</span> have been saved for <span className="font-bold text-slate-800">{confirmDetails.targetName}</span>.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+              <div className="font-bold text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-1.5 flex justify-between">
+                <span>Updated Variables</span>
+                <span className="text-emerald-600 font-extrabold">{confirmDetails.supplierId}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-slate-600">
+                <div><span className="font-medium text-slate-400">Quality:</span> <strong className="text-slate-800">{quality} / 10</strong></div>
+                <div><span className="font-medium text-slate-400">Lead Time:</span> <strong className="text-slate-800">{leadTime} / 10</strong></div>
+                <div><span className="font-medium text-slate-400">Service:</span> <strong className="text-slate-800">{service} / 10</strong></div>
+                <div><span className="font-medium text-slate-400">Capacity:</span> <strong className="text-slate-800">{capacity} / 10</strong></div>
+                <div><span className="font-medium text-slate-400">Innovation:</span> <strong className="text-slate-800">{innovation} / 10</strong></div>
+                <div><span className="font-medium text-slate-400">Terms:</span> <strong className="text-slate-800">{paymentTerms} Days</strong></div>
+                <div><span className="font-medium text-slate-400">Discount:</span> <strong className="text-emerald-700">{formatPercent(agreedDiscount, 1)}</strong></div>
+                <div><span className="font-medium text-slate-400">Reliability:</span> <strong className="text-slate-800">{formatPercent(deliveryReliability, 0)}</strong></div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-center italic">
+              These variables update team decisions immediately on their dashboard and decision screens.
+            </p>
+
+            <button
+              onClick={() => setShowConfirmModal(false)}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 size={18} />
+              Confirm & Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

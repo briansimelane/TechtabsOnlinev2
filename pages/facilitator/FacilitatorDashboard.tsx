@@ -933,13 +933,12 @@ const FacilitatorDashboard: React.FC = () => {
                                                             const alloc = decs.procurement?.supplierAllocation?.[pId] || {};
                                                             let totalAlloc = 0;
                                                             let sumInnov = 0;
-                                                            
                                                             SUPPLIERS.forEach(s => {
                                                                 const compVal = Number(alloc[s]?.components) || 0;
                                                                 const fgVal = Number(alloc[s]?.finishedGoods) || 0;
                                                                 const totalVal = compVal + fgVal;
                                                                 if (totalVal > 0) {
-                                                                    const supplierInnov = (SUPPLIER_METRICS as any)[s]?.innovation || 5.0;
+                                                                    const supplierInnov = decs.supplierOverrides?.innovation?.[s] ?? (SUPPLIER_METRICS as any)[s]?.innovation ?? 5.0;
                                                                     sumInnov += supplierInnov * totalVal;
                                                                     totalAlloc += totalVal;
                                                                 }
@@ -951,11 +950,16 @@ const FacilitatorDashboard: React.FC = () => {
                                                             return Math.ceil(currentFeatures + forecastedNewFeatures);
                                                         };
 
-                                                        const getNegotiatedCost = (baseCost: number, supplierId: string) => {
-                                                            if (decs.negotiation?.status === 'AGREED' && decs.negotiation?.selectedSupplierId === supplierId) {
-                                                                return baseCost * (1 - (decs.negotiation?.agreedDiscount || 0));
+                                                        const getNegotiatedCost = (baseCost: number, supplierId: string, isComponent: boolean, productId: string) => {
+                                                            const overrides = decs.supplierOverrides;
+                                                            let cost = baseCost;
+                                                            if (isComponent && (overrides?.componentCosts as any)?.[productId]?.[supplierId] !== undefined) {
+                                                                cost = (overrides?.componentCosts as any)[productId][supplierId];
+                                                            } else if (!isComponent && (overrides?.finishedGoodsCosts as any)?.[productId]?.[supplierId] !== undefined) {
+                                                                cost = (overrides?.finishedGoodsCosts as any)[productId][supplierId];
                                                             }
-                                                            return baseCost;
+                                                            const discount = overrides?.discounts?.[supplierId] ?? (decs.negotiation?.status === 'AGREED' && decs.negotiation?.selectedSupplierId === supplierId ? (decs.negotiation?.agreedDiscount || 0) : 0);
+                                                            return Math.round(cost * (1 - discount));
                                                         };
 
                                                         return (
@@ -1043,24 +1047,30 @@ const FacilitatorDashboard: React.FC = () => {
                                                                         <div className="space-y-1">
                                                                             {SUPPLIERS.map(s => {
                                                                                 const isAgreed = decs.negotiation?.status === 'AGREED' && decs.negotiation?.selectedSupplierId === s;
-                                                                                const m = (SUPPLIER_METRICS as any)[s] || {};
+                                                                                const overrides = decs.supplierOverrides;
+                                                                                const terms = overrides?.paymentTerms?.[s] ?? (isAgreed ? decs.negotiation?.agreedPaymentTerms : undefined) ?? (SUPPLIER_METRICS as any)[s]?.terms ?? 30;
+                                                                                const quality = overrides?.quality?.[s] ?? (SUPPLIER_METRICS as any)[s]?.quality ?? 7;
+                                                                                const leadTime = overrides?.leadTime?.[s] ?? (SUPPLIER_METRICS as any)[s]?.leadTime ?? 5;
+                                                                                const service = overrides?.service?.[s] ?? (SUPPLIER_METRICS as any)[s]?.service ?? 7;
+                                                                                const capacity = overrides?.capacity?.[s] ?? (SUPPLIER_METRICS as any)[s]?.capacity ?? 6;
+                                                                                const innovation = overrides?.innovation?.[s] ?? (SUPPLIER_METRICS as any)[s]?.innovation ?? 6;
                                                                                 
-                                                                                const tb_cp = getNegotiatedCost(COMPONENT_COSTS.techbook[s], s);
-                                                                                const zr_cp = getNegotiatedCost(COMPONENT_COSTS.zroid[s], s);
-                                                                                const it_cp = getNegotiatedCost(COMPONENT_COSTS.itab[s], s);
+                                                                                const tb_cp = getNegotiatedCost(COMPONENT_COSTS.techbook[s], s, true, 'techbook');
+                                                                                const zr_cp = getNegotiatedCost(COMPONENT_COSTS.zroid[s], s, true, 'zroid');
+                                                                                const it_cp = getNegotiatedCost(COMPONENT_COSTS.itab[s], s, true, 'itab');
                                                                                 
-                                                                                const tb_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.techbook[s], s);
-                                                                                const zr_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.zroid[s], s);
-                                                                                const it_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.itab[s], s);
+                                                                                const tb_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.techbook[s], s, false, 'techbook');
+                                                                                const zr_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.zroid[s], s, false, 'zroid');
+                                                                                const it_fg = getNegotiatedCost(FINISHED_GOODS_COSTS.itab[s], s, false, 'itab');
                                                                                 
                                                                                 return (
                                                                                     <div key={s} className={`p-1 rounded text-[10px] ${isAgreed ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50/50'}`}>
                                                                                         <p className="font-bold text-[9px] text-slate-800 flex justify-between items-center">
                                                                                             <span>{s} {isAgreed && '✓'}</span>
-                                                                                            <span className="text-[7.5px] font-normal text-slate-400">Terms:{m.terms}d</span>
+                                                                                            <span className="text-[7.5px] font-normal text-slate-400">Terms:{terms}d</span>
                                                                                         </p>
                                                                                         <p className="text-[7.5px] text-slate-500 font-semibold leading-none mb-0.5">
-                                                                                            Q:{m.quality} LT:{m.leadTime}d S:{m.service} C:{m.capacity} I:{m.innovation}
+                                                                                            Q:{quality} LT:{leadTime}d S:{service} C:{capacity} I:{innovation}
                                                                                         </p>
                                                                                         <div className="pl-1 text-[9px] space-y-0.5 leading-tight">
                                                                                             <p><span className="text-slate-400 font-semibold text-[8px]">Comp:</span> TB:R{tb_cp} / ZR:R{zr_cp} / IT:R{it_cp}</p>

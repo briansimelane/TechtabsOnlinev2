@@ -49,37 +49,62 @@ const Negotiations: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {SUPPLIERS.map(s => {
-                      // @ts-ignore
-                      const metrics = SUPPLIER_METRICS[s];
+                      const overrides = decisions.supplierOverrides;
+                      const baseTerms = (SUPPLIER_METRICS as any)[s]?.terms ?? 30;
+                      const baseQuality = (SUPPLIER_METRICS as any)[s]?.quality ?? 7;
+                      const baseLeadTime = (SUPPLIER_METRICS as any)[s]?.leadTime ?? 5;
+                      const baseInnovation = (SUPPLIER_METRICS as any)[s]?.innovation ?? 6;
+
+                      const terms = overrides?.paymentTerms?.[s] ?? baseTerms;
+                      const quality = overrides?.quality?.[s] ?? baseQuality;
+                      const leadTime = overrides?.leadTime?.[s] ?? baseLeadTime;
+                      const innovation = overrides?.innovation?.[s] ?? baseInnovation;
+                      const desc = (SUPPLIER_METRICS as any)[s]?.desc || '';
+
+                      const isCustom = (overrides?.paymentTerms?.[s] !== undefined && terms !== baseTerms) ||
+                                       (overrides?.quality?.[s] !== undefined && quality !== baseQuality) ||
+                                       (overrides?.leadTime?.[s] !== undefined && leadTime !== baseLeadTime) ||
+                                       (overrides?.innovation?.[s] !== undefined && innovation !== baseInnovation);
+
                       return (
-                          <div key={s} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                          <div key={s} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow flex flex-col justify-between">
                               <div className="p-6">
                                   <div className="flex justify-between items-start mb-4">
                                       <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold text-xl">
                                           {s.charAt(0)}
                                       </div>
-                                      <div className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-medium">
-                                          Term: {metrics.terms} Days
+                                      <div className="flex flex-col items-end gap-1">
+                                          <div className="bg-slate-100 text-slate-600 text-xs px-2 py-1 rounded font-medium">
+                                              Term: {terms} Days {terms !== baseTerms && <span className="line-through text-slate-400 text-[10px] ml-1">{baseTerms}</span>}
+                                          </div>
+                                          {isCustom && (
+                                              <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded uppercase">Custom Terms</span>
+                                          )}
                                       </div>
                                   </div>
                                   <h3 className="text-xl font-bold text-slate-900 mb-2">{s}</h3>
-                                  <p className="text-sm text-slate-500 mb-4 h-16">{metrics.desc}</p>
+                                  <p className="text-sm text-slate-500 mb-4 h-16">{desc}</p>
                                   
-                                  <div className="space-y-2 mb-6">
-                                      <div className="flex justify-between text-sm">
+                                  <div className="space-y-2 mb-6 text-xs">
+                                      <div className="flex justify-between items-center">
                                           <span className="text-slate-500">Quality Rating</span>
-                                          <div className="flex space-x-1">
-                                              {[...Array(5)].map((_, i) => (
-                                                  <div key={i} className={`w-2 h-2 rounded-full ${i < (metrics.quality/2) ? 'bg-emerald-500' : 'bg-slate-200'}`} />
-                                              ))}
+                                          <div className="flex items-center gap-1">
+                                              {quality !== baseQuality && <span className="line-through text-[10px] text-slate-400">{baseQuality}</span>}
+                                              <span className={`font-bold font-mono ${quality !== baseQuality ? 'text-emerald-600' : 'text-slate-700'}`}>{quality} / 10</span>
                                           </div>
                                       </div>
-                                      <div className="flex justify-between text-sm">
-                                          <span className="text-slate-500">Innovation</span>
-                                          <div className="flex space-x-1">
-                                              {[...Array(5)].map((_, i) => (
-                                                  <div key={i} className={`w-2 h-2 rounded-full ${i < (metrics.innovation/2) ? 'bg-blue-500' : 'bg-slate-200'}`} />
-                                              ))}
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-slate-500">Lead Time Rating</span>
+                                          <div className="flex items-center gap-1">
+                                              {leadTime !== baseLeadTime && <span className="line-through text-[10px] text-slate-400">{baseLeadTime}</span>}
+                                              <span className={`font-bold font-mono ${leadTime !== baseLeadTime ? 'text-emerald-600' : 'text-slate-700'}`}>{leadTime} / 10</span>
+                                          </div>
+                                      </div>
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-slate-500">Product Innovation</span>
+                                          <div className="flex items-center gap-1">
+                                              {innovation !== baseInnovation && <span className="line-through text-[10px] text-slate-400">{baseInnovation}</span>}
+                                              <span className={`font-bold font-mono ${innovation !== baseInnovation ? 'text-emerald-600' : 'text-slate-700'}`}>{innovation} / 10</span>
                                           </div>
                                       </div>
                                   </div>

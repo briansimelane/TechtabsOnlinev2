@@ -197,16 +197,27 @@ const Procurement: React.FC = () => {
   const getSupplierMetric = (supId: string, metricKey: string) => {
     const overrides = decisions.supplierOverrides;
     if (metricKey === 'terms') {
-      return overrides?.paymentTerms?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supId]?.terms ?? 30);
+      return overrides?.paymentTerms?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.terms ?? 30);
     }
     if (metricKey === 'quality') {
-      return overrides?.quality?.[supId] ?? SUPPLIER_METRICS[supId]?.quality ?? 7;
+      return overrides?.quality?.[supId] ?? SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.quality ?? 7;
+    }
+    if (metricKey === 'leadTime') {
+      return overrides?.leadTime?.[supId] ?? SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.leadTime ?? 5;
+    }
+    if (metricKey === 'service') {
+      return overrides?.service?.[supId] ?? SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.service ?? 5;
+    }
+    if (metricKey === 'capacity') {
+      return overrides?.capacity?.[supId] ?? SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.capacity ?? 5;
+    }
+    if (metricKey === 'innovation') {
+      return overrides?.innovation?.[supId] ?? SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.innovation ?? 5;
     }
     if (metricKey === 'deliveryReliability') {
       return overrides?.deliveryReliability?.[supId] ?? 0.95;
     }
-    // @ts-ignore
-    return SUPPLIER_METRICS[supId]?.[metricKey] ?? 0;
+    return (overrides as any)?.[metricKey]?.[supId] ?? (SUPPLIER_METRICS as any)[supId]?.[metricKey] ?? 0;
   };
 
   return (
@@ -469,22 +480,37 @@ const Procurement: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {[
-                                { key: 'quality', label: 'Quality' },
-                                { key: 'leadTime', label: 'Lead Time' },
-                                { key: 'service', label: 'After Sales Service' },
-                                { key: 'capacity', label: 'Capacity' },
-                                { key: 'innovation', label: 'Product Innovation' },
+                                { key: 'quality', label: 'Quality Rating (1–10)' },
+                                { key: 'leadTime', label: 'Lead Time Rating (1–10)' },
+                                { key: 'service', label: 'After Sales Service (1–10)' },
+                                { key: 'capacity', label: 'Capacity Rating (1–10)' },
+                                { key: 'innovation', label: 'Product Innovation (1–10)' },
                                 { key: 'terms', label: 'Terms (Days)' },
                             ].map((metric) => (
                                 <tr key={metric.key}>
                                     <td className="py-3 text-left font-medium text-slate-700">{metric.label}</td>
                                     {SUPPLIERS.map(s => {
-                                        let val = getSupplierMetric(s, metric.key);
-                                        const isNegotiated = (metric.key === 'terms' && (decisions.supplierOverrides?.paymentTerms?.[s] !== undefined || (negotiation.selectedSupplierId === s && negotiation.status === 'AGREED')));
+                                        const val = getSupplierMetric(s, metric.key);
+                                        const baseVal = (SUPPLIER_METRICS as any)[s]?.[metric.key] ?? (metric.key === 'terms' ? 30 : 5);
+                                        const overrideVal = (decisions.supplierOverrides as any)?.[metric.key]?.[s];
+                                        const isAgreedTerms = metric.key === 'terms' && negotiation.selectedSupplierId === s && negotiation.status === 'AGREED';
+                                        const isChanged = (overrideVal !== undefined && overrideVal !== baseVal) || isAgreedTerms;
 
                                         return (
-                                            <td key={s} className={`py-3 px-2 border-l border-slate-100 text-slate-600 ${isNegotiated ? 'font-bold text-emerald-600' : ''}`}>
-                                                {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                            <td key={s} className={`py-3 px-2 border-l border-slate-100 text-slate-600 ${isChanged ? 'bg-emerald-50/60 font-bold text-emerald-700' : ''}`}>
+                                                {isChanged ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <span className="line-through text-[10px] text-slate-400 font-mono">
+                                                            {baseVal.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                                        </span>
+                                                        <span className="font-bold text-emerald-700 font-mono flex items-center gap-1">
+                                                            {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                                            <span className="text-[9px] bg-emerald-200 text-emerald-900 px-1 rounded uppercase font-semibold">Custom</span>
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="font-mono">{val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}</span>
+                                                )}
                                             </td>
                                         );
                                     })}
@@ -505,30 +531,43 @@ const Procurement: React.FC = () => {
                                     <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Agreed Deal</span>
                                 )}
                             </h4>
-                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs">
                                 {[
-                                    { key: 'quality', label: 'Quality' },
-                                    { key: 'leadTime', label: 'Lead Time' },
-                                    { key: 'service', label: 'After Sales Service' },
-                                    { key: 'capacity', label: 'Capacity' },
-                                    { key: 'innovation', label: 'Product Innovation' },
+                                    { key: 'quality', label: 'Quality Rating (1–10)' },
+                                    { key: 'leadTime', label: 'Lead Time Rating (1–10)' },
+                                    { key: 'service', label: 'After Sales Service (1–10)' },
+                                    { key: 'capacity', label: 'Capacity Rating (1–10)' },
+                                    { key: 'innovation', label: 'Product Innovation (1–10)' },
                                     { key: 'terms', label: 'Terms (Days)' },
                                 ].map((metric) => {
-                                    let val = getSupplierMetric(s, metric.key);
-                                    const isNegotiated = (metric.key === 'terms' && (decisions.supplierOverrides?.paymentTerms?.[s] !== undefined || (negotiation.selectedSupplierId === s && negotiation.status === 'AGREED')));
+                                    const val = getSupplierMetric(s, metric.key);
+                                    const baseVal = (SUPPLIER_METRICS as any)[s]?.[metric.key] ?? (metric.key === 'terms' ? 30 : 5);
+                                    const overrideVal = (decisions.supplierOverrides as any)?.[metric.key]?.[s];
+                                    const isAgreedTerms = metric.key === 'terms' && negotiation.selectedSupplierId === s && negotiation.status === 'AGREED';
+                                    const isChanged = (overrideVal !== undefined && overrideVal !== baseVal) || isAgreedTerms;
 
                                     return (
                                         <div key={metric.key} className="flex justify-between items-center py-1">
                                             <span className="text-slate-500 font-medium">{metric.label}</span>
-                                            <span className={`font-bold font-mono ${isNegotiated ? 'text-emerald-600' : 'text-slate-700'}`}>
-                                                {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
-                                            </span>
+                                            {isChanged ? (
+                                                <div className="flex items-center gap-1">
+                                                    <span className="line-through text-[10px] text-slate-400 font-mono">
+                                                        {baseVal.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                                    </span>
+                                                    <span className="font-bold font-mono text-emerald-700">
+                                                        {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                                    </span>
+                                                    <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 rounded font-bold uppercase">Custom</span>
+                                                </div>
+                                            ) : (
+                                                <span className="font-bold font-mono text-slate-700">
+                                                    {val.toLocaleString(undefined, { minimumFractionDigits: metric.key === 'terms' ? 0 : 1, maximumFractionDigits: 1 })}
+                                                </span>
+                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
-                            
-                            {/* Negotiation Button Hidden */}
                         </div>
                     ))}
                 </div>
@@ -743,20 +782,12 @@ const Procurement: React.FC = () => {
 
                 <div className="space-y-4 border-t border-slate-200 pt-4">
                   <h4 className="font-bold text-xs text-slate-500 uppercase tracking-wider">Base Metrics</h4>
-                  {Object.entries(SUPPLIER_METRICS[negotiationSupplierId as keyof typeof SUPPLIER_METRICS] || {}).map(([key, value]) => {
+                  {Object.entries(SUPPLIER_METRICS[negotiationSupplierId as keyof typeof SUPPLIER_METRICS] || {}).map(([key]) => {
                     if (key === 'desc') return null;
-                    let displayVal = value;
-                    if (key === 'terms' && negotiation.status === 'AGREED' && negotiation.selectedSupplierId === negotiationSupplierId) {
-                      displayVal = negotiation.agreedPaymentTerms;
-                    }
+                    let displayVal = getSupplierMetric(negotiationSupplierId, key);
                     
                     // Calculate average across all suppliers
-                    const allVals = Object.values(SUPPLIER_METRICS).map(m => {
-                      if (key === 'terms' && negotiation.status === 'AGREED' && negotiation.selectedSupplierId === m) {
-                        return negotiation.agreedPaymentTerms; // use negotiated terms if agreed
-                      }
-                      return (m as any)[key];
-                    }).filter(v => typeof v === 'number');
+                    const allVals = SUPPLIERS.map(s => getSupplierMetric(s, key)).filter(v => typeof v === 'number');
                     const avgVal = allVals.reduce((a, b) => a + b, 0) / allVals.length;
 
                     return (
@@ -779,12 +810,11 @@ const Procurement: React.FC = () => {
                   {/* Average KPI Rating across 5 Performance metrics */}
                   {(() => {
                     const kpiKeys = ['quality', 'leadTime', 'service', 'capacity', 'innovation'];
-                    const mInfo = SUPPLIER_METRICS[negotiationSupplierId as keyof typeof SUPPLIER_METRICS] || {};
-                    const selectedKpiSum = kpiKeys.reduce((sum, k) => sum + (mInfo[k as keyof typeof mInfo] as number || 0), 0);
+                    const selectedKpiSum = kpiKeys.reduce((sum, k) => sum + (getSupplierMetric(negotiationSupplierId, k) as number || 0), 0);
                     const selectedKpiAvg = selectedKpiSum / kpiKeys.length;
 
-                    const allSuppliersKpiAvg = Object.values(SUPPLIER_METRICS).map(m => {
-                      const sum = kpiKeys.reduce((s, k) => s + (m[k as keyof typeof m] as number || 0), 0);
+                    const allSuppliersKpiAvg = SUPPLIERS.map(s => {
+                      const sum = kpiKeys.reduce((acc, k) => acc + (getSupplierMetric(s, k) as number || 0), 0);
                       return sum / kpiKeys.length;
                     });
                     const overallAvgKpi = allSuppliersKpiAvg.reduce((a, b) => a + b, 0) / allSuppliersKpiAvg.length;

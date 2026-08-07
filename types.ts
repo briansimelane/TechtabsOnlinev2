@@ -220,6 +220,10 @@ export interface TeamSupplierOverride {
   discounts?: Record<string, number>;
   quality?: Record<string, number>;
   deliveryReliability?: Record<string, number>;
+  leadTime?: Record<string, number>;
+  service?: Record<string, number>;
+  capacity?: Record<string, number>;
+  innovation?: Record<string, number>;
   status?: Record<string, 'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED'>;
 }
 

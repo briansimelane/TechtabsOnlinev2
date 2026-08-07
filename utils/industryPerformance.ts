@@ -18,7 +18,37 @@ export function getSupplierFinishedGoodsCost(productId: ProductId, supplier: str
 
 export function getSupplierPaymentTerms(supplier: string, dec?: TurnDecisions): number {
   const overrides = dec?.supplierOverrides;
-  return overrides?.paymentTerms?.[supplier] ?? (dec?.negotiation?.status === 'AGREED' && dec?.negotiation?.selectedSupplierId === supplier ? dec.negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supplier]?.terms ?? 30);
+  return overrides?.paymentTerms?.[supplier] ?? (dec?.negotiation?.status === 'AGREED' && dec?.negotiation?.selectedSupplierId === supplier ? dec.negotiation.agreedPaymentTerms : (SUPPLIER_METRICS as any)[supplier]?.terms ?? 30);
+}
+
+export function getSupplierQuality(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.quality?.[supplier] ?? (SUPPLIER_METRICS as any)[supplier]?.quality ?? 7;
+}
+
+export function getSupplierInnovation(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.innovation?.[supplier] ?? (SUPPLIER_METRICS as any)[supplier]?.innovation ?? 6;
+}
+
+export function getSupplierLeadTime(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.leadTime?.[supplier] ?? (SUPPLIER_METRICS as any)[supplier]?.leadTime ?? 5;
+}
+
+export function getSupplierService(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.service?.[supplier] ?? (SUPPLIER_METRICS as any)[supplier]?.service ?? 7;
+}
+
+export function getSupplierCapacity(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.capacity?.[supplier] ?? (SUPPLIER_METRICS as any)[supplier]?.capacity ?? 6;
+}
+
+export function getSupplierDeliveryReliability(supplier: string, dec?: TurnDecisions): number {
+  const overrides = dec?.supplierOverrides;
+  return overrides?.deliveryReliability?.[supplier] ?? 0.95;
 }
 
 export interface TeamIndustryPerformance {

@@ -436,7 +436,7 @@ export const processTurn = (
             const fgVal = Number(alloc[s]?.finishedGoods) || 0;
             const totalVal = compVal + fgVal;
             if (totalVal > 0) {
-                const supplierInnov = SUPPLIER_METRICS[s as keyof typeof SUPPLIER_METRICS]?.innovation || 5.0;
+                const supplierInnov = decisions.supplierOverrides?.innovation?.[s] ?? SUPPLIER_METRICS[s as keyof typeof SUPPLIER_METRICS]?.innovation ?? 5.0;
                 sumInnov += supplierInnov * totalVal;
                 totalAlloc += totalVal;
             }
