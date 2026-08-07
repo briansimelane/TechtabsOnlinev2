@@ -126,11 +126,70 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
           : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, []).periodRecord);
 
         const prior = rawPriorRec ? ensurePeriodMarketRecord(rawPriorRec) : undefined;
-        const perf: TeamIndustryPerformance = livePerfMap.get(t.id) || rawRec?.industry || livePerfList[index];
-
+        
         const match = t.id.match(/\d+/);
         const teamNum = match ? match[0] : String(index + 1);
         const formattedName = t.name.startsWith(`(${teamNum})`) ? t.name : `(${teamNum}) ${t.name}`;
+
+        let perf: TeamIndustryPerformance;
+        if (rawRec?.industry) {
+          perf = rawRec.industry;
+        } else if (rawRec) {
+          const revenueByProd = rawRec.revenue?.byProduct || { techbook: 0, zroid: 0, itab: 0 };
+          const cogsByProd = rawRec.cogs?.byProduct || { techbook: 0, zroid: 0, itab: 0 };
+          const totRev = rawRec.revenue?.total || 0;
+          const totCogs = rawRec.cogs?.total || 0;
+          const gp = rawRec.grossProfit?.total || (totRev - totCogs);
+          const gpPct = totRev > 0 ? (gp / totRev) * 100 : 0;
+          const np = rawRec.netProfit || 0;
+          const npPct = totRev > 0 ? (np / totRev) * 100 : 0;
+          const eq = rawRec.balanceSheet?.equity || 0;
+          const roeVal = eq > 0 ? (np / eq) * 100 : 0;
+
+          perf = {
+            teamId: t.id,
+            teamName: formattedName,
+            revenueByProduct: revenueByProd,
+            totalRevenue: totRev,
+            cogsByProduct: cogsByProd,
+            totalCogs: totCogs,
+            grossProfit: gp,
+            gpMargin: gpPct,
+            opex: {
+              marketing: rawRec.opex?.marketing || 0,
+              store: rawRec.opex?.store || 0,
+              payroll: rawRec.opex?.payroll || 0,
+              rd: rawRec.opex?.rd || 0,
+              agents: rawRec.opex?.agents || 0,
+              training: rawRec.opex?.training || 0,
+              other: rawRec.opex?.other || 0,
+              total: rawRec.opex?.total || 0
+            },
+            ebitda: rawRec.operatingProfit || (gp - (rawRec.opex?.total || 0)),
+            depreciation: 0,
+            financeCharges: rawRec.interestExpense || 0,
+            ebt: (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
+            taxation: rawRec.taxExpense || 0,
+            netProfit: np,
+            npMargin: npPct,
+            equity: eq,
+            roe: roeVal,
+            units: {
+              techbook: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.techbook || 0, available: 0, actual: rawRec.market?.actualUnits?.techbook || 0 },
+              zroid: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.zroid || 0, available: 0, actual: rawRec.market?.actualUnits?.zroid || 0 },
+              itab: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.itab || 0, available: 0, actual: rawRec.market?.actualUnits?.itab || 0 }
+            },
+            totalScore: { techbook: 0, zroid: 0, itab: 0 },
+            marketShare: rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
+            price: rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
+            staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
+            trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+            unitsProduced: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
+            unitsSold: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
+          };
+        } else {
+          perf = livePerfMap.get(t.id) || livePerfList[index];
+        }
 
         return {
           id: t.id,
