@@ -237,6 +237,59 @@ const getPermittedDiscountRange = (supplierId: string, totalVolume: number, fact
   return { min: 0, max: baseMax };
 };
 
+export function reconcileTeamPeriod(team: Team, targetPeriod: number): Team {
+  if (team.isArchived || team.currentPeriod >= targetPeriod) {
+    return team;
+  }
+
+  let currentTeamState: Team = { ...team };
+
+  while (currentTeamState.currentPeriod < targetPeriod) {
+    const p = currentTeamState.currentPeriod;
+    const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
+    const result = processTurn(currentTeamState, decs, []);
+    
+    const carriedDecisions: TurnDecisions = {
+      ...decs,
+      operations: {
+        ...decs.operations,
+        capacityChange: 0,
+        reqFinishedGoods: { techbook: 0, zroid: 0, itab: 0 }
+      },
+      hr: {
+        ...decs.hr,
+        hiring: { engineers: 0, technicians: 0, semiSkilled: 0, adminSales: 0, customerService: 0 }
+      },
+      finance: {
+        ...decs.finance,
+        debtChange: 0,
+        equityChange: 0
+      },
+      negotiation: {
+        ...INITIAL_DECISIONS.negotiation
+      }
+    };
+
+    const periodRecordWithDecs = {
+      ...result.periodRecord,
+      decisions: decs,
+      draftDecisions: decs
+    };
+
+    currentTeamState = {
+      ...result.newTeamState,
+      status: 'Saved',
+      draftDecisions: carriedDecisions,
+      history: {
+        ...(currentTeamState.history || {}),
+        [p]: periodRecordWithDecs
+      }
+    };
+  }
+
+  return currentTeamState;
+}
+
 const runNegotiationRubricEvaluation = async (transcript: {role: string, text: string}[]) => {
   try {
       if (!process.env.API_KEY) return null;
@@ -478,9 +531,29 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
           const dbClasses = await listClasses();
           const dbFacs = await listFacilitators();
           const dbAdmins = await listAdministrators();
+
+          const syncedClasses = dbClasses.map(cls => {
+            let hasChanges = false;
+            const syncedTeams = (cls.teams || []).map(t => {
+              if (!t.isArchived && t.currentPeriod < cls.currentPeriod) {
+                hasChanges = true;
+                const synced = reconcileTeamPeriod(t, cls.currentPeriod);
+                void saveTeamState(cls.id, synced).catch(err => console.error("Failed auto-sync team period", err));
+                return synced;
+              }
+              return t;
+            });
+            if (hasChanges) {
+              const updatedCls = { ...cls, teams: syncedTeams };
+              void saveClass(updatedCls).catch(err => console.error("Failed auto-sync class teams", err));
+              return updatedCls;
+            }
+            return cls;
+          });
+
           setState(prev => ({
             ...prev,
-            classes: dbClasses,
+            classes: syncedClasses,
             facilitators: dbFacs,
             administrators: dbAdmins
           }));
@@ -562,8 +635,14 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
           const teamRef = doc(db, 'classes', state.currentClassId, 'teams', state.currentTeam.id);
           const unsubscribe = onSnapshot(teamRef, (docSnap) => {
               if (docSnap.exists()) {
-                  const teamData = docSnap.data() as Team;
+                  let teamData = docSnap.data() as Team;
                   setState(prev => {
+                      const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
+                      if (targetClass && targetClass.currentPeriod > teamData.currentPeriod && !teamData.isArchived) {
+                          teamData = reconcileTeamPeriod(teamData, targetClass.currentPeriod);
+                          void saveTeamState(prev.currentClassId!, teamData).catch(err => console.error("Failed auto-sync student team period", err));
+                      }
+
                       if (JSON.stringify(prev.currentTeam) === JSON.stringify(teamData)) {
                           return prev;
                       }
@@ -604,11 +683,21 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               const sortedTeams = updatedTeams.sort((a, b) => a.id.localeCompare(b.id));
 
               setState(prev => {
+                  const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
+                  const reconciledTeams = sortedTeams.map(tData => {
+                      if (targetClass && targetClass.currentPeriod > tData.currentPeriod && !tData.isArchived) {
+                          const synced = reconcileTeamPeriod(tData, targetClass.currentPeriod);
+                          void saveTeamState(prev.currentClassId!, synced).catch(err => console.error("Failed auto-sync facilitator team period", err));
+                          return synced;
+                      }
+                      return tData;
+                  });
+
                   const updatedClasses = prev.classes.map(c => {
                       if (c.id === prev.currentClassId) {
                           return {
                               ...c,
-                              teams: sortedTeams
+                              teams: reconciledTeams
                           };
                       }
                       return c;
