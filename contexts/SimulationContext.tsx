@@ -2060,7 +2060,26 @@ BEHAVIOR RULES:
         }
         const decs = team.draftDecisions || INITIAL_DECISIONS;
         const result = processTurn(team, decs, activeEvents);
-        const teamPerf = perfMap.get(team.id);
+        const rawTeamPerf = perfMap.get(team.id);
+        const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
+        const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
+        const gp = result.periodRecord.grossProfit?.total ?? (totRev - totCogs);
+        const np = result.periodRecord.netProfit ?? rawTeamPerf?.netProfit ?? 0;
+        const eq = result.periodRecord.balanceSheet?.equity ?? rawTeamPerf?.equity ?? 0;
+
+        const teamPerf = rawTeamPerf ? {
+          ...rawTeamPerf,
+          revenueByProduct: result.periodRecord.revenue?.byProduct ?? rawTeamPerf.revenueByProduct,
+          totalRevenue: totRev,
+          cogsByProduct: result.periodRecord.cogs?.byProduct ?? rawTeamPerf.cogsByProduct,
+          totalCogs: totCogs,
+          grossProfit: gp,
+          gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
+          netProfit: np,
+          npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
+          equity: eq,
+          roe: eq > 0 ? (np / eq) * 100 : 0
+        } : undefined;
 
         const periodRecordWithIndustry = {
           ...result.periodRecord,

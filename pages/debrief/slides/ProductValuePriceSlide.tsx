@@ -184,7 +184,7 @@ export const ProductValuePriceSlide: React.FC<SlideProps> = ({
             />
             <ReferenceLine x={0} stroke="#94A3B8" strokeWidth={2} />
             <ReferenceLine y={0} stroke="#94A3B8" strokeWidth={2} />
-            <Scatter data={points} shape={renderCustomShape} isAnimationActive={true} />
+            <Scatter data={points} shape={renderCustomShape} isAnimationActive={false} />
           </ScatterChart>
         </ResponsiveContainer>
       </div>

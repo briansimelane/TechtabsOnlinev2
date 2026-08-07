@@ -13,12 +13,14 @@ interface TeamPieChartProps {
   data: { name: string; value: number; colorIndex: number; [key: string]: any }[];
   centerLabel?: string;
   centerSubLabel?: string;
+  isAnimationActive?: boolean;
 }
 
 export const TeamPieChart: React.FC<TeamPieChartProps> = ({
   data,
   centerLabel = '100%',
-  centerSubLabel = 'Market Share'
+  centerSubLabel = 'Market Share',
+  isAnimationActive = true
 }) => {
   // Ensure data is sorted by colorIndex so Team 1 is first
   const sortedData = [...data].sort((a, b) => a.colorIndex - b.colorIndex);
@@ -26,7 +28,7 @@ export const TeamPieChart: React.FC<TeamPieChartProps> = ({
   const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, name, value, index }: any) => {
     if (!value || value <= 0) return null;
     const RADIAN = Math.PI / 180;
-    const radius = outerRadius + 35;
+    const radius = outerRadius + 22;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
     const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
@@ -51,7 +53,7 @@ export const TeamPieChart: React.FC<TeamPieChartProps> = ({
   return (
     <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-center overflow-hidden relative">
       <ResponsiveContainer width="100%" height="100%">
-        <PieChart margin={{ top: 30, right: 120, left: 120, bottom: 30 }}>
+        <PieChart margin={{ top: 35, right: 180, left: 180, bottom: 35 }}>
           <Tooltip
             contentStyle={{
               backgroundColor: '#0F172A',
@@ -70,14 +72,14 @@ export const TeamPieChart: React.FC<TeamPieChartProps> = ({
             cy="50%"
             startAngle={90}
             endAngle={-270}
-            innerRadius="38%"
-            outerRadius="68%"
+            innerRadius="28%"
+            outerRadius="50%"
             paddingAngle={3}
             dataKey="value"
             label={renderCustomizedLabel}
             labelLine={{ stroke: '#94A3B8', strokeWidth: 1.5 }}
-            isAnimationActive={true}
-            animationDuration={700}
+            isAnimationActive={isAnimationActive}
+            animationDuration={isAnimationActive ? 700 : 0}
           >
             {sortedData.map((entry, index) => (
               <Cell

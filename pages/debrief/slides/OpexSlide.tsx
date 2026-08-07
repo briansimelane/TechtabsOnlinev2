@@ -78,13 +78,13 @@ export const OpexSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSl
               formatter={(val: any) => [formatDebriefCurrency(Number(val), true, true), '']}
             />
             <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '16px', fontWeight: 'bold' }} />
-            <Bar dataKey="Advertising & Marketing" stackId="a" fill={OPEX_COLORS.marketing} isAnimationActive={true} />
-            <Bar dataKey="Store Costs" stackId="a" fill={OPEX_COLORS.store} isAnimationActive={true} />
-            <Bar dataKey="Payroll (Salaries)" stackId="a" fill={OPEX_COLORS.payroll} isAnimationActive={true} />
-            <Bar dataKey="R & D (Innovation)" stackId="a" fill={OPEX_COLORS.rd} isAnimationActive={true} />
-            <Bar dataKey="Agent Commissions" stackId="a" fill={OPEX_COLORS.agents} isAnimationActive={true} />
-            <Bar dataKey="Staff Development (Training)" stackId="a" fill={OPEX_COLORS.training} isAnimationActive={true} />
-            <Bar dataKey="Other Operational Expenses" stackId="a" fill={OPEX_COLORS.other} radius={[6, 6, 0, 0]} isAnimationActive={true}>
+            <Bar dataKey="Advertising & Marketing" stackId="a" fill={OPEX_COLORS.marketing} isAnimationActive={false} />
+            <Bar dataKey="Store Costs" stackId="a" fill={OPEX_COLORS.store} isAnimationActive={false} />
+            <Bar dataKey="Payroll (Salaries)" stackId="a" fill={OPEX_COLORS.payroll} isAnimationActive={false} />
+            <Bar dataKey="R & D (Innovation)" stackId="a" fill={OPEX_COLORS.rd} isAnimationActive={false} />
+            <Bar dataKey="Agent Commissions" stackId="a" fill={OPEX_COLORS.agents} isAnimationActive={false} />
+            <Bar dataKey="Staff Development (Training)" stackId="a" fill={OPEX_COLORS.training} isAnimationActive={false} />
+            <Bar dataKey="Other Operational Expenses" stackId="a" fill={OPEX_COLORS.other} radius={[6, 6, 0, 0]} isAnimationActive={false}>
               <LabelList
                 dataKey="total"
                 position="top"

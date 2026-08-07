@@ -57,7 +57,7 @@ export const RevenueMixSlide: React.FC<SlideProps> = ({ dataset, currentSlide, t
               formatter={(val: any) => [formatDebriefPercent(Number(val)), '']}
             />
             <Legend wrapperStyle={{ paddingTop: '35px', fontSize: '20px', fontWeight: 'bold' }} />
-            <Bar dataKey="TechBook" stackId="a" fill={PRODUCT_COLORS.techbook} isAnimationActive={true} animationDuration={700}>
+            <Bar dataKey="TechBook" stackId="a" fill={PRODUCT_COLORS.techbook} isAnimationActive={false} animationDuration={0}>
               <LabelList
                 dataKey="TechBook"
                 position="inside"
@@ -65,7 +65,7 @@ export const RevenueMixSlide: React.FC<SlideProps> = ({ dataset, currentSlide, t
                 style={{ fill: '#FFFFFF', fontSize: '18px', fontWeight: 800, fontFamily: 'IBM Plex Mono' }}
               />
             </Bar>
-            <Bar dataKey="Zroid" stackId="a" fill={PRODUCT_COLORS.zroid} isAnimationActive={true} animationDuration={700}>
+            <Bar dataKey="Zroid" stackId="a" fill={PRODUCT_COLORS.zroid} isAnimationActive={false} animationDuration={0}>
               <LabelList
                 dataKey="Zroid"
                 position="inside"
@@ -73,7 +73,7 @@ export const RevenueMixSlide: React.FC<SlideProps> = ({ dataset, currentSlide, t
                 style={{ fill: '#FFFFFF', fontSize: '18px', fontWeight: 800, fontFamily: 'IBM Plex Mono' }}
               />
             </Bar>
-            <Bar dataKey="iTab" stackId="a" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700}>
+            <Bar dataKey="iTab" stackId="a" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0}>
               <LabelList
                 dataKey="iTab"
                 position="inside"

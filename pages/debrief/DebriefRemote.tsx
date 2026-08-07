@@ -14,8 +14,6 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
   const { state, updateState } = useDebriefState(classId, currentPeriod || 1);
   const dataset = useDebriefData(classId, state.period);
   const slides = compileDebriefSlides(dataset);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-
   const currentSlideIdx = Math.max(0, Math.min(state.slideIndex, slides.length - 1));
   const currentSlideDef = slides[currentSlideIdx];
 
@@ -42,14 +40,21 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
     window.open(popupUrl, 'techtabs-debrief', 'popup,width=1600,height=900');
   };
 
-  const handleDownloadPdf = () => {
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
+
+  const handleDownloadPdf = async () => {
     try {
       setIsExportingPdf(true);
-      downloadDebriefDeckPdf(dataset);
+      setExportProgress({ current: 0, total: slides.length });
+      await downloadDebriefDeckPdf(dataset, (current, total) => {
+        setExportProgress({ current, total });
+      });
     } catch (err) {
       console.error("Failed to download debrief deck PDF", err);
     } finally {
       setIsExportingPdf(false);
+      setExportProgress(null);
     }
   };
 
@@ -69,7 +74,7 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
             className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold rounded-lg border border-indigo-500 transition-colors text-white disabled:opacity-50"
             title="Download Executive Debrief Presentation Deck as PDF"
           >
-            <Download size={14} /> {isExportingPdf ? 'Exporting PDF...' : 'Download PDF Deck'}
+            <Download size={14} /> {isExportingPdf ? `Exporting Slide ${exportProgress?.current || 0}/${exportProgress?.total || slides.length}...` : 'Download PDF Deck'}
           </button>
           <button
             onClick={handleOpenWindow}

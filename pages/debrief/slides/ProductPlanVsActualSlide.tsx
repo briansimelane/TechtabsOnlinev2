@@ -83,9 +83,9 @@ export const ProductPlanVsActualSlide: React.FC<SlideProps> = ({
                 formatter={(val: any, name: any) => [formatDebriefUnits(Number(val)), name]}
               />
               <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '18px', fontWeight: 'bold' }} />
-              <Bar dataKey="Plan (Forecast)" fill="#7C3AED" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
-              <Bar dataKey="Demand" fill="#D97706" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
-              <Bar dataKey="Actual" fill="#059669" radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
+              <Bar dataKey="Plan (Forecast)" fill="#7C3AED" radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
+              <Bar dataKey="Demand" fill="#D97706" radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
+              <Bar dataKey="Actual" fill="#059669" radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
             </BarChart>
           </ResponsiveContainer>
         </div>

@@ -22,6 +22,7 @@ interface TeamBarChartProps {
   yUnit?: string;
   height?: number;
   startFromZero?: boolean;
+  isAnimationActive?: boolean;
 }
 
 export const TeamBarChart: React.FC<TeamBarChartProps> = ({
@@ -31,16 +32,17 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
   layout = 'horizontal',
   yUnit = '',
   height = 550,
-  startFromZero = true
+  startFromZero = true,
+  isAnimationActive = true
 }) => {
-  let domain: [any, any] = [0, 'auto'];
+  let domain: [any, any] = [0, (dataMax: number) => Math.ceil(dataMax * 1.18)];
   if (!startFromZero && data.length > 0) {
     const values = data.map(d => Number(d.value) || 0);
     const minVal = Math.min(...values);
     const maxVal = Math.max(...values);
     if (minVal > 0) {
-      const floor = Math.floor(minVal * 0.85);
-      const ceil = Math.ceil(maxVal * 1.05);
+      const floor = Math.floor(minVal * 0.82);
+      const ceil = Math.ceil(maxVal * 1.18);
       domain = [floor, ceil];
     }
   }
@@ -51,7 +53,7 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
         <BarChart
           data={data}
           layout={layout}
-          margin={{ top: 35, right: 40, left: 40, bottom: 45 }}
+          margin={{ top: 60, right: 45, left: 45, bottom: 45 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
           {layout === 'horizontal' ? (
@@ -110,8 +112,8 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
           <Bar
             dataKey="value"
             radius={layout === 'horizontal' ? [8, 8, 0, 0] : [0, 8, 8, 0]}
-            isAnimationActive={true}
-            animationDuration={700}
+            isAnimationActive={isAnimationActive}
+            animationDuration={isAnimationActive ? 700 : 0}
           >
             {data.map((entry, index) => (
               <Cell
@@ -123,6 +125,7 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
               <LabelList
                 dataKey="value"
                 position={layout === 'horizontal' ? 'top' : 'right'}
+                dy={layout === 'horizontal' ? -8 : 0}
                 formatter={(v: any) => `${formatter(Number(v))}${yUnit}`}
                 style={{
                   fill: '#0F172A',

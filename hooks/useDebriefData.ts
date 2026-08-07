@@ -132,30 +132,31 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const formattedName = t.name.startsWith(`(${teamNum})`) ? t.name : `(${teamNum}) ${t.name}`;
 
         let perf: TeamIndustryPerformance;
-        if (rawRec?.industry) {
-          perf = rawRec.industry;
-        } else if (rawRec) {
-          const revenueByProd = rawRec.revenue?.byProduct || { techbook: 0, zroid: 0, itab: 0 };
-          const cogsByProd = rawRec.cogs?.byProduct || { techbook: 0, zroid: 0, itab: 0 };
-          const totRev = rawRec.revenue?.total || 0;
-          const totCogs = rawRec.cogs?.total || 0;
-          const gp = rawRec.grossProfit?.total || (totRev - totCogs);
+        const basePerf = rawRec?.industry || livePerfMap.get(t.id) || livePerfList[index];
+
+        if (rawRec) {
+          const totRev = rawRec.revenue?.total ?? basePerf?.totalRevenue ?? 0;
+          const revByProd = rawRec.revenue?.byProduct ?? basePerf?.revenueByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
+          const totCogs = rawRec.cogs?.total ?? basePerf?.totalCogs ?? 0;
+          const cogsByProd = rawRec.cogs?.byProduct ?? basePerf?.cogsByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
+          const gp = rawRec.grossProfit?.total ?? (totRev - totCogs);
           const gpPct = totRev > 0 ? (gp / totRev) * 100 : 0;
-          const np = rawRec.netProfit || 0;
+          const np = rawRec.netProfit ?? basePerf?.netProfit ?? 0;
           const npPct = totRev > 0 ? (np / totRev) * 100 : 0;
-          const eq = rawRec.balanceSheet?.equity || 0;
+          const eq = rawRec.balanceSheet?.equity ?? basePerf?.equity ?? 0;
           const roeVal = eq > 0 ? (np / eq) * 100 : 0;
 
           perf = {
+            ...(basePerf || {}),
             teamId: t.id,
             teamName: formattedName,
-            revenueByProduct: revenueByProd,
+            revenueByProduct: revByProd,
             totalRevenue: totRev,
             cogsByProduct: cogsByProd,
             totalCogs: totCogs,
             grossProfit: gp,
             gpMargin: gpPct,
-            opex: {
+            opex: basePerf?.opex || {
               marketing: rawRec.opex?.marketing || 0,
               store: rawRec.opex?.store || 0,
               payroll: rawRec.opex?.payroll || 0,
@@ -165,30 +166,30 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
               other: rawRec.opex?.other || 0,
               total: rawRec.opex?.total || 0
             },
-            ebitda: rawRec.operatingProfit || (gp - (rawRec.opex?.total || 0)),
-            depreciation: 0,
-            financeCharges: rawRec.interestExpense || 0,
-            ebt: (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
-            taxation: rawRec.taxExpense || 0,
+            ebitda: rawRec.operatingProfit ?? basePerf?.ebitda ?? (gp - (rawRec.opex?.total || 0)),
+            depreciation: basePerf?.depreciation || 0,
+            financeCharges: rawRec.interestExpense ?? basePerf?.financeCharges ?? 0,
+            ebt: rawRec.ebt ?? basePerf?.ebt ?? (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
+            taxation: rawRec.taxExpense ?? basePerf?.taxation ?? 0,
             netProfit: np,
             npMargin: npPct,
             equity: eq,
             roe: roeVal,
-            units: {
+            units: basePerf?.units || {
               techbook: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.techbook || 0, available: 0, actual: rawRec.market?.actualUnits?.techbook || 0 },
               zroid: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.zroid || 0, available: 0, actual: rawRec.market?.actualUnits?.zroid || 0 },
               itab: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.itab || 0, available: 0, actual: rawRec.market?.actualUnits?.itab || 0 }
             },
-            totalScore: { techbook: 0, zroid: 0, itab: 0 },
-            marketShare: rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
-            price: rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
-            staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
-            trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
-            unitsProduced: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
-            unitsSold: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
-          };
+            totalScore: basePerf?.totalScore || { techbook: 0, zroid: 0, itab: 0 },
+            marketShare: basePerf?.marketShare || rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
+            price: basePerf?.price || rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
+            staffCounts: basePerf?.staffCounts || { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
+            trainingLevels: basePerf?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+            unitsProduced: basePerf?.unitsProduced || (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
+            unitsSold: basePerf?.unitsSold || (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
+          } as TeamIndustryPerformance;
         } else {
-          perf = livePerfMap.get(t.id) || livePerfList[index];
+          perf = basePerf;
         }
 
         return {

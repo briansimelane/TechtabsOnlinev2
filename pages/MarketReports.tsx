@@ -21,6 +21,7 @@ import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/in
 import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
 import { useDebriefData } from '../hooks/useDebriefData';
 import { compileDebriefSlides } from '../utils/debriefSlides';
+import { downloadDebriefDeckPdf } from '../utils/debriefPdfExport';
 
 const HR_ROLE_LABELS: Record<string, string> = {
   engineers: 'Engineers',
@@ -36,8 +37,25 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
   const dataset = useDebriefData(classId, period);
   const slides = React.useMemo(() => compileDebriefSlides(dataset), [dataset]);
   const [slideIndex, setSlideIndex] = useState(0);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [exportProgress, setExportProgress] = useState<{ current: number; total: number } | null>(null);
 
   const currentSlide = slides[slideIndex] || slides[0];
+
+  const handleDownloadDeck = async () => {
+    try {
+      setIsExportingPdf(true);
+      setExportProgress({ current: 0, total: slides.length });
+      await downloadDebriefDeckPdf(dataset, (current, total) => {
+        setExportProgress({ current, total });
+      });
+    } catch (err) {
+      console.error("Failed to export debrief slides deck PDF", err);
+    } finally {
+      setIsExportingPdf(false);
+      setExportProgress(null);
+    }
+  };
 
   if (dataset.loading) {
     return (
@@ -59,6 +77,15 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadDeck}
+            disabled={isExportingPdf || dataset.loading || dataset.teams.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all shadow-xs mr-2"
+            title={`Download Year ${period} Executive Debrief Presentation Deck as PDF`}
+          >
+            <Download size={14} />
+            {isExportingPdf ? `Exporting Slide ${exportProgress?.current || 0}/${exportProgress?.total || slides.length}...` : `Download Year ${period} Slides PDF`}
+          </button>
           <select
             value={slideIndex}
             onChange={(e) => setSlideIndex(Number(e.target.value))}
@@ -91,7 +118,7 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
       <div className="w-full aspect-[16/9] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 relative">
         {currentSlide && currentSlide.render({
           dataset,
-          revealStep: 0,
+          revealStep: currentSlide.maxRevealSteps || 0,
           currentSlide: slideIndex + 1,
           totalSlides: slides.length
         })}
@@ -123,12 +150,21 @@ const MarketReports: React.FC = () => {
 
   const activeTeams = realTeams.length > 0 ? realTeams.map(t => t.name) : teams;
 
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+
+  const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
+  const isStudent = currentRole === 'STUDENT';
+  const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+
+  const maxAvailablePeriod = currentPeriod > 1 ? currentPeriod - 1 : 1;
+  const reportPeriod = (selectedYear && selectedYear <= maxAvailablePeriod) ? selectedYear : maxAvailablePeriod;
+  const availableYears = Array.from({ length: maxAvailablePeriod }, (_, i) => i + 1);
+
+  const debriefDataset = useDebriefData(currentClassId || '', reportPeriod);
+
   const getDecisionRefValue = React.useCallback((productName: string, field: string, teamIdx: number) => {
     if (!currentClass || !realTeams[teamIdx]) return '—';
     const t = realTeams[teamIdx];
-    const isStudentRole = currentRole === 'STUDENT';
-    const currPeriod = isStudentRole ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
-    const reportPeriod = currPeriod > 1 ? currPeriod - 1 : 1;
     const dec = getDecisionsForTeamPeriod(t, reportPeriod);
     const pId = productName.toLowerCase() === 'techbook' ? 'techbook' : (productName.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
 
@@ -154,7 +190,7 @@ const MarketReports: React.FC = () => {
       default:
         return '—';
     }
-  }, [currentClass, realTeams]);
+  }, [currentClass, realTeams, reportPeriod]);
 
   // Dynamic Market Data calculation from actual backModel
   const dynamicMarketData = React.useMemo(() => {
@@ -162,8 +198,7 @@ const MarketReports: React.FC = () => {
       return null;
     }
     
-    const period = currentClass.currentPeriod > 1 ? currentClass.currentPeriod - 1 : 1;
-    const results = computeMarketShareBackModel(realTeams, period);
+    const results = computeMarketShareBackModel(realTeams, reportPeriod);
     
     // Map results to the structure expected by the render code
     const productKeys: Record<string, 'techbook' | 'zroid' | 'itab'> = {
@@ -218,24 +253,38 @@ const MarketReports: React.FC = () => {
       };
 
       const decisionsRefRows = [
-        { label: 'Price', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Price', i)) },
-        { label: 'Payment Terms', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Payment Terms', i)) },
-        { label: 'Availability: Factory Capacity', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Availability', i)) },
-        { label: 'Stores', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Stores', i)) },
-        { label: 'Agents: Commission', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Agents', i)) },
-        { label: 'Staff Availability: CS Staff', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'CS Headcount', i)) },
-        { label: 'Product Innovation: Features', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Cumulative Features', i)) },
-        { label: 'Company Advertising: General', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Company Advertising', i)) },
-        { label: 'Product Advertising: Product Ad', values: realTeams.map((_, i) => getDecisionRefValue(pName, 'Product Advertising', i)) }
+        {
+          criteria: 'Price (R)',
+          rating: null as number | null,
+          scores: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
+          })
+        },
+        {
+          criteria: 'Debtor Days (Payment Terms)',
+          rating: null as number | null,
+          scores: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
+          })
+        },
+        {
+          criteria: 'Product Features (Count)',
+          rating: null as number | null,
+          scores: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return formatNumber(getClosingFeatures(t, dec, pId), 0);
+          })
+        }
       ];
       
       return {
         product: pName,
-        data: [...criteriaRows, totalScoresRow, shareRow],
-        decisionsRef: decisionsRefRows
+        data: [...decisionsRefRows, ...criteriaRows, totalScoresRow, shareRow]
       };
     });
-  }, [currentClass, realTeams, getDecisionRefValue]);
+  }, [currentClass, realTeams, reportPeriod]);
 
   // Dynamic Decisions Data mapping from actual team draftDecisions
   const dynamicDecisionsData = React.useMemo(() => {
@@ -243,9 +292,6 @@ const MarketReports: React.FC = () => {
       return null;
     }
 
-    const isStudentRole = currentRole === 'STUDENT';
-    const currPeriod = isStudentRole ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
-    const reportPeriod = currPeriod > 1 ? currPeriod - 1 : 1;
     const getTeamDec = (t: Team) => getDecisionsForTeamPeriod(t, reportPeriod);
 
     const marketingRows = [
@@ -296,8 +342,7 @@ const MarketReports: React.FC = () => {
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.techbook ?? 0;
-          const period = currentClass?.currentPeriod || 1;
-          const units = Math.round((getMarketSize('techbook', period) * share) / 100);
+          const units = Math.round((getMarketSize('techbook', reportPeriod) * share) / 100);
           return formatNumber(units, 0);
         })
       },
@@ -306,8 +351,7 @@ const MarketReports: React.FC = () => {
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.zroid ?? 0;
-          const period = currentClass?.currentPeriod || 1;
-          const units = Math.round((getMarketSize('zroid', period) * share) / 100);
+          const units = Math.round((getMarketSize('zroid', reportPeriod) * share) / 100);
           return formatNumber(units, 0);
         })
       },
@@ -316,13 +360,12 @@ const MarketReports: React.FC = () => {
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           const share = dec.marketing?.forecastedMarketShare?.itab ?? 0;
-          const period = currentClass?.currentPeriod || 1;
-          const units = Math.round((getMarketSize('itab', period) * share) / 100);
+          const units = Math.round((getMarketSize('itab', reportPeriod) * share) / 100);
           return formatNumber(units, 0);
         })
       },
       {
-        label: 'Advertising Budget',
+        label: 'Advertising : Total Budget',
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           return formatCurrency(dec.marketing?.advertisingBudget ?? 0, 0);
@@ -408,13 +451,6 @@ const MarketReports: React.FC = () => {
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           return formatCurrency(dec.operations?.rdBudget ?? 0, 0);
-        })
-      },
-      {
-        label: 'TechBook : Innovation Split',
-        values: realTeams.map(t => {
-          const dec = getTeamDec(t);
-          return `${((dec.operations?.rdSplits?.techbook ?? 0) * 100).toFixed(0)}%`;
         })
       },
       {
@@ -587,13 +623,108 @@ const MarketReports: React.FC = () => {
     if (!currentClass || !realTeams || realTeams.length === 0) {
       return null;
     }
-    const period = currentClass.currentPeriod > 1 ? currentClass.currentPeriod - 1 : 1;
-    const lastPeriod = Math.max(0, period - 1);
+    const lastPeriod = Math.max(0, reportPeriod - 1);
 
-    const perfList = computeIndustryPerformance(realTeams, period);
-
+    const perfList = computeIndustryPerformance(realTeams, reportPeriod);
     const perfMap = new Map(perfList.map(p => [p.teamId, p]));
-    const getPerf = (t: typeof realTeams[0]) => perfMap.get(t.id);
+
+    const getPerf = (t: typeof realTeams[0]): TeamIndustryPerformance => {
+      const rawRec = t.history?.[reportPeriod] || t.history?.[String(reportPeriod)];
+      if (rawRec?.industry) {
+        return {
+          ...rawRec.industry,
+          totalRevenue: rawRec.revenue?.total ?? rawRec.industry.totalRevenue,
+          revenueByProduct: rawRec.revenue?.byProduct ?? rawRec.industry.revenueByProduct,
+          totalCogs: rawRec.cogs?.total ?? rawRec.industry.totalCogs,
+          cogsByProduct: rawRec.cogs?.byProduct ?? rawRec.industry.cogsByProduct,
+          grossProfit: rawRec.grossProfit?.total ?? rawRec.industry.grossProfit,
+          netProfit: rawRec.netProfit ?? rawRec.industry.netProfit,
+          equity: rawRec.balanceSheet?.equity ?? rawRec.industry.equity
+        };
+      }
+      if (rawRec) {
+        const totRev = rawRec.revenue?.total || 0;
+        const totCogs = rawRec.cogs?.total || 0;
+        const gp = rawRec.grossProfit?.total || (totRev - totCogs);
+        const np = rawRec.netProfit || 0;
+        const eq = rawRec.balanceSheet?.equity || 0;
+
+        return {
+          teamId: t.id,
+          teamName: t.name,
+          revenueByProduct: rawRec.revenue?.byProduct || { techbook: 0, zroid: 0, itab: 0 },
+          totalRevenue: totRev,
+          cogsByProduct: rawRec.cogs?.byProduct || { techbook: 0, zroid: 0, itab: 0 },
+          totalCogs: totCogs,
+          grossProfit: gp,
+          gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
+          opex: {
+            marketing: rawRec.opex?.marketing || 0,
+            store: rawRec.opex?.store || 0,
+            payroll: rawRec.opex?.payroll || 0,
+            rd: rawRec.opex?.rd || 0,
+            agents: rawRec.opex?.agents || 0,
+            training: rawRec.opex?.training || 0,
+            other: rawRec.opex?.other || 0,
+            total: rawRec.opex?.total || 0
+          },
+          ebitda: rawRec.operatingProfit || (gp - (rawRec.opex?.total || 0)),
+          depreciation: 0,
+          financeCharges: rawRec.interestExpense || 0,
+          ebt: rawRec.ebt || (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
+          taxation: rawRec.taxExpense || 0,
+          netProfit: np,
+          npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
+          equity: eq,
+          roe: eq > 0 ? (np / eq) * 100 : 0,
+          units: {
+            techbook: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.techbook || 0, available: 0, actual: rawRec.market?.actualUnits?.techbook || 0 },
+            zroid: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.zroid || 0, available: 0, actual: rawRec.market?.actualUnits?.zroid || 0 },
+            itab: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.itab || 0, available: 0, actual: rawRec.market?.actualUnits?.itab || 0 }
+          },
+          totalScore: { techbook: 0, zroid: 0, itab: 0 },
+          marketShare: rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
+          price: rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
+          staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
+          trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+          unitsProduced: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
+          unitsSold: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
+        };
+      }
+
+      return perfMap.get(t.id) || {
+        teamId: t.id,
+        teamName: t.name,
+        revenueByProduct: { techbook: 0, zroid: 0, itab: 0 },
+        totalRevenue: 0,
+        cogsByProduct: { techbook: 0, zroid: 0, itab: 0 },
+        totalCogs: 0,
+        grossProfit: 0,
+        gpMargin: 0,
+        opex: { marketing: 0, store: 0, payroll: 0, rd: 0, agents: 0, training: 0, other: 0, total: 0 },
+        ebitda: 0,
+        depreciation: 0,
+        financeCharges: 0,
+        ebt: 0,
+        taxation: 0,
+        netProfit: 0,
+        npMargin: 0,
+        equity: 0,
+        roe: 0,
+        units: {
+          techbook: { marketSize: 0, forecast: 0, demand: 0, available: 0, actual: 0 },
+          zroid: { marketSize: 0, forecast: 0, demand: 0, available: 0, actual: 0 },
+          itab: { marketSize: 0, forecast: 0, demand: 0, available: 0, actual: 0 }
+        },
+        totalScore: { techbook: 0, zroid: 0, itab: 0 },
+        marketShare: { techbook: 0, zroid: 0, itab: 0 },
+        price: { techbook: 0, zroid: 0, itab: 0 },
+        staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
+        trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+        unitsProduced: 0,
+        unitsSold: 0
+      };
+    };
 
     const incomeRows = [
       { label: 'Total Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.totalRevenue ?? 0, 0)), bold: true },
@@ -623,7 +754,7 @@ const MarketReports: React.FC = () => {
     ];
 
     const getTeamBalance = (t: typeof realTeams[0]) => {
-      const bs = computeTeamPeriodBalanceSheet(t, period);
+      const bs = computeTeamPeriodBalanceSheet(t, reportPeriod);
 
       const nonCurrAssets = bs.fixedAssets;
       const cashVal = bs.cash;
@@ -798,10 +929,6 @@ const MarketReports: React.FC = () => {
       </div>
   );
 
-  const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
-  const isStudent = currentRole === 'STUDENT';
-  const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
-  const reportPeriod = currentPeriod > 1 ? currentPeriod - 1 : 1;
   const shouldHideReports = isStudent && currentPeriod === 1 && !showReportsSetting;
 
   return (
@@ -828,10 +955,28 @@ const MarketReports: React.FC = () => {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-slate-900">Market Reports</h1>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-full font-mono text-xs font-extrabold shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-              Showing Reports for Year {reportPeriod}
-            </span>
+            {availableYears.length > 1 ? (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-full font-mono text-xs font-extrabold shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                <span>Select Period:</span>
+                <select
+                  value={reportPeriod}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="bg-white border border-blue-300 text-blue-900 text-xs font-extrabold rounded px-2 py-0.5 shadow-2xs cursor-pointer focus:outline-none"
+                >
+                  {availableYears.map(yr => (
+                    <option key={yr} value={yr}>
+                      Year {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-full font-mono text-xs font-extrabold shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                Showing Reports for Year {reportPeriod}
+              </span>
+            )}
           </div>
           <p className="text-slate-500 mt-1">Comparative industry analysis and competitive intelligence.</p>
         </div>
@@ -875,6 +1020,16 @@ const MarketReports: React.FC = () => {
                     >
                       <Download size={14} className="text-red-600" />
                       Download All Reports (Single PDF)
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setExportPdfOpen(false);
+                        await downloadDebriefDeckPdf(debriefDataset);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-bold text-indigo-700 bg-indigo-50/60 hover:bg-indigo-100 flex items-center gap-2 transition-colors border-t border-b border-indigo-100"
+                    >
+                      <Presentation size={14} className="text-indigo-600" />
+                      Debrief Presentation Deck PDF (Year {reportPeriod})
                     </button>
                     <div className="my-1 border-t border-slate-100"></div>
                     <button

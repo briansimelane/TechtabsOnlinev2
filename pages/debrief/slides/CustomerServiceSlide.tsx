@@ -59,8 +59,8 @@ export const CustomerServiceSlide: React.FC<SlideProps> = ({ dataset, revealStep
                 formatter={(val: any) => [formatDebriefUnits(Number(val)), 'Staff']}
               />
               <Legend wrapperStyle={{ paddingTop: '10px', fontSize: '16px', fontWeight: 'bold' }} />
-              <Bar dataKey="Actual CS Staff" fill="#059669" radius={[6, 6, 0, 0]} isAnimationActive={true} />
-              <Bar dataKey="Required CS Staff" fill="#D97706" radius={[6, 6, 0, 0]} isAnimationActive={true} />
+              <Bar dataKey="Actual CS Staff" fill="#059669" radius={[6, 6, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="Required CS Staff" fill="#D97706" radius={[6, 6, 0, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
           </div>
@@ -80,7 +80,7 @@ export const CustomerServiceSlide: React.FC<SlideProps> = ({ dataset, revealStep
                 formatter={(val: any) => [`${val}×`, 'Coverage Ratio']}
               />
               <ReferenceLine x={1.0} stroke="#EA580C" strokeDasharray="3 3" strokeWidth={2} label={{ value: '1.0 Target', fill: '#EA580C', fontSize: 14, position: 'top', fontWeight: 700 }} />
-              <Bar dataKey="coverageRatio" fill="#7C3AED" radius={[0, 6, 6, 0]} isAnimationActive={true} />
+              <Bar dataKey="coverageRatio" fill="#7C3AED" radius={[0, 6, 6, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
           </div>

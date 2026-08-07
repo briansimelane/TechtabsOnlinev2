@@ -41,6 +41,8 @@ export const ProductRevenueSlide: React.FC<SlideProps> = ({
           data={chartData}
           formatter={(v) => formatDebriefCurrency(v, true, false)}
           startFromZero={false}
+          isAnimationActive={false}
+          showLabels={true}
         />
       </div>
     </SlideFrame>

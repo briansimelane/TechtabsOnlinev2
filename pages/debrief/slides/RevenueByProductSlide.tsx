@@ -49,9 +49,9 @@ export const RevenueByProductSlide: React.FC<SlideProps> = ({ dataset, currentSl
               formatter={(val: any) => [formatDebriefCurrency(Number(val), true, true), '']}
             />
             <Legend wrapperStyle={{ paddingTop: '15px', fontSize: '20px', fontWeight: 'bold', color: '#0F172A' }} />
-            <Bar dataKey="TechBook" fill={PRODUCT_COLORS.techbook} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
-            <Bar dataKey="Zroid" fill={PRODUCT_COLORS.zroid} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
-            <Bar dataKey="iTab" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={true} animationDuration={700} />
+            <Bar dataKey="TechBook" fill={PRODUCT_COLORS.techbook} radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
+            <Bar dataKey="Zroid" fill={PRODUCT_COLORS.zroid} radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
+            <Bar dataKey="iTab" fill={PRODUCT_COLORS.itab} radius={[6, 6, 0, 0]} isAnimationActive={false} animationDuration={0} />
           </BarChart>
         </ResponsiveContainer>
       </div>

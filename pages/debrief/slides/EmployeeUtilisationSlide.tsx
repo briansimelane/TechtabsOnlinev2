@@ -107,7 +107,7 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
               <ReferenceLine y={100} stroke="#475569" strokeDasharray="4 4" strokeWidth={2} label={{ value: 'Full Utilisation (100%)', fill: '#475569', fontSize: 14, fontWeight: 700, position: 'top' }} />
 
               {seriesKeys.map((key) => (
-                <Bar key={key} dataKey={key} radius={[4, 4, 0, 0]} isAnimationActive={true}>
+                <Bar key={key} dataKey={key} radius={[4, 4, 0, 0]} isAnimationActive={false}>
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getBandColor((entry as any)[key])} />
                   ))}

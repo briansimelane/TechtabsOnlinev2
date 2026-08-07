@@ -33,6 +33,8 @@ export const EmployeeSatisfactionSlide: React.FC<SlideProps> = ({ dataset, curre
         <TeamBarChart
           data={chartData}
           formatter={(v) => `${v.toFixed(1)}%`}
+          isAnimationActive={false}
+          showLabels={true}
         />
 
         {/* Delta chips vs prior year */}
