@@ -88,12 +88,12 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
             return (
               <div
                 key={s.teamId}
-                className={`flex-1 flex items-center px-5 py-2 sm:py-2.5 rounded-2xl border transition-all duration-300 ${
+                className={`flex-1 flex items-center px-5 py-2.5 sm:py-3 rounded-2xl border transition-all duration-300 overflow-visible min-h-[64px] ${
                   idx === 0 ? 'bg-amber-50/90 border-amber-300 shadow-md font-semibold' : 'bg-slate-50 border-slate-200 shadow-xs'
                 } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
               >
                 {/* Rank Badge */}
-                <div className="w-20 text-center font-mono text-2xl sm:text-3xl font-black text-slate-800">
+                <div className="w-20 text-center font-mono text-2xl sm:text-3xl font-black text-slate-800 leading-normal pb-1">
                   {idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : `${idx + 1}`}
                 </div>
 
@@ -103,9 +103,9 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
                     className="w-4 h-7 rounded-full shadow-xs shrink-0"
                     style={{ backgroundColor: TEAM_COLORS[colorIdx % TEAM_COLORS.length] }}
                   />
-                  <div className="flex items-center gap-2.5 min-w-0 overflow-visible py-0.5">
-                    <span className="text-slate-900 text-lg sm:text-2xl font-black truncate leading-normal py-0.5">{displayName}</span>
-                    <span className="text-blue-800 font-extrabold text-xs sm:text-sm bg-blue-100/90 border border-blue-300 px-2.5 py-1 rounded-md font-mono shrink-0 leading-normal">
+                  <div className="flex items-center gap-2.5 min-w-0 overflow-visible py-1">
+                    <span className="text-slate-900 text-lg sm:text-2xl font-black leading-normal pb-1.5 px-0.5">{displayName}</span>
+                    <span className="text-blue-800 font-extrabold text-xs sm:text-sm bg-blue-100/90 border border-blue-300 px-3 py-1.5 rounded-lg font-mono shrink-0 leading-normal pb-1">
                       [CEO: {ceoName}]
                     </span>
                   </div>

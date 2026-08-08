@@ -30,15 +30,24 @@ export async function downloadDebriefDeckPdf(
   // Inject CSS override to disable all CSS animations & force clean sans-serif/mono system font fallbacks (preventing Times New Roman serif canvas fallback)
   const styleEl = document.createElement('style');
   styleEl.innerHTML = `
+    /* PDF Export Text Clipping Prevention Styles */
     #pdf-slide-export-root * {
       transition: none !important;
       animation: none !important;
       transition-duration: 0s !important;
       animation-duration: 0s !important;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+      box-sizing: border-box !important;
     }
-    #pdf-slide-export-root .overflow-hidden {
+    #pdf-slide-export-root *,
+    #pdf-slide-export-root .overflow-hidden,
+    #pdf-slide-export-root .truncate {
       overflow: visible !important;
+    }
+    #pdf-slide-export-root span,
+    #pdf-slide-export-root div,
+    #pdf-slide-export-root p {
+      line-height: 1.35 !important;
     }
     #pdf-slide-export-root text, #pdf-slide-export-root tspan {
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
