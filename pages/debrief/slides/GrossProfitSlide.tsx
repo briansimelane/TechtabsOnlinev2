@@ -44,9 +44,9 @@ export const GrossProfitSlide: React.FC<SlideProps> = ({ dataset, revealStep, cu
           {dataset.teams.map((t) => {
             const gpPct = t.perf?.gpMargin ?? 0;
             return (
-              <div key={t.id} className="bg-white border border-slate-200 p-3 rounded-xl text-center shadow-xs">
-                <div className="text-slate-500 text-xs font-semibold truncate">{t.name}</div>
-                <div className="text-blue-700 text-xl font-bold font-mono mt-1">
+              <div key={t.id} className="bg-white border border-slate-200 py-3.5 px-3 rounded-2xl text-center shadow-xs flex flex-col justify-between min-h-[75px]">
+                <div className="text-slate-500 text-xs sm:text-sm font-extrabold truncate leading-snug">{t.name}</div>
+                <div className="text-blue-800 text-xl sm:text-2xl font-black font-mono leading-none mt-1">
                   {formatDebriefPercent(gpPct)}
                 </div>
               </div>

@@ -197,7 +197,9 @@ export const processTurn = (
         // Check Availability (Inventory Constraint)
         const opening = Number(team.inventory[p.id]) || 0;
         const production = Number(scaledProduction[p.id]) || 0;
-        const purchased = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (Number(v.finishedGoods) || 0), 0);
+        const reqFG = Number(decisions.operations?.reqFinishedGoods?.[p.id]) || 0;
+        const allocFG = Object.values(decisions.procurement?.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (Number(v.finishedGoods) || 0), 0);
+        const purchased = Math.max(reqFG, allocFG);
         const available = opening + production + purchased;
 
         const actualSold = Math.min(demand, available);

@@ -13,7 +13,7 @@ export const CustomAxisTick: React.FC<CustomAxisTickProps> = ({
   x = 0,
   y = 0,
   payload,
-  fontSize = 16,
+  fontSize = 20,
   maxCharsPerLine = 13,
   textAnchor = 'middle'
 }) => {

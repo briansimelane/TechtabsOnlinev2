@@ -62,14 +62,14 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
                 dataKey="name"
                 stroke="#64748B"
                 interval={0}
-                tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />}
+                tick={<CustomAxisTick fontSize={20} maxCharsPerLine={13} />}
                 axisLine={{ stroke: '#CBD5E1' }}
                 tickLine={false}
               />
               <YAxis
                 stroke="#64748B"
                 domain={domain}
-                tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }}
+                tick={{ fill: '#475569', fontSize: 20, fontWeight: 700 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${formatter(v)}${yUnit}`}
@@ -81,7 +81,7 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
                 type="number"
                 stroke="#64748B"
                 domain={domain}
-                tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }}
+                tick={{ fill: '#475569', fontSize: 20, fontWeight: 700 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v) => `${formatter(v)}${yUnit}`}
@@ -91,7 +91,7 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
                 dataKey="name"
                 stroke="#64748B"
                 interval={0}
-                tick={<CustomAxisTick fontSize={16} maxCharsPerLine={14} textAnchor="end" />}
+                tick={<CustomAxisTick fontSize={20} maxCharsPerLine={14} textAnchor="end" />}
                 axisLine={{ stroke: '#CBD5E1' }}
                 tickLine={false}
               />
@@ -103,7 +103,7 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
               borderColor: '#1E293B',
               borderRadius: '12px',
               color: '#F8FAFC',
-              fontSize: '20px',
+              fontSize: '22px',
               fontFamily: 'IBM Plex Mono',
               boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)'
             }}
@@ -129,8 +129,8 @@ export const TeamBarChart: React.FC<TeamBarChartProps> = ({
                 formatter={(v: any) => `${formatter(Number(v))}${yUnit}`}
                 style={{
                   fill: '#0F172A',
-                  fontSize: '24px',
-                  fontWeight: 800,
+                  fontSize: '28px',
+                  fontWeight: 900,
                   fontFamily: 'IBM Plex Mono',
                   fontVariantNumeric: 'tabular-nums'
                 }}

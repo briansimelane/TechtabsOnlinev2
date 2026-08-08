@@ -490,8 +490,10 @@ export function computeMarketShareBackModel(
       if (!activeByTeam[idx]) return 0;
       const dec = getDecisionsForTeamPeriod(t, period);
       const scaledProd = getScaledProduction(t, dec)[p.id] || 0;
-      const purchased = Object.values(dec.procurement?.supplierAllocation?.[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
-      const opening = t.inventory?.[p.id] ?? 0;
+      const reqFG = Number(dec.operations?.reqFinishedGoods?.[p.id]) || 0;
+      const allocFG = Object.values(dec.procurement?.supplierAllocation?.[p.id] || {}).reduce((s: number, v: any) => s + (Number(v.finishedGoods) || 0), 0);
+      const purchased = Math.max(reqFG, allocFG);
+      const opening = Number(t.inventory?.[p.id]) || 0;
       return opening + scaledProd + purchased;
     });
 

@@ -104,7 +104,7 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
     setInnovation(existingOverrides.innovation?.[supplierId] ?? defaultMetrics.innovation ?? 6);
     setDeliveryReliability(existingOverrides.deliveryReliability?.[supplierId] ?? 0.95);
     setStatus(existingOverrides.status?.[supplierId] ?? 'AGREED');
-  }, [selectedTeamId, supplierId, selectedTeam]);
+  }, [selectedTeamId, supplierId]);
 
   const handleSaveOverrides = async () => {
     if (!selectedTeamId || !supplierId) return;

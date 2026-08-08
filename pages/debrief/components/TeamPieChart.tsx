@@ -20,7 +20,7 @@ export const TeamPieChart: React.FC<TeamPieChartProps> = ({
   data,
   centerLabel = '100%',
   centerSubLabel = 'Market Share',
-  isAnimationActive = true
+  isAnimationActive = false
 }) => {
   // Ensure data is sorted by colorIndex so Team 1 is first
   const sortedData = [...data].sort((a, b) => a.colorIndex - b.colorIndex);

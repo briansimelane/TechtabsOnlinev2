@@ -628,6 +628,40 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       return () => unsubscribe();
   }, [isDemoMode]);
 
+  // Real-time listener for active class document (all authenticated users)
+  useEffect(() => {
+      if (!isDemoMode && state.isAuthenticated && state.currentClassId) {
+          const db = getAppDb();
+          const classRef = doc(db, 'classes', state.currentClassId);
+          const unsubscribe = onSnapshot(classRef, (docSnap) => {
+              if (docSnap.exists()) {
+                  const updatedClass = docSnap.data() as SimulationClass;
+                  setState(prev => {
+                      const existingClass = prev.classes.find(c => c.id === updatedClass.id);
+                      // Preserve teams array if updatedClass payload doesn't embed teams subcollection
+                      const mergedClass = {
+                          ...updatedClass,
+                          teams: (updatedClass.teams && updatedClass.teams.length > 0) 
+                              ? updatedClass.teams 
+                              : (existingClass?.teams || [])
+                      };
+                      const updatedClasses = prev.classes.some(c => c.id === mergedClass.id)
+                          ? prev.classes.map(c => c.id === mergedClass.id ? mergedClass : c)
+                          : [...prev.classes, mergedClass];
+
+                      return {
+                          ...prev,
+                          classes: updatedClasses
+                      };
+                  });
+              }
+          }, (error) => {
+              console.error("Error listening to class document updates:", error);
+          });
+          return () => unsubscribe();
+      }
+  }, [isDemoMode, state.isAuthenticated, state.currentClassId]);
+
   // Real-time team listener (real mode students only)
   useEffect(() => {
       if (!isDemoMode && state.isAuthenticated && state.currentRole === 'STUDENT' && state.currentClassId && state.currentTeam.id) {
@@ -669,9 +703,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       }
   }, [isDemoMode, state.isAuthenticated, state.currentRole, state.currentClassId, state.currentTeam.id]);
 
-  // Real-time listener for all teams in the active class (for facilitator and administrator roles)
+  // Real-time listener for all teams in the active class (for all roles: student, facilitator, admin)
   useEffect(() => {
-      if (!isDemoMode && state.isAuthenticated && (state.currentRole === 'FACILITATOR' || state.currentRole === 'ADMINISTRATOR') && state.currentClassId) {
+      if (!isDemoMode && state.isAuthenticated && state.currentClassId) {
           const db = getAppDb();
           const teamsColRef = collection(db, 'classes', state.currentClassId, 'teams');
           const unsubscribe = onSnapshot(teamsColRef, (querySnapshot) => {
@@ -687,7 +721,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                   const reconciledTeams = sortedTeams.map(tData => {
                       if (targetClass && targetClass.currentPeriod > tData.currentPeriod && !tData.isArchived) {
                           const synced = reconcileTeamPeriod(tData, targetClass.currentPeriod);
-                          void saveTeamState(prev.currentClassId!, synced).catch(err => console.error("Failed auto-sync facilitator team period", err));
+                          void saveTeamState(prev.currentClassId!, synced).catch(err => console.error("Failed auto-sync team period", err));
                           return synced;
                       }
                       return tData;
@@ -703,8 +737,18 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       return c;
                   });
 
+                  // For students, also keep currentTeam synced with latest team in class
+                  let updatedCurrentTeam = prev.currentTeam;
+                  if (prev.currentRole === 'STUDENT' && prev.currentTeam.id) {
+                      const matched = reconciledTeams.find(t => t.id === prev.currentTeam.id);
+                      if (matched) {
+                          updatedCurrentTeam = matched;
+                      }
+                  }
+
                   return {
                       ...prev,
+                      currentTeam: updatedCurrentTeam,
                       classes: updatedClasses
                   };
               });
@@ -714,7 +758,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
           return () => unsubscribe();
       }
-  }, [isDemoMode, state.isAuthenticated, state.currentRole, state.currentClassId]);
+  }, [isDemoMode, state.isAuthenticated, state.currentClassId]);
 
   // Sync team in classes for display (only needed for local mode or backup)
   useEffect(() => {

@@ -6,11 +6,17 @@ import { Info, AlertCircle, DollarSign, Target, Store, PieChart as PieChartIcon,
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
 import { useFlashOnChange } from '../../utils/useFlashOnChange';
+import { computeIndustryPerformance } from '../../utils/industryPerformance';
 
 const Marketing: React.FC = () => {
-  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole, classes, currentClassId } = useSimulation();
   const disabled = isReadOnly && currentRole === 'STUDENT';
   const { marketing } = decisions;
+
+  const currentClass = classes.find(c => c.id === currentClassId);
+  const realTeams = React.useMemo(() => {
+    return currentClass?.teams ? currentClass.teams.filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)) : [];
+  }, [currentClass]);
 
   const flashPrices = {
       techbook: useFlashOnChange(marketing.prices.techbook),
@@ -31,8 +37,20 @@ const Marketing: React.FC = () => {
   const pastPeriod = currentTeam.currentPeriod - 1;
   const pastPeriodRecord = currentTeam.history?.[pastPeriod];
 
+  const pastTeamPerf = React.useMemo(() => {
+    if (pastPeriod <= 0) return null;
+    if (pastPeriodRecord?.industry) return pastPeriodRecord.industry;
+    if (realTeams && realTeams.length > 0) {
+      try {
+        const list = computeIndustryPerformance(realTeams, pastPeriod);
+        return list.find(p => p.teamId === currentTeam.id) || null;
+      } catch (e) {}
+    }
+    return null;
+  }, [pastPeriod, pastPeriodRecord, realTeams, currentTeam.id]);
+
   const getPastPrice = (productId: ProductId) => {
-    return pastPeriodRecord?.industry?.price?.[productId] ?? pastPeriodRecord?.prices?.[productId] ?? (productId === 'techbook' ? 3000 : productId === 'zroid' ? 4800 : 6500);
+    return pastTeamPerf?.price?.[productId] ?? pastPeriodRecord?.industry?.price?.[productId] ?? pastPeriodRecord?.prices?.[productId] ?? (productId === 'techbook' ? 3000 : productId === 'zroid' ? 4800 : 6500);
   };
 
     const [marketShareInputs, setMarketShareInputs] = useState<Record<ProductId, string>>({
@@ -236,25 +254,44 @@ const Marketing: React.FC = () => {
                          })}
                      </div>
 
-                     {/* Last Year Data (Hidden for Student View) */}
-                     {currentRole !== 'STUDENT' && (
-                         <div className="border-t border-slate-100 pt-6 mt-6 space-y-3">
-                             <div className="grid grid-cols-4 gap-4 items-center">
-                                 <div className="font-medium text-slate-500 text-xs">Last year Market Share</div>
-                                 {PRODUCTS.map(p => (
-                                     // @ts-ignore
-                                     <div key={p.id} className="text-center text-xs text-slate-500">{formatPercent(LAST_YEAR_DATA.marketShare[p.id], 2, false)}</div>
-                                 ))}
+                     {/* Previous Period Actual Data */}
+                     <div className="border-t border-slate-100 pt-6 mt-6 space-y-3">
+                         <div className="grid grid-cols-4 gap-4 items-center">
+                             <div className="font-medium text-slate-500 text-xs">
+                                 {pastPeriod === 0 ? 'Last Year Market Share' : `Year ${pastPeriod} Actual Market Share (% Total Market)`}
                              </div>
-                             <div className="grid grid-cols-4 gap-4 items-center">
-                                 <div className="font-medium text-slate-500 text-xs">Last year Units Sold</div>
-                                 {PRODUCTS.map(p => (
-                                     // @ts-ignore
-                                     <div key={p.id} className="text-center text-xs text-slate-500">{LAST_YEAR_DATA.unitsSold[p.id].toLocaleString()}</div>
-                                 ))}
-                             </div>
+                             {PRODUCTS.map(p => {
+                                 const unitsSold = pastPeriod === 0 
+                                     ? LAST_YEAR_DATA.unitsSold[p.id] 
+                                     : (pastTeamPerf?.units?.[p.id]?.actual ?? pastPeriodRecord?.industry?.units?.[p.id]?.actual ?? pastPeriodRecord?.market?.actualUnits?.[p.id] ?? 0);
+                                 const mSize = pastTeamPerf?.units?.[p.id]?.marketSize ?? pastPeriodRecord?.market?.marketSize?.[p.id] ?? getMarketSize(p.id, pastPeriod);
+                                 const rawShare = pastPeriod === 0 
+                                     ? LAST_YEAR_DATA.marketShare[p.id] 
+                                     : (mSize > 0 ? (unitsSold / mSize) * 100 : (pastTeamPerf?.marketShare?.[p.id] ?? 0));
+                                 const pctValue = rawShare > 1 ? rawShare : rawShare * 100;
+                                 return (
+                                     <div key={p.id} className="text-center text-xs font-mono font-semibold text-slate-700" title={`${formatNumber(unitsSold)} units sold out of ${formatNumber(mSize)} total market demand`}>
+                                         {formatPercent(pctValue, 2, false)}
+                                     </div>
+                                 );
+                             })}
                          </div>
-                     )}
+                         <div className="grid grid-cols-4 gap-4 items-center">
+                             <div className="font-medium text-slate-500 text-xs">
+                                 {pastPeriod === 0 ? 'Last Year Units Sold' : `Year ${pastPeriod} Actual Units Sold`}
+                             </div>
+                             {PRODUCTS.map(p => {
+                                 const unitsSold = pastPeriod === 0 
+                                     ? LAST_YEAR_DATA.unitsSold[p.id] 
+                                     : (pastTeamPerf?.units?.[p.id]?.actual ?? pastPeriodRecord?.industry?.units?.[p.id]?.actual ?? pastPeriodRecord?.market?.actualUnits?.[p.id] ?? 0);
+                                 return (
+                                     <div key={p.id} className="text-center text-xs font-mono font-semibold text-slate-700">
+                                         {formatNumber(unitsSold)}
+                                     </div>
+                                 );
+                             })}
+                         </div>
+                     </div>
                  </div>
             </div>
 

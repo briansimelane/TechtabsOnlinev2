@@ -61,12 +61,12 @@ export const ProductPlanVsActualSlide: React.FC<SlideProps> = ({
         {/* Forecasting Accuracy Chips per Team */}
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-3">
           {chartData.map((d) => (
-            <div key={d.name} className="bg-white border border-slate-200 p-2.5 rounded-xl text-center shadow-xs">
-              <div className="text-slate-500 text-xs font-semibold truncate">{d.name}</div>
-              <div className="text-emerald-700 text-xl font-extrabold font-mono mt-0.5">
+            <div key={d.name} className="bg-white border border-slate-200 py-3 px-3 rounded-2xl text-center shadow-xs flex flex-col justify-between min-h-[80px]">
+              <div className="text-slate-500 text-xs sm:text-sm font-extrabold truncate leading-snug">{d.name}</div>
+              <div className="text-emerald-700 text-xl sm:text-2xl font-black font-mono leading-none my-0.5">
                 {d.accuracyText}
               </div>
-              <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Accuracy</div>
+              <div className="text-xs text-slate-400 font-extrabold uppercase tracking-wider">Accuracy</div>
             </div>
           ))}
         </div>

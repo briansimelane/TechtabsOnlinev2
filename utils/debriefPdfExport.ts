@@ -27,7 +27,7 @@ export async function downloadDebriefDeckPdf(
   container.style.zIndex = '99999';
   container.style.pointerEvents = 'none';
 
-  // Inject CSS override to disable all CSS animations & transitions so layout is captured at 100% final state
+  // Inject CSS override to disable all CSS animations & force clean sans-serif/mono system font fallbacks (preventing Times New Roman serif canvas fallback)
   const styleEl = document.createElement('style');
   styleEl.innerHTML = `
     #pdf-slide-export-root * {
@@ -35,7 +35,16 @@ export async function downloadDebriefDeckPdf(
       animation: none !important;
       transition-duration: 0s !important;
       animation-duration: 0s !important;
-      opacity: 1 !important;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+    #pdf-slide-export-root .overflow-hidden {
+      overflow: visible !important;
+    }
+    #pdf-slide-export-root text, #pdf-slide-export-root tspan {
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    }
+    #pdf-slide-export-root .font-mono {
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
     }
   `;
   container.appendChild(styleEl);
@@ -46,6 +55,12 @@ export async function downloadDebriefDeckPdf(
   container.appendChild(mountPoint);
 
   document.body.appendChild(container);
+
+  if (document.fonts) {
+    try {
+      await document.fonts.ready;
+    } catch (e) {}
+  }
 
   const root = createRoot(mountPoint);
 
@@ -79,13 +94,17 @@ export async function downloadDebriefDeckPdf(
         slideContent
       );
 
-      // Render into DOM container and wait 1000ms for React paint, SVGs, text nodes, and layout to settle 100%
+      // Render into DOM container and wait for double requestAnimationFrame + layout paint to settle 100%
       await new Promise<void>((resolve) => {
         root.render(slideWrapper);
-        setTimeout(resolve, 1000);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setTimeout(resolve, 500);
+          });
+        });
       });
 
-      // Capture full-color screenshot with html2canvas at 100% stable state
+      // Capture high-res screenshot with html2canvas (scale 1.5 with high quality JPEG to optimize memory)
       const canvas = await html2canvas(container, {
         scale: 1.5,
         useCORS: true,
@@ -102,18 +121,35 @@ export async function downloadDebriefDeckPdf(
         backgroundColor: '#0f172a'
       });
 
-      const imgData = canvas.toDataURL('image/png');
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
       if (i > 0) {
         pdf.addPage([1920, 1080], 'landscape');
       }
 
-      pdf.addImage(imgData, 'PNG', 0, 0, 1920, 1080);
+      pdf.addImage(imgData, 'JPEG', 0, 0, 1920, 1080);
     }
 
     const safeClassName = (dataset.className || 'Class').replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `Techtabs_Debrief_Slides_Year_${dataset.period}_${safeClassName}.pdf`;
-    pdf.save(fileName);
+
+    try {
+      pdf.save(fileName);
+    } catch (saveErr) {
+      console.warn('pdf.save failed, using fallback blob download', saveErr);
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+    }
+  } catch (error) {
+    console.error('Failed to generate debrief PDF:', error);
+    alert('An error occurred while generating the PDF slides. Please try again.');
   } finally {
     try {
       root.unmount();

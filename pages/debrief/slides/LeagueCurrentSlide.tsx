@@ -52,21 +52,21 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
       totalSlides={totalSlides}
       teams={dataset.teams}
     >
-      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-5 shadow-xl flex flex-col justify-between space-y-2 overflow-hidden">
+      <div className="w-full h-full flex-1 min-h-0 bg-white border border-slate-200 rounded-2xl p-6 shadow-xl flex flex-col justify-between space-y-3 overflow-hidden">
         {/* Header Row */}
-        <div className="flex items-center px-4 py-2 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200 shrink-0">
-          <div className="w-14 text-center">Rank</div>
-          <div className="flex-1 pl-3 min-w-0">Team Name</div>
-          <div className="w-24 text-right pr-2 text-amber-700">TB 1 (CSAT+ESAT)</div>
-          <div className="w-24 text-right pr-2 text-indigo-700">TB 2 (FIN PCT)</div>
-          <div className="w-24 text-right pr-2">GP %</div>
-          <div className="w-24 text-right pr-2">NP %</div>
-          <div className="w-24 text-right pr-2">ROE %</div>
-          <div className="w-24 text-center font-extrabold">Total Pts</div>
+        <div className="flex items-center px-5 py-3 text-slate-600 text-sm sm:text-base font-extrabold uppercase tracking-wider border-b-2 border-slate-200 shrink-0">
+          <div className="w-20 text-center">Rank</div>
+          <div className="flex-1 pl-4 min-w-0">Team Name</div>
+          <div className="w-28 text-right pr-3 text-amber-800 font-extrabold">TB 1 (CSAT+ESAT)</div>
+          <div className="w-28 text-right pr-3 text-indigo-800 font-extrabold">TB 2 (FIN PCT)</div>
+          <div className="w-28 text-right pr-3">GP %</div>
+          <div className="w-28 text-right pr-3">NP %</div>
+          <div className="w-28 text-right pr-3">ROE %</div>
+          <div className="w-32 text-center font-black text-blue-900">Total Pts</div>
         </div>
 
-        {/* Team Rows */}
-        <div className="flex-1 overflow-y-auto space-y-1.5 min-h-0 pr-1">
+        {/* Team Rows - flex-1 stretches rows to use 100% of vertical space */}
+        <div className="flex-1 flex flex-col justify-between space-y-2 min-h-0 py-1">
           {rankedScores.map((s, idx) => {
             const teamObj = dataset.teams.find(t => t.id === s.teamId);
             const colorIdx = teamObj ? teamObj.colorIndex : idx;
@@ -88,75 +88,75 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
             return (
               <div
                 key={s.teamId}
-                className={`flex items-center px-4 ${isCompact ? 'py-1 sm:py-1.5' : 'py-2'} rounded-xl border transition-all duration-300 ${
-                  idx === 0 ? 'bg-amber-50/80 border-amber-300 shadow-xs font-semibold' : 'bg-slate-50 border-slate-200'
+                className={`flex-1 flex items-center px-5 py-2 sm:py-2.5 rounded-2xl border transition-all duration-300 ${
+                  idx === 0 ? 'bg-amber-50/90 border-amber-300 shadow-md font-semibold' : 'bg-slate-50 border-slate-200 shadow-xs'
                 } ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
               >
                 {/* Rank Badge */}
-                <div className={`w-14 text-center font-mono ${isCompact ? 'text-base' : 'text-xl'} font-extrabold text-slate-800`}>
+                <div className="w-20 text-center font-mono text-2xl sm:text-3xl font-black text-slate-800">
                   {idx === 0 ? '🥇 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : `${idx + 1}`}
                 </div>
 
                 {/* Team Name & CEO Name */}
-                <div className="flex-1 pl-3 flex items-center gap-3 min-w-0">
+                <div className="flex-1 pl-4 flex items-center gap-3 min-w-0 overflow-visible py-1">
                   <div
-                    className={`w-3.5 ${isCompact ? 'h-4' : 'h-6'} rounded-full shadow-xs shrink-0`}
+                    className="w-4 h-7 rounded-full shadow-xs shrink-0"
                     style={{ backgroundColor: TEAM_COLORS[colorIdx % TEAM_COLORS.length] }}
                   />
-                  <div className="flex items-center gap-2 truncate">
-                    <span className={`text-slate-900 ${isCompact ? 'text-sm' : 'text-base'} font-bold truncate`}>{displayName}</span>
-                    <span className={`text-blue-700 font-bold ${isCompact ? 'text-[10px]' : 'text-[11px]'} bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-mono shrink-0`}>
+                  <div className="flex items-center gap-2.5 min-w-0 overflow-visible py-0.5">
+                    <span className="text-slate-900 text-lg sm:text-2xl font-black truncate leading-normal py-0.5">{displayName}</span>
+                    <span className="text-blue-800 font-extrabold text-xs sm:text-sm bg-blue-100/90 border border-blue-300 px-2.5 py-1 rounded-md font-mono shrink-0 leading-normal">
                       [CEO: {ceoName}]
                     </span>
                   </div>
                 </div>
 
                 {/* Tiebreaker 1 (CSAT + ESAT) */}
-                <div className={`w-24 text-right pr-2 font-mono ${isCompact ? 'text-sm' : 'text-base'} font-extrabold text-amber-700`}>
+                <div className="w-28 text-right pr-3 font-mono text-lg sm:text-2xl font-black text-amber-700">
                   {tb1.toFixed(1)}%
                 </div>
 
                 {/* Tiebreaker 2 (GP + NP + ROE) */}
-                <div className={`w-24 text-right pr-2 font-mono ${isCompact ? 'text-sm' : 'text-base'} font-extrabold text-indigo-700`}>
+                <div className="w-28 text-right pr-3 font-mono text-lg sm:text-2xl font-black text-indigo-700">
                   {tb2.toFixed(1)}%
                 </div>
 
                 {/* GP Margin */}
-                <div className="w-24 text-right pr-2">
-                  <div className={`font-mono ${isCompact ? 'text-sm' : 'text-base'} font-extrabold text-slate-900`}>
+                <div className="w-28 text-right pr-3">
+                  <div className="font-mono text-lg sm:text-2xl font-black text-slate-900">
                     {formatDebriefPercent(s.gpMargin, 1)}
                   </div>
-                  <div className="text-[10px] font-bold text-blue-600 uppercase tracking-wide">
+                  <div className="text-xs font-black text-blue-700 uppercase tracking-wide">
                     {s.gpPoints} pts
                   </div>
                 </div>
 
                 {/* Net Margin */}
-                <div className="w-24 text-right pr-2">
-                  <div className={`font-mono ${isCompact ? 'text-sm' : 'text-base'} font-extrabold text-slate-900`}>
+                <div className="w-28 text-right pr-3">
+                  <div className="font-mono text-lg sm:text-2xl font-black text-slate-900">
                     {formatDebriefPercent(s.npMargin, 1)}
                   </div>
-                  <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wide">
+                  <div className="text-xs font-black text-emerald-700 uppercase tracking-wide">
                     {s.npPoints} pts
                   </div>
                 </div>
 
                 {/* ROE */}
-                <div className="w-24 text-right pr-2">
-                  <div className={`font-mono ${isCompact ? 'text-sm' : 'text-base'} font-extrabold text-slate-900`}>
+                <div className="w-28 text-right pr-3">
+                  <div className="font-mono text-lg sm:text-2xl font-black text-slate-900">
                     {formatDebriefPercent(s.roe, 1)}
                   </div>
-                  <div className="text-[10px] font-bold text-purple-600 uppercase tracking-wide">
+                  <div className="text-xs font-black text-purple-700 uppercase tracking-wide">
                     {s.roePoints} pts
                   </div>
                 </div>
 
                 {/* Total Points */}
-                <div className="w-24 text-center">
-                  <div className={`font-mono ${isCompact ? 'text-xl' : 'text-2xl'} font-black text-slate-900`}>
+                <div className="w-32 text-center">
+                  <div className="font-mono text-3xl sm:text-4xl font-black text-blue-900">
                     {s.score}
                   </div>
-                  <div className="text-[10px] text-slate-400 font-bold">out of {s.maxScore}</div>
+                  <div className="text-xs text-slate-500 font-extrabold">out of {s.maxScore}</div>
                 </div>
               </div>
             );

@@ -1,6 +1,6 @@
 import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions } from '../types';
 import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
-import { computeMarketShareBackModel, getScaledProduction } from './marketShareBackModel';
+import { computeMarketShareBackModel, getScaledProduction, getDecisionsForTeamPeriod } from './marketShareBackModel';
 
 export function getSupplierComponentCost(productId: ProductId, supplier: string, dec?: TurnDecisions): number {
   const overrides = dec?.supplierOverrides;
@@ -121,7 +121,7 @@ export function computeIndustryPerformance(
   const backModelResults = computeMarketShareBackModel(activeTeams, period);
 
   return activeTeams.map((t, tIdx) => {
-    const dec = t.draftDecisions || INITIAL_DECISIONS;
+    const dec = getDecisionsForTeamPeriod(t, period);
 
     // Calculate Revenue & COGS based on backModel simulation results
     let techbookRev = 0, zroidRev = 0, itabRev = 0;
@@ -276,7 +276,7 @@ export function computeIndustryPerformance(
       };
 
       totalScoreMap[pId] = res ? (res.totalScoreByTeam[tIdx] || 0) : 0;
-      marketShareMap[pId] = res ? (res.marketShareByTeam[tIdx] || 0) : 0;
+      marketShareMap[pId] = mSize > 0 ? (actualUnits / mSize) : (res ? (res.marketShareByTeam[tIdx] || 0) : 0);
       priceMap[pId] = dec.marketing?.prices?.[pId] ?? 0;
     });
 

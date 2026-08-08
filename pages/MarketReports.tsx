@@ -31,6 +31,7 @@ import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
 import { useDebriefData } from '../hooks/useDebriefData';
 import { compileDebriefSlides } from '../utils/debriefSlides';
 import { downloadDebriefDeckPdf } from '../utils/debriefPdfExport';
+import { DebriefScaler } from './debrief/DebriefScaler';
 
 const HR_ROLE_LABELS: Record<string, string> = {
   engineers: 'Engineers',
@@ -125,12 +126,14 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
 
       {/* Slide Canvas */}
       <div className="w-full aspect-[16/9] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 relative">
-        {currentSlide && currentSlide.render({
-          dataset,
-          revealStep: currentSlide.maxRevealSteps || 0,
-          currentSlide: slideIndex + 1,
-          totalSlides: slides.length
-        })}
+        <DebriefScaler>
+          {currentSlide && currentSlide.render({
+            dataset,
+            revealStep: currentSlide.maxRevealSteps || 0,
+            currentSlide: slideIndex + 1,
+            totalSlides: slides.length
+          })}
+        </DebriefScaler>
       </div>
     </div>
   );

@@ -39,7 +39,7 @@ export const ProductShareSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title={`Actual Market Share: ${productName}`}
       eyebrow={`${productName} Market Share Distribution`}
-      footer={`Realized market share percentage captured in the ${productName} segment`}
+      footer={`Share of total active units sold in the ${productName} segment across competing teams`}
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
@@ -48,6 +48,7 @@ export const ProductShareSlide: React.FC<SlideProps> = ({
         data={chartData}
         centerLabel="100%"
         centerSubLabel={`${productName} Segment`}
+        isAnimationActive={false}
       />
     </SlideFrame>
   );

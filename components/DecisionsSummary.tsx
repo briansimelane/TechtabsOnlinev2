@@ -19,7 +19,9 @@ const DecisionsSummary: React.FC = () => {
   const getAvailableInventory = (productId: ProductId) => {
     const opening = Number(currentTeam.inventory[productId]) || 0;
     const production = Number(decisions.operations.production[productId]) || 0;
-    const purchased = Number(decisions.operations.reqFinishedGoods?.[productId]) || 0;
+    const reqFG = Number(decisions.operations.reqFinishedGoods?.[productId]) || 0;
+    const allocFG = (Object.values(decisions.procurement.supplierAllocation[productId] || {}) as { finishedGoods?: number }[]).reduce((s, v) => s + (v.finishedGoods || 0), 0);
+    const purchased = Math.max(reqFG, allocFG);
     return opening + production + purchased;
   };
 

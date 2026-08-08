@@ -54,8 +54,8 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
     const staff = perf?.staffCounts || { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
     const train = perf?.trainingLevels || { engineers: 'None', technicians: 'None', semiSkilled: 'None', adminSales: 'None', customerService: 'None' };
 
-    const prodCap = getRoleCapacity('technicians', staff.technicians, train.technicians) +
-                    getRoleCapacity('semiSkilled', staff.semiSkilled, train.semiSkilled);
+    const techCap = getRoleCapacity('technicians', staff.technicians, train.technicians);
+    const semiCap = getRoleCapacity('semiSkilled', staff.semiSkilled, train.semiSkilled);
     const engCap = getRoleCapacity('engineers', staff.engineers, train.engineers);
     const adminCap = getRoleCapacity('adminSales', staff.adminSales, train.adminSales);
     const csCap = getRoleCapacity('customerService', staff.customerService, train.customerService);
@@ -63,22 +63,25 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
     const unitsProd = perf?.unitsProduced ?? 0;
     const unitsSold = perf?.unitsSold ?? 0;
 
-    const prodUtil = prodCap > 0 ? (unitsProd / prodCap) * 100 : 0;
+    const techUtil = techCap > 0 ? (unitsProd / techCap) * 100 : 0;
+    const semiUtil = semiCap > 0 ? (unitsProd / semiCap) * 100 : 0;
     const engUtil = engCap > 0 ? (unitsSold / engCap) * 100 : 0;
     const adminUtil = adminCap > 0 ? (unitsSold / adminCap) * 100 : 0;
     const csUtil = csCap > 0 ? (unitsSold / csCap) * 100 : 0;
 
     return {
       name: t.name,
-      'Production Staff': Number(prodUtil.toFixed(1)),
+      'Technicians (Prod)': Number(techUtil.toFixed(1)),
+      'Semi-Skilled (Prod)': Number(semiUtil.toFixed(1)),
       Engineers: Number(engUtil.toFixed(1)),
       'Admin & Sales': Number(adminUtil.toFixed(1)),
       'Customer Service': Number(csUtil.toFixed(1))
     };
   });
 
-  const seriesKeys: ('Production Staff' | 'Engineers' | 'Admin & Sales' | 'Customer Service')[] = [
-    'Production Staff',
+  const seriesKeys: ('Technicians (Prod)' | 'Semi-Skilled (Prod)' | 'Engineers' | 'Admin & Sales' | 'Customer Service')[] = [
+    'Technicians (Prod)',
+    'Semi-Skilled (Prod)',
     'Engineers',
     'Admin & Sales',
     'Customer Service'
@@ -88,7 +91,7 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title="Employee Capacity & Utilisation (%)"
       eyebrow="Human Resources & Productivity"
-      footer="Production staff measured against units produced · Support staff against units sold · Capacity = headcount × base output × training uplift"
+      footer="Technicians & Semi-Skilled measured against units produced · Engineers, Admin & CS against units sold"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}
@@ -98,13 +101,13 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 30, right: 30, left: 30, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-              <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={16} maxCharsPerLine={13} />} tickLine={false} />
-              <YAxis stroke="#64748B" tick={{ fill: '#64748B', fontSize: 18, fontWeight: 600 }} tickFormatter={(v) => `${v}%`} domain={[0, 150]} tickLine={false} axisLine={false} />
+              <XAxis dataKey="name" stroke="#64748B" interval={0} tick={<CustomAxisTick fontSize={18} maxCharsPerLine={13} />} tickLine={false} />
+              <YAxis stroke="#64748B" tick={{ fill: '#475569', fontSize: 20, fontWeight: 700 }} tickFormatter={(v) => `${v}%`} domain={[0, 150]} tickLine={false} axisLine={false} />
               <Tooltip
-                contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '18px', fontFamily: 'IBM Plex Mono' }}
+                contentStyle={{ backgroundColor: '#0F172A', borderColor: '#1E293B', borderRadius: '12px', color: '#F8FAFC', fontSize: '20px', fontFamily: 'IBM Plex Mono, ui-monospace, sans-serif' }}
                 formatter={(val: any) => [`${val}%`, 'Utilisation']}
               />
-              <ReferenceLine y={100} stroke="#475569" strokeDasharray="4 4" strokeWidth={2} label={{ value: 'Full Utilisation (100%)', fill: '#475569', fontSize: 14, fontWeight: 700, position: 'top' }} />
+              <ReferenceLine y={100} stroke="#475569" strokeDasharray="4 4" strokeWidth={2} label={{ value: 'Full Utilisation (100%)', fill: '#475569', fontSize: 16, fontWeight: 800, position: 'top' }} />
 
               {seriesKeys.map((key) => (
                 <Bar key={key} dataKey={key} radius={[4, 4, 0, 0]} isAnimationActive={false}>
@@ -119,10 +122,10 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
 
         {/* Legend for Utilisation Status Bands & Roles */}
         <div className="flex flex-wrap items-center justify-between bg-white border border-slate-200 px-6 py-3 rounded-xl shadow-xs text-sm font-medium">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-5">
             <span className="text-slate-500 font-bold uppercase tracking-wider text-xs">Role Series:</span>
             {seriesKeys.map(key => (
-              <span key={key} className="text-slate-700 font-semibold">{key}</span>
+              <span key={key} className="text-slate-800 font-bold text-xs">{key}</span>
             ))}
           </div>
           <div className="flex items-center gap-5 font-bold">

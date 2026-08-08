@@ -46,9 +46,9 @@ export const CustomerSatisfactionSlide: React.FC<SlideProps> = ({ dataset, curre
             const isPositive = delta >= 0;
 
             return (
-              <div key={t.id} className="bg-white border border-slate-200 p-3 rounded-xl text-center shadow-xs">
-                <div className="text-slate-500 text-xs font-semibold truncate">{t.name}</div>
-                <div className={`text-base font-bold font-mono mt-1 ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
+              <div key={t.id} className="bg-white border border-slate-200 py-3.5 px-2.5 rounded-2xl text-center shadow-xs flex flex-col justify-center items-center min-h-[75px] space-y-1">
+                <div className="text-slate-600 text-xs sm:text-sm font-extrabold truncate w-full leading-normal px-1">{t.name}</div>
+                <div className={`text-base sm:text-lg font-black font-mono leading-none ${isPositive ? 'text-emerald-700' : 'text-rose-700'}`}>
                   {isPositive ? '▲ +' : '▼ '}{delta.toFixed(1)}%
                 </div>
               </div>

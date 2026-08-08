@@ -84,12 +84,14 @@ const HR: React.FC = () => {
 
   // Helper to get available inventory for sale
   const getAvailableInventory = (productId: ProductId) => {
-    const opening = currentTeam.inventory[productId] || 0;
-    const production = decisions.operations.production[productId] || 0;
-    const purchased = Object.values(decisions.procurement.supplierAllocation[productId] || {}).reduce(
-      (sum: number, alloc: any) => sum + (alloc.finishedGoods || 0),
+    const opening = Number(currentTeam.inventory[productId]) || 0;
+    const production = Number(decisions.operations.production[productId]) || 0;
+    const reqFG = Number(decisions.operations.reqFinishedGoods?.[productId]) || 0;
+    const allocFG = Object.values(decisions.procurement.supplierAllocation[productId] || {}).reduce(
+      (sum: number, alloc: any) => sum + (Number(alloc?.finishedGoods) || 0),
       0
     );
+    const purchased = Math.max(reqFG, allocFG);
     return opening + production + purchased;
   };
 
