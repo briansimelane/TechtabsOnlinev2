@@ -76,30 +76,31 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
   }
 
   return (
-    <div className="w-full flex flex-col gap-4 p-4 bg-slate-900 rounded-xl">
+    <div className="w-full flex flex-col gap-4 p-3 sm:p-4 bg-slate-900 rounded-xl">
       {/* Control Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-800 border border-slate-700 p-3 rounded-lg text-white gap-3">
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-xs font-extrabold text-blue-400 bg-blue-950 border border-blue-800 px-2.5 py-1 rounded">
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center bg-slate-800 border border-slate-700 p-3 rounded-lg text-white gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="font-mono text-xs font-extrabold text-blue-400 bg-blue-950 border border-blue-800 px-2.5 py-1 rounded shrink-0">
             Slide {slideIndex + 1} of {slides.length}
           </span>
-          <span className="font-bold text-sm text-slate-100">{currentSlide?.title}</span>
+          <span className="font-bold text-sm text-slate-100 truncate">{currentSlide?.title}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full md:w-auto">
           <button
             onClick={handleDownloadDeck}
             disabled={isExportingPdf || dataset.loading || dataset.teams.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all shadow-xs mr-2"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all shadow-xs shrink-0"
             title={`Download Year ${period} Executive Debrief Presentation Deck as PDF`}
           >
             <Download size={14} />
-            {isExportingPdf ? `Exporting Slide ${exportProgress?.current || 0}/${exportProgress?.total || slides.length}...` : `Download Year ${period} Slides PDF`}
+            {isExportingPdf ? `Exporting Slide ${exportProgress?.current || 0}/${exportProgress?.total || slides.length}...` : `Download Slides PDF`}
           </button>
+          
           <select
             value={slideIndex}
             onChange={(e) => setSlideIndex(Number(e.target.value))}
-            className="bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 rounded px-2.5 py-1"
+            className="bg-slate-900 border border-slate-700 text-xs font-bold text-slate-200 rounded px-2.5 py-1.5 max-w-[180px] xs:max-w-none truncate"
           >
             {slides.map((s, idx) => (
               <option key={idx} value={idx}>
@@ -107,25 +108,28 @@ const DebriefSlidesViewer: React.FC<{ classId: string; period: number }> = ({ cl
               </option>
             ))}
           </select>
-          <button
-            disabled={slideIndex === 0}
-            onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
-            className="px-3 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
-          >
-            ← Prev
-          </button>
-          <button
-            disabled={slideIndex === slides.length - 1}
-            onClick={() => setSlideIndex(prev => Math.min(slides.length - 1, prev + 1))}
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
-          >
-            Next →
-          </button>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              disabled={slideIndex === 0}
+              onClick={() => setSlideIndex(prev => Math.max(0, prev - 1))}
+              className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
+            >
+              ← Prev
+            </button>
+            <button
+              disabled={slideIndex === slides.length - 1}
+              onClick={() => setSlideIndex(prev => Math.min(slides.length - 1, prev + 1))}
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded text-xs font-bold transition-all"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Slide Canvas */}
-      <div className="w-full aspect-[16/9] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 relative">
+      <div className="w-full min-h-[450px] sm:min-h-[550px] md:min-h-[640px] lg:min-h-[700px] aspect-[16/9] bg-slate-950 rounded-xl overflow-hidden shadow-2xl border border-slate-800 relative">
         <DebriefScaler>
           {currentSlide && currentSlide.render({
             dataset,
@@ -912,7 +916,7 @@ const MarketReports: React.FC = () => {
   );
 
   const renderTeamTabs = () => (
-      <div className="flex overflow-x-auto gap-2 p-4 bg-slate-50 border-b border-slate-100 scrollbar-none">
+      <div className="flex flex-wrap gap-2 p-3 sm:p-4 bg-slate-50 border-b border-slate-100">
           {activeTeams.map((team, idx) => (
               <button
                   key={idx}
@@ -1250,7 +1254,7 @@ const MarketReports: React.FC = () => {
 
           {/* Tab Navigation */}
           {!shouldHideReports && (
-            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex flex-wrap gap-1">
+            <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex overflow-x-auto max-w-full whitespace-nowrap gap-1">
                 {[
                     { id: 'decisions', label: 'Industry Decisions', icon: Layers },
                     { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
@@ -1260,13 +1264,13 @@ const MarketReports: React.FC = () => {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as Tab)}
-                        className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        className={`flex items-center px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all shrink-0 ${
                             activeTab === tab.id 
                             ? 'bg-blue-600 text-white shadow-sm' 
                             : 'text-slate-600 hover:bg-slate-50'
                         }`}
                     >
-                        <tab.icon className="w-4 h-4 mr-2" />
+                        <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                         {tab.label}
                     </button>
                 ))}

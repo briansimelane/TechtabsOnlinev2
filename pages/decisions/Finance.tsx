@@ -121,50 +121,39 @@ const Finance: React.FC = () => {
 
                     {/* Values Column */}
                     <div className="w-full">
-                         {/* Product Headers */}
-                         <div className="grid grid-cols-3 gap-4 mb-2">
-                             {PRODUCTS.map(p => (
-                                 <div key={p.id} className="text-sm font-bold text-slate-800">
-                                     {p.name}
-                                 </div>
-                             ))}
-                         </div>
-                         
-                         {/* Debtors Days Dropdown */}
-                         <div className="grid grid-cols-3 gap-4 mb-5">
-                             {PRODUCTS.map(p => (
-                                 <div key={p.id} className="relative">
-                                     <select 
-                                         className={`w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1.5 px-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed ${debtorsDaysFlashMap[p.id] ? 'animate-flash-green' : ''}`}
-                                         value={finance.debtorsDays[p.id]}
-                                         onChange={(e) => handleDebtorsDaysChange(p.id, e.target.value)}
-                                         disabled={disabled}
-                                     >
-                                         <option value="0">0</option>
-                                         <option value="30">30</option>
-                                         <option value="45">45</option>
-                                         <option value="60">60</option>
-                                         <option value="90">90</option>
-                                     </select>
-                                     {/* Custom arrow if needed, but simple block is robust */}
-                                 </div>
-                             ))}
-                         </div>
-
-                         {/* Current Balance */}
-                         <div className="grid grid-cols-3 gap-4">
+                         {/* Product Headers & Inputs */}
+                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
                              {PRODUCTS.map(p => {
-                                 // Calculate forecasted revenue
                                  const share = marketing.forecastedMarketShare[p.id] || 0;
                                  const units = (getMarketSize(p.id, currentTeam.currentPeriod) * share) / 100;
                                  const revenue = units * marketing.prices[p.id];
                                  const days = finance.debtorsDays[p.id];
-                                 // AR = (Revenue / 365) * Days
                                  const ar = (revenue / 365) * days;
 
                                  return (
-                                     <div key={p.id} className="text-sm font-mono text-slate-700 pl-1">
-                                         {formatCurrency(ar)}
+                                     <div key={p.id} className="bg-slate-50 sm:bg-transparent p-3 sm:p-0 rounded-lg border border-slate-200 sm:border-0 space-y-2">
+                                         <div className="text-sm font-bold text-slate-800 flex justify-between sm:block">
+                                             <span>{p.name}</span>
+                                             <span className="text-xs font-normal text-slate-500 sm:hidden">Debtors Days</span>
+                                         </div>
+                                         <div className="relative">
+                                             <select 
+                                                 className={`w-full bg-blue-50 border border-blue-200 text-blue-800 font-bold py-1.5 px-2 rounded outline-none focus:ring-2 focus:ring-blue-500 text-center cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed ${debtorsDaysFlashMap[p.id] ? 'animate-flash-green' : ''}`}
+                                                 value={finance.debtorsDays[p.id]}
+                                                 onChange={(e) => handleDebtorsDaysChange(p.id, e.target.value)}
+                                                 disabled={disabled}
+                                             >
+                                                 <option value="0">0 Days</option>
+                                                 <option value="30">30 Days</option>
+                                                 <option value="45">45 Days</option>
+                                                 <option value="60">60 Days</option>
+                                                 <option value="90">90 Days</option>
+                                             </select>
+                                         </div>
+                                         <div className="flex justify-between sm:block text-xs sm:text-sm font-mono text-slate-700 pt-1">
+                                             <span className="text-slate-500 sm:hidden">Current Balance:</span>
+                                             <span>{formatCurrency(ar)}</span>
+                                         </div>
                                      </div>
                                  );
                              })}
@@ -173,10 +162,10 @@ const Finance: React.FC = () => {
                 </div>
                 
                 {/* Creditors Days Footer */}
-                <div className="mt-8 pt-6 border-t border-slate-100 pl-0 lg:pl-[216px]">
-                    <div className="flex items-center text-sm">
-                        <span className="font-bold text-slate-800 w-64">Average Creditors Days Offered</span>
-                        <span className="text-slate-400 italic">45 days</span>
+                <div className="mt-6 pt-6 border-t border-slate-100 pl-0 lg:pl-[216px]">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center text-sm gap-1 sm:gap-4">
+                        <span className="font-bold text-slate-800">Average Creditors Days Offered:</span>
+                        <span className="text-slate-500 italic">45 days</span>
                     </div>
                 </div>
             </div>

@@ -87,8 +87,8 @@ const HR: React.FC = () => {
     const opening = Number(currentTeam.inventory[productId]) || 0;
     const production = Number(decisions.operations.production[productId]) || 0;
     const reqFG = Number(decisions.operations.reqFinishedGoods?.[productId]) || 0;
-    const allocFG = Object.values(decisions.procurement.supplierAllocation[productId] || {}).reduce(
-      (sum: number, alloc: any) => sum + (Number(alloc?.finishedGoods) || 0),
+    const allocFG = (Object.values(decisions.procurement.supplierAllocation[productId] || {}) as { finishedGoods?: number }[]).reduce(
+      (sum: number, alloc) => sum + (Number(alloc?.finishedGoods) || 0),
       0
     );
     const purchased = Math.max(reqFG, allocFG);

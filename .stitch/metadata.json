@@ -1,0 +1,71 @@
+{
+  "projectId": "projects/6775712216453984872",
+  "numericProjectId": "6775712216453984872",
+  "title": "Techtabs Online Simulation",
+  "colorMode": "LIGHT",
+  "theme": {
+    "primaryColor": "#2563eb",
+    "surfaceColor": "#ffffff",
+    "backgroundColor": "#f8fafc",
+    "textColor": "#0f172a",
+    "fontFamily": "Inter",
+    "roundness": "ROUND_EIGHT"
+  },
+  "deviceCoverage": {
+    "MOBILE": {
+      "viewport": "375px - 390px",
+      "screens": [
+        {
+          "name": "Executive Dashboard (Mobile)",
+          "screenId": "650066830d9a402fb21331608ca9bc8e",
+          "layout": "Single-column 2x2 KPI grid, sticky bottom nav, period status banner"
+        },
+        {
+          "name": "Decision Input Center (Mobile)",
+          "screenId": "22b7b90c12f4401e889f604ec0656837",
+          "layout": "Vertical stacked decision cards, category chips, sticky budget progress CTA"
+        },
+        {
+          "name": "Reports & Market Performance (Mobile)",
+          "screenId": "a3a3abd6136f4ef7889bbf9d42067cc6",
+          "layout": "Segmented control pills, health cards, competitor progress list"
+        }
+      ]
+    },
+    "TABLET": {
+      "viewport": "768px - 834px (Small iPad / Tablet)",
+      "screens": [
+        {
+          "name": "Executive Dashboard (Tablet)",
+          "layout": "Mini-sidebar rail, 4-card metric banner, 2-column balanced grid with trend chart"
+        },
+        {
+          "name": "Decision Input Center (Tablet)",
+          "layout": "Split 2-column view (Input panels left, real-time forecast & budget gauge right)"
+        },
+        {
+          "name": "Reports & Market Analytics (Tablet)",
+          "layout": "2-column grid (Condensed income statement left, competitor market share right)"
+        }
+      ]
+    },
+    "DESKTOP": {
+      "viewport": "1280px (Small Laptop / Desktop)",
+      "screens": [
+        {
+          "name": "Executive Dashboard (Laptop)",
+          "screenId": "c4d9d8328acb47bd81ccb239e3ea7378",
+          "layout": "Full left sidebar, 4-card KPI grid, 3-column dashboard layout"
+        },
+        {
+          "name": "Decision Input Matrix (Laptop)",
+          "layout": "Full navigation sidebar, department tabs, 3-column decision grid with live financial impact widget"
+        },
+        {
+          "name": "Reports & Benchmark Matrix (Laptop)",
+          "layout": "Multi-period financial statement table & competitor benchmark matrix"
+        }
+      ]
+    }
+  }
+}

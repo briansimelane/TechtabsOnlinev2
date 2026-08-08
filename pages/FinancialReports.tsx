@@ -166,8 +166,8 @@ const FinancialReports: React.FC = () => {
       const opening = Number(currentTeam.inventory[productId]) || 0;
       const production = Number(decisions.operations.production[productId]) || 0;
       const reqFG = Number(decisions.operations.reqFinishedGoods?.[productId]) || 0;
-      const allocFG = Object.values(decisions.procurement.supplierAllocation[productId] || {}).reduce(
-        (sum: number, alloc: any) => sum + (Number(alloc?.finishedGoods) || 0),
+      const allocFG = (Object.values(decisions.procurement.supplierAllocation[productId] || {}) as { finishedGoods?: number }[]).reduce(
+        (sum: number, alloc) => sum + (Number(alloc?.finishedGoods) || 0),
         0
       );
       const purchased = Math.max(reqFG, allocFG);
@@ -411,7 +411,7 @@ const FinancialReports: React.FC = () => {
         </div>
         
         {/* Tabs */}
-        <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex">
+        <div className="bg-white p-1 rounded-lg border border-slate-200 shadow-sm flex overflow-x-auto max-w-full whitespace-nowrap">
             {[
                 { id: 'summary', label: 'Decisions Summary', icon: FileText },
                 { id: 'income', label: 'Income Statement', icon: DollarSign },
@@ -421,13 +421,13 @@ const FinancialReports: React.FC = () => {
                 <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as ReportTab)}
-                    className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    className={`flex items-center px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all shrink-0 ${
                         activeTab === tab.id 
                         ? 'bg-blue-600 text-white shadow-sm' 
                         : 'text-slate-600 hover:bg-slate-50'
                     }`}
                 >
-                    <tab.icon className="w-4 h-4 mr-2" />
+                    <tab.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                     {tab.label}
                 </button>
             ))}

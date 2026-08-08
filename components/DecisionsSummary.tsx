@@ -376,7 +376,7 @@ const DecisionsSummary: React.FC = () => {
           </div>
         </div>
       )}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
         {metrics.map((metric, index) => (
           <div key={index} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm flex items-center justify-between">
             <div>

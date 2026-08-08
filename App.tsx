@@ -84,7 +84,7 @@ const AppLayout: React.FC = () => {
         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
         isSidebarCollapsed={sidebarCollapsed}
       />
-      <main className={`flex-1 mt-16 p-4 md:p-8 overflow-y-auto w-full max-w-full overflow-x-hidden transition-all duration-300 ${
+      <main className={`flex-1 mt-16 p-3 sm:p-4 md:p-6 lg:p-8 overflow-y-auto w-full max-w-full overflow-x-hidden transition-all duration-300 ${
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
       }`}>
         <Routes>

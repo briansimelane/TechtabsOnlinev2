@@ -662,24 +662,24 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Corporate Identity Panel */}
-      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:border-slate-300">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl">
+      <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 transition-all hover:border-slate-300">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="p-3 bg-blue-50 text-blue-600 rounded-xl shrink-0">
             <Building2 size={24} />
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-800">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 truncate">
               {currentTeam.name}
             </h2>
-            <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
-              <User size={14} className="text-slate-400" />
-              CEO: <span className="font-semibold text-slate-700">{currentTeam.ceoName || 'Not Appointed Yet'}</span>
+            <p className="text-xs sm:text-sm text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">
+              <User size={14} className="text-slate-400 shrink-0" />
+              CEO: <span className="font-semibold text-slate-700 truncate">{currentTeam.ceoName || 'Not Appointed Yet'}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex flex-col">
+        <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-3 w-full sm:w-auto">
+          <div className="flex flex-col flex-1 sm:flex-initial">
             <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 ml-1">Company Name</span>
             <input
               type="text"
@@ -688,53 +688,55 @@ const Dashboard: React.FC = () => {
               value={tempName}
               onChange={(e) => handleNameChange(e.target.value)}
               onBlur={handleBlur}
-              className={`px-3 py-1.5 text-sm font-bold bg-blue-50 border border-blue-200 text-blue-800 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none w-48 disabled:opacity-50 ${flashCompanyName ? 'animate-flash-green' : ''}`}
+              className={`px-3 py-1.5 text-sm font-bold bg-blue-50 border border-blue-200 text-blue-800 rounded-lg focus:ring-2 focus:ring-blue-400 outline-none w-full sm:w-48 disabled:opacity-50 ${flashCompanyName ? 'animate-flash-green' : ''}`}
             />
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1 sm:flex-initial">
             <span className="text-[10px] uppercase font-bold text-slate-400 mb-1 ml-1">CEO Name</span>
             <input
               type="text"
               placeholder="CEO Name"
               disabled={true} // CEO Name is set during CEO claiming process
               value={tempCeo}
-              className="px-3 py-1.5 text-sm font-bold bg-slate-50 border border-slate-200 text-slate-500 rounded-lg outline-none w-48 cursor-not-allowed"
+              className="px-3 py-1.5 text-sm font-bold bg-slate-50 border border-slate-200 text-slate-500 rounded-lg outline-none w-full sm:w-48 cursor-not-allowed"
             />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {metrics.map((metric, index) => (
-          <div key={index} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div key={index} className="bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-slate-500">{metric.label}</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-2">{metric.value}</h3>
+                <p className="text-xs sm:text-sm font-medium text-slate-500">{metric.label}</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mt-1 sm:mt-2">{metric.value}</h3>
               </div>
-              <div className={`p-2 rounded-lg ${metric.color} bg-opacity-10 text-${metric.color.replace('bg-', '')}`}>
+              <div className={`p-2 rounded-lg ${metric.color} bg-opacity-10 text-${metric.color.replace('bg-', '')} shrink-0`}>
                 <metric.icon size={20} className={metric.color.replace('bg-', 'text-')} />
               </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              {metric.isPositive ? (
-                <TrendingUp size={16} className="text-emerald-500 mr-1" />
-              ) : (
-                <TrendingDown size={16} className="text-rose-500 mr-1" />
-              )}
-              <span className={metric.isPositive ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>
-                {metric.change}
-              </span>
-              <span className="text-slate-400 ml-2">vs {metric.pastValue} ({metric.pastLabel})</span>
+            <div className="mt-3 sm:mt-4 flex flex-wrap items-center text-xs sm:text-sm">
+              <div className="flex items-center mr-2">
+                {metric.isPositive ? (
+                  <TrendingUp size={16} className="text-emerald-500 mr-1 shrink-0" />
+                ) : (
+                  <TrendingDown size={16} className="text-rose-500 mr-1 shrink-0" />
+                )}
+                <span className={metric.isPositive ? 'text-emerald-600 font-medium' : 'text-rose-600 font-medium'}>
+                  {metric.change}
+                </span>
+              </div>
+              <span className="text-slate-400">vs {metric.pastValue} ({metric.pastLabel})</span>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-900 mb-6">Product Performance (Revenue)</h3>
-          <div className="h-72">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-xl border border-slate-200 shadow-sm">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-4 sm:mb-6">Product Performance (Revenue)</h3>
+          <div className="h-60 sm:h-72">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={salesData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />

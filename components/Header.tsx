@@ -67,23 +67,24 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarCollapsed = f
       <header className={`h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 fixed top-0 right-0 left-0 transition-all duration-300 ${
         isSidebarCollapsed ? 'md:left-16' : 'md:left-64'
       } z-40`}>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
           {onToggleSidebar && (
             <button 
               onClick={onToggleSidebar}
-              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg md:hidden outline-none transition-colors"
+              className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg md:hidden outline-none transition-colors shrink-0"
+              aria-label="Toggle sidebar"
             >
               <Menu size={20} />
             </button>
           )}
-          <h2 className="text-base md:text-lg font-semibold text-slate-800">
+          <h2 className="text-sm sm:text-base md:text-lg font-semibold text-slate-800 truncate max-w-[150px] xs:max-w-[200px] sm:max-w-none">
               {currentRole === 'STUDENT' ? 'Team Portal' : currentRole === 'FACILITATOR' ? 'Facilitator Console' : 'Admin'}
           </h2>
         </div>
 
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6 shrink-0">
           {originalRole && originalRole !== 'STUDENT' && (
-            <div className="flex items-center bg-slate-100 rounded-full p-1 border border-slate-200">
+            <div className="hidden sm:flex items-center bg-slate-100 rounded-full p-1 border border-slate-200">
                 {(['STUDENT', 'FACILITATOR', 'ADMIN'] as Role[]).map((r) => {
                     if (r === 'ADMIN' && originalRole !== 'ADMIN') return null;
                     return (
@@ -112,10 +113,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarCollapsed = f
           <div className="relative">
             <button 
               onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center space-x-3 border-l border-slate-200 pl-6 hover:opacity-80 transition-opacity outline-none"
+              className="flex items-center space-x-2 sm:space-x-3 border-l border-slate-200 pl-3 sm:pl-6 hover:opacity-80 transition-opacity outline-none"
             >
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-medium text-slate-900 font-bold">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-900">
                   {currentRole === 'STUDENT' 
                     ? (isCeo ? (currentTeam.ceoName || 'CEO') : 'Director')
                     : (currentUser?.displayName || 'John Doe')}
@@ -126,10 +127,10 @@ const Header: React.FC<HeaderProps> = ({ onToggleSidebar, isSidebarCollapsed = f
                     : (currentRole === 'FACILITATOR' ? 'Course Instructor' : 'Super Admin')}
                 </p>
               </div>
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 border border-blue-200">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 border border-blue-200 shrink-0">
                 <User size={16} />
               </div>
-              <ChevronDown size={14} className="text-slate-400" />
+              <ChevronDown size={14} className="text-slate-400 shrink-0" />
             </button>
 
             {dropdownOpen && (
