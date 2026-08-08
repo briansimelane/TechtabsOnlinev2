@@ -17,8 +17,8 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
 
   // Apply Tie-Breaker Rules:
   // 1. Primary: Score
-  // 2. 1st Tie-Breaker: Cumulative CSAT + ESAT
-  // 3. 2nd Tie-Breaker: Cumulative GP% + ROE% + NP%
+  // 2. 1st Tie-Breaker: Year CSAT + ESAT (Year under review)
+  // 3. 2nd Tie-Breaker: Year GP% + ROE% + NP% (Year under review)
   const rankedScores = [...scores].sort((a, b) => {
     if (b.score !== a.score) {
       return b.score - a.score;
@@ -45,9 +45,9 @@ export const LeagueCurrentSlide: React.FC<SlideProps> = ({ dataset, revealStep, 
 
   return (
     <SlideFrame
-      title={`League Standings: Year ${dataset.period}`}
-      eyebrow="Class Competition"
-      footer="Tie-breakers (before GP%): TB 1 = Cum. CSAT+ESAT · TB 2 = Cum. GP%+NP%+ROE%"
+      title={`Period Standings & Points (Year ${dataset.period})`}
+      eyebrow="Financial & Operational Performance Ranking"
+      footer="Tie-breakers (year under review): TB 1 = Year CSAT+ESAT · TB 2 = Year GP%+NP%+ROE%"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}

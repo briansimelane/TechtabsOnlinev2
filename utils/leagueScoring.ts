@@ -24,29 +24,25 @@ export interface TeamYearScore extends TeamYearMetrics {
 
 export function getCumCsatEsat(team: any, period: number): number {
   if (!team) return 0;
-  let total = 0;
+  const histMap = team.fullHistory || team.history;
+  const rec = histMap?.[period] || histMap?.[String(period)] || (period === team.record?.period ? team.record : undefined);
 
-  for (let yr = 1; yr <= period; yr++) {
-    const rec = team.fullHistory?.[yr] || team.history?.[yr] || (yr === period ? team.record : undefined);
-    const csat = (rec?.kpis?.customerSatisfaction ?? team.perf?.kpis?.customerSatisfaction ?? 0.70) * 100;
-    const esat = (rec?.kpis?.employeeSatisfaction ?? team.perf?.kpis?.employeeSatisfaction ?? 0.70) * 100;
-    total += csat + esat;
-  }
-  return total;
+  const csat = (rec?.kpis?.customerSatisfaction ?? team.perf?.kpis?.customerSatisfaction ?? 0.70) * 100;
+  const esat = (rec?.kpis?.employeeSatisfaction ?? team.perf?.kpis?.employeeSatisfaction ?? 0.70) * 100;
+
+  return csat + esat;
 }
 
 export function getCumFinancialPct(team: any, period: number): number {
   if (!team) return 0;
-  let total = 0;
+  const histMap = team.fullHistory || team.history;
+  const rec = histMap?.[period] || histMap?.[String(period)] || (period === team.record?.period ? team.record : undefined);
 
-  for (let yr = 1; yr <= period; yr++) {
-    const rec = team.fullHistory?.[yr] || team.history?.[yr] || (yr === period ? team.record : undefined);
-    const gp = rec?.industry?.gpMargin ?? team.perf?.gpMargin ?? 0;
-    const np = rec?.industry?.npMargin ?? team.perf?.npMargin ?? 0;
-    const roe = rec?.industry?.roe ?? team.perf?.roe ?? 0;
-    total += gp + np + roe;
-  }
-  return total;
+  const gp = rec?.industry?.gpMargin ?? team.perf?.gpMargin ?? 0;
+  const np = rec?.industry?.npMargin ?? team.perf?.npMargin ?? 0;
+  const roe = rec?.industry?.roe ?? team.perf?.roe ?? 0;
+
+  return gp + np + roe;
 }
 
 export function metricsFromRecord(teamId: string, teamName: string, rec: PeriodRecord): TeamYearMetrics {
