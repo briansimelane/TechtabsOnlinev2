@@ -55,6 +55,20 @@ export async function downloadDebriefDeckPdf(
     #pdf-slide-export-root .font-mono {
       font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
     }
+    #pdf-slide-export-root .bg-blue-100\/90,
+    #pdf-slide-export-root .bg-blue-100,
+    #pdf-slide-export-root .bg-blue-50 {
+      display: inline-flex !important;
+      align-items: center !important;
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+      padding-left: 12px !important;
+      padding-right: 12px !important;
+      min-height: 28px !important;
+      line-height: 1.4 !important;
+      vertical-align: middle !important;
+      overflow: visible !important;
+    }
   `;
   container.appendChild(styleEl);
 

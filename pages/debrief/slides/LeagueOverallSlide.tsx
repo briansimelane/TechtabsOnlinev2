@@ -101,7 +101,7 @@ export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, currentSlide
                   />
                   <div className="flex items-center gap-2.5 min-w-0 overflow-visible py-1">
                     <span className="text-slate-900 text-lg sm:text-2xl font-black leading-normal pb-1.5 px-0.5">{displayName}</span>
-                    <span className="text-blue-800 font-extrabold text-xs sm:text-sm bg-blue-100/90 border border-blue-300 px-3 py-1.5 rounded-lg font-mono shrink-0 leading-normal pb-1">
+                    <span className="inline-flex items-center text-blue-800 font-extrabold text-xs sm:text-sm bg-blue-100/90 border border-blue-300 px-3 py-1.5 rounded-lg font-mono shrink-0 leading-normal pb-1.5 min-h-[28px]">
                       [CEO: {ceoName}]
                     </span>
                   </div>
