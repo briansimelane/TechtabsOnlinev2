@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
-import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator } from '../types';
+import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig } from '../types';
 import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
@@ -63,6 +63,7 @@ interface SimulationContextType extends SimulationState {
   updateSurveyConfig: (config: SurveyConfig) => Promise<void>;
   updateClassShowSurvey: (showSurvey: boolean) => Promise<void>;
   updateClassShowMarketReportsYear1: (show: boolean) => Promise<void>;
+  updateClassMarksConfig: (classId: string, config: MarksConfig) => Promise<void>;
   resetClassToYear1: (classId: string) => Promise<void>;
   updateTeamProfile: (name: string, ceoName: string, persist?: boolean) => Promise<void>;
   updateClassFacilitatorCode: (classId: string, newCode: string) => Promise<void>;
@@ -1421,6 +1422,31 @@ BEHAVIOR RULES:
           
           return updatedClass;
         }
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const updateClassMarksConfig = async (classId: string, marksConfig: MarksConfig) => {
+    const targetClassId = classId || state.currentClassId;
+    if (!targetClassId) {
+      console.warn("Cannot update marks config: No class selected.");
+      return;
+    }
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === targetClassId) {
+          const updatedClass = {
+            ...c,
+            marksConfig
+          };
+          
+          // Async save
+          void persistClass(updatedClass).catch(err => console.error("Failed to save class marksConfig", err));
+          
+          return updatedClass;
+        }
         return c;
       });
       return { ...prev, classes: updatedClasses };
@@ -2758,6 +2784,7 @@ BEHAVIOR RULES:
         updateSurveyConfig,
         updateClassShowSurvey,
         updateClassShowMarketReportsYear1,
+        updateClassMarksConfig,
         resetClassToYear1,
         updateTeamProfile,
         updateClassFacilitatorCode,

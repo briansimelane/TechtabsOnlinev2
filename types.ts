@@ -127,6 +127,7 @@ export interface SimulationClass {
   surveyResponses?: SurveyResponse[];
   showSurvey?: boolean;
   showMarketReportsYear1?: boolean;
+  marksConfig?: MarksConfig;
   isArchived?: boolean;
   archivedAt?: string;
 }
@@ -292,5 +293,28 @@ export interface SurveyResponse {
   period: number;
   timestamp: string;
   answers: Record<string, number | string>; // questionId -> answer
+}
+
+export type MissedSalesBasis = 'latest' | 'cumulative';
+
+export interface MarksConfig {
+  /** Mark awarded when a base-mark hurdle is met. Excel: the 10 in IF(...,10,7). */
+  baseMarkPass: number;              // default 10
+  /** Mark awarded when a base-mark hurdle is missed. Excel: the 7 in IF(...,10,7). */
+  baseMarkFail: number;              // default 7
+  /** Customer Satisfaction hurdle as a fraction 0–1. Excel L28: >=0.75 */
+  csatHurdle: number;                // default 0.75
+  /** Employee Satisfaction hurdle as a fraction 0–1. Excel L29: >=0.75 */
+  esatHurdle: number;                // default 0.75
+  /** Excel O31. null = auto (count of scored teams). Divisor = (n*9)+9 → R31. */
+  activeTeamCountOverride: number | null;   // default null
+  /** Excel: the 50 in ROUNDDOWN(50*L33,0). Advanced. */
+  additionalMarksScale: number;      // default 50
+  /** Class-wide adjustment applied to all teams (Excel row 43). */
+  classAdjustment: number;           // default 0
+  /** Excel row 43. teamId -> marks. Absent key = 0. */
+  classAdjustments: Record<string, number>; // default {}
+  missedSalesBasis: MissedSalesBasis;       // default 'latest'
+  updatedAt?: string;
 }
 
