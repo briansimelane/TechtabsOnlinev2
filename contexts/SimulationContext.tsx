@@ -744,18 +744,34 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       return c;
                   });
 
-                  // For students, also keep currentTeam synced with latest team in class
+                  // For students, also keep currentTeam & decisions synced with latest team in class
                   let updatedCurrentTeam = prev.currentTeam;
+                  let updatedDecisions = prev.decisions;
+
                   if (prev.currentRole === 'STUDENT' && prev.currentTeam.id) {
                       const matched = reconciledTeams.find(t => t.id === prev.currentTeam.id);
                       if (matched) {
                           updatedCurrentTeam = matched;
+                          const localPin = localStorage.getItem('techtabs_ceo_pin');
+                          const isCurrentCeo = isDemoMode || (localPin === matched.ceoPin && matched.ceoPin);
+                          if (matched.draftDecisions) {
+                              if (!isCurrentCeo) {
+                                  updatedDecisions = matched.draftDecisions;
+                              } else {
+                                  updatedDecisions = {
+                                      ...matched.draftDecisions,
+                                      ...prev.decisions,
+                                      supplierOverrides: matched.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
+                                  };
+                              }
+                          }
                       }
                   }
 
                   return {
                       ...prev,
                       currentTeam: updatedCurrentTeam,
+                      decisions: updatedDecisions,
                       classes: updatedClasses
                   };
               });
