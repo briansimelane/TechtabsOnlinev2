@@ -677,13 +677,38 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                   const updatedClass = docSnap.data() as SimulationClass;
                   setState(prev => {
                       const existingClass = prev.classes.find(c => c.id === updatedClass.id);
-                      // Preserve teams array if updatedClass payload doesn't embed teams subcollection
+                      const existingTeams = existingClass?.teams || [];
+                      const incomingTeams = updatedClass.teams || [];
+
+                      const mergedTeams = incomingTeams.map(inTeam => {
+                          const exTeam = existingTeams.find(t => t.id === inTeam.id);
+                          if (!exTeam) return inTeam;
+                          return {
+                              ...inTeam,
+                              ...exTeam,
+                              updatedAt: exTeam.updatedAt || inTeam.updatedAt,
+                              ceoName: exTeam.ceoName || inTeam.ceoName,
+                              ceoPin: exTeam.ceoPin || inTeam.ceoPin,
+                              status: exTeam.status || inTeam.status,
+                              draftDecisions: {
+                                  ...(inTeam.draftDecisions || {}),
+                                  ...(exTeam.draftDecisions || {}),
+                                  supplierOverrides: exTeam.draftDecisions?.supplierOverrides || inTeam.draftDecisions?.supplierOverrides
+                              }
+                          };
+                      });
+
+                      existingTeams.forEach(exTeam => {
+                          if (!mergedTeams.find(t => t.id === exTeam.id)) {
+                              mergedTeams.push(exTeam);
+                          }
+                      });
+
                       const mergedClass = {
                           ...updatedClass,
-                          teams: (updatedClass.teams && updatedClass.teams.length > 0) 
-                              ? updatedClass.teams 
-                              : (existingClass?.teams || [])
+                          teams: mergedTeams.length > 0 ? mergedTeams : (existingClass?.teams || [])
                       };
+
                       const updatedClasses = prev.classes.some(c => c.id === mergedClass.id)
                           ? prev.classes.map(c => c.id === mergedClass.id ? mergedClass : c)
                           : [...prev.classes, mergedClass];
