@@ -781,9 +781,18 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                           
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
                           const isCurrentCeo = isDemoMode || (localPin === teamInClass.ceoPin && teamInClass.ceoPin);
-                          const updatedDecisions = (!isCurrentCeo && teamInClass.draftDecisions) 
-                            ? teamInClass.draftDecisions 
-                            : prev.decisions;
+                          let updatedDecisions = prev.decisions;
+                          if (teamInClass.draftDecisions) {
+                            if (!isCurrentCeo) {
+                              updatedDecisions = teamInClass.draftDecisions;
+                            } else {
+                              updatedDecisions = {
+                                ...teamInClass.draftDecisions,
+                                ...prev.decisions,
+                                supplierOverrides: teamInClass.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
+                              };
+                            }
+                          }
 
                           return {
                               ...prev,
@@ -804,8 +813,11 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const updateDecisions = (section: keyof TurnDecisions, data: any) => {
     setState((prev) => {
+      const currentOverrides = prev.currentTeam?.draftDecisions?.supplierOverrides || prev.decisions?.supplierOverrides;
+
       const updatedDecisions = {
         ...prev.decisions,
+        supplierOverrides: currentOverrides,
         [section]: {
           ...prev.decisions[section],
           ...data,
