@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
-import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig } from '../types';
+import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride } from '../types';
 import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
@@ -78,6 +78,12 @@ interface SimulationContextType extends SimulationState {
   requestReopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
   updateTeamNegotiationByFacilitator: (classId: string, teamId: string, negotiationData: Partial<NegotiationDecision>) => Promise<void>;
   updateTeamSupplierOverridesByFacilitator: (classId: string, teamId: string, overrides: TeamSupplierOverride) => Promise<void>;
+  updateClassIsALP: (isALP: boolean) => void;
+  addClassEvent: (event: Omit<ClassEvent, 'id' | 'createdAt'>) => void;
+  updateClassEvent: (event: ClassEvent) => void;
+  deleteClassEvent: (eventId: string) => void;
+  upsertScenarioOverride: (period: number, patch: Partial<ClassScenarioOverride>) => void;
+  clearScenarioOverride: (period: number) => void;
 }
 
 const SimulationContext = createContext<SimulationContextType | undefined>(undefined);
@@ -1422,6 +1428,168 @@ BEHAVIOR RULES:
           
           return updatedClass;
         }
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const updateClassIsALP = (isALP: boolean) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot update class settings: No class selected.");
+      return;
+    }
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const updatedClass = {
+            ...c,
+            isActionLearningProject: isALP
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to save class isActionLearningProject status", err));
+          return updatedClass;
+        }
+        return c;
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const addClassEvent = (event: Omit<ClassEvent, 'id' | 'createdAt'>) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot add class event: No class selected.");
+      return;
+    }
+
+    const newEvent: ClassEvent = {
+      ...event,
+      id: `cevt_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const classEvents = [...(c.classEvents || []), newEvent];
+          const updatedClass = {
+            ...c,
+            classEvents
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to add class event", err));
+          return updatedClass;
+        }
+        return c;
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const updateClassEvent = (event: ClassEvent) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot update class event: No class selected.");
+      return;
+    }
+
+    const updatedEvent: ClassEvent = {
+      ...event,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const classEvents = (c.classEvents || []).map(e => e.id === updatedEvent.id ? updatedEvent : e);
+          const updatedClass = {
+            ...c,
+            classEvents
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to update class event", err));
+          return updatedClass;
+        }
+        return c;
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const deleteClassEvent = (eventId: string) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot delete class event: No class selected.");
+      return;
+    }
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const classEvents = (c.classEvents || []).filter(e => e.id !== eventId);
+          const updatedClass = {
+            ...c,
+            classEvents
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to delete class event", err));
+          return updatedClass;
+        }
+        return c;
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const upsertScenarioOverride = (period: number, patch: Partial<ClassScenarioOverride>) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot upsert scenario override: No class selected.");
+      return;
+    }
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const currentOverride = c.scenarioOverrides?.[period] || { period };
+          const updatedOverride: ClassScenarioOverride = {
+            ...currentOverride,
+            ...patch,
+            period,
+            updatedAt: new Date().toISOString(),
+          };
+
+          const scenarioOverrides = {
+            ...(c.scenarioOverrides || {}),
+            [period]: updatedOverride
+          };
+
+          const updatedClass = {
+            ...c,
+            scenarioOverrides
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to upsert scenario override", err));
+          return updatedClass;
+        }
+        return c;
+      });
+      return { ...prev, classes: updatedClasses };
+    });
+  };
+
+  const clearScenarioOverride = (period: number) => {
+    if (!state.currentClassId) {
+      console.warn("Cannot clear scenario override: No class selected.");
+      return;
+    }
+
+    setState(prev => {
+      const updatedClasses = prev.classes.map(c => {
+        if (c.id === prev.currentClassId) {
+          const scenarioOverrides = { ...(c.scenarioOverrides || {}) };
+          delete scenarioOverrides[period];
+
+          const updatedClass = {
+            ...c,
+            scenarioOverrides
+          };
+          void persistClass(updatedClass).catch(err => console.error("Failed to clear scenario override", err));
+          return updatedClass;
+        }
+        return c;
       });
       return { ...prev, classes: updatedClasses };
     });
@@ -2798,7 +2966,13 @@ BEHAVIOR RULES:
         submitTeamDecisionsByFacilitator,
         requestReopenTeamDecisions,
         updateTeamNegotiationByFacilitator,
-        updateTeamSupplierOverridesByFacilitator
+        updateTeamSupplierOverridesByFacilitator,
+        updateClassIsALP,
+        addClassEvent,
+        updateClassEvent,
+        deleteClassEvent,
+        upsertScenarioOverride,
+        clearScenarioOverride
     }}>
       {children}
     </SimulationContext.Provider>

@@ -17,6 +17,8 @@ import FacilitatorClasses from './pages/facilitator/FacilitatorClasses';
 import ClassManagement from './pages/facilitator/ClassManagement';
 import DecisionTable from './pages/facilitator/DecisionTable';
 import GroupMarks from './pages/facilitator/GroupMarks';
+import ALPManager from './pages/facilitator/ALPManager';
+import ScenarioBriefing from './pages/ScenarioBriefing';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
 import GlobalClassManagement from './pages/admin/GlobalClassManagement';
@@ -102,6 +104,7 @@ const AppLayout: React.FC = () => {
           <Route path="/reports" element={<FinancialReports />} />
           <Route path="/market-reports" element={<MarketReports />} />
           <Route path="/survey" element={<Survey />} />
+          <Route path="/scenario" element={<ScenarioBriefing />} />
           
           {/* Facilitator Routes */}
           <Route path="/facilitator/classes" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><FacilitatorClasses /></ProtectedRoute>} />
@@ -109,6 +112,7 @@ const AppLayout: React.FC = () => {
           <Route path="/facilitator/class" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><ClassManagement /></ProtectedRoute>} />
           <Route path="/facilitator/decision-table" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><DecisionTable /></ProtectedRoute>} />
           <Route path="/facilitator/marks" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><GroupMarks /></ProtectedRoute>} />
+          <Route path="/facilitator/alp" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><ALPManager /></ProtectedRoute>} />
           
           {/* Admin Routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />

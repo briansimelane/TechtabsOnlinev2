@@ -21,7 +21,8 @@ import {
   X,
   ClipboardCheck,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  BookOpen
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 
@@ -192,6 +193,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && <span>Team Dynamics Survey</span>}
                 </NavLink>
               )}
+              {currentClass?.isActionLearningProject && (
+                <NavLink to="/scenario" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Scenario" : undefined}>
+                  <BookOpen size={iconSize} />
+                  {!isCollapsed && <span>Scenario</span>}
+                </NavLink>
+              )}
             </>
           )}
           
@@ -224,6 +231,10 @@ const Sidebar: React.FC<SidebarProps> = ({
               <NavLink to="/facilitator/marks" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Group Marks" : undefined}>
                 <Award size={iconSize} />
                 {!isCollapsed && <span>Group Marks</span>}
+              </NavLink>
+              <NavLink to="/facilitator/alp" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Action Learning Project" : undefined}>
+                <BookOpen size={iconSize} />
+                {!isCollapsed && <span>Action Learning Project</span>}
               </NavLink>
 
               {!isCollapsed && (

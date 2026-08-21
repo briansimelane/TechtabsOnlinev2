@@ -36,7 +36,7 @@ import { SurveyConfig, SurveyQuestion } from '../../types';
 import { formatNumber, formatPercent } from '../../utils/numberFormat';
 
 const ClassManagement: React.FC = () => {
-  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, reopenTeamDecisions, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
+  const { currentClassId, classes, updateClassNegotiationConfig, selectClass, injectMarketEvent, updateSurveyConfig, updateClassShowSurvey, updateClassShowMarketReportsYear1, updateClassIsALP, reopenTeamDecisions, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
   const [activeTab, setActiveTab] = useState<'students' | 'ai' | 'godmode' | 'survey' | 'teams'>('students');
   const [teamFilterTab, setTeamFilterTab] = useState<'active' | 'archived'>('active');
 
@@ -1195,23 +1195,6 @@ const ClassManagement: React.FC = () => {
                                <option value="simple_average">Simple Average (Avg. of all active Likert questions)</option>
                                <option value="weighted_average">Weighted Section Average (Applies section weights)</option>
                            </select>
-                       </div>
-                       <div>
-                           <label className="block text-sm font-bold text-slate-700 mb-1">Survey Visibility</label>
-                           <label className="flex items-center gap-3 bg-white p-2.5 border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors select-none font-medium">
-                               <input 
-                                   type="checkbox"
-                                   checked={currentClass.showSurvey || false}
-                                   onChange={async (e) => {
-                                       await updateClassShowSurvey(e.target.checked);
-                                   }}
-                                   className="rounded h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
-                               />
-                               <div>
-                                   <span className="text-sm font-bold text-slate-800">Show Survey to Delegates</span>
-                                   <p className="text-xs text-slate-400 mt-0.5">When checked, delegates will see and be able to take the survey (hidden by default).</p>
-                               </div>
-                           </label>
                        </div>
                        <div>
                            <label className="block text-sm font-bold text-slate-700 mb-1">Reports Visibility</label>

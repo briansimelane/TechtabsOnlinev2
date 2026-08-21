@@ -110,6 +110,36 @@ export interface MarketEvent {
   activePeriod: number;
 }
 
+// ── ALP: informational per-class event (NOT an engine MarketEvent) ──
+export interface ClassEvent {
+  id: string;            // `cevt_${Date.now()}`
+  title: string;
+  body: string;          // plain text / light markdown
+  period: number;        // period/year it applies to; 0 = applies to all periods
+  visibleToStudents: boolean;
+  pinned?: boolean;
+  createdAt: string;     // ISO
+  updatedAt?: string;    // ISO
+}
+
+// ── ALP: one selectable variant of a period's scenario ──
+export interface ScenarioVariant {
+  id: string;            // e.g. 'default', 'v2'
+  label: string;         // e.g. 'Standard', 'Revised (v2)'
+  title: string;
+  body: string;          // markdown / plain narrative text
+}
+
+// ── ALP: a facilitator's per-class override for one period's scenario ──
+export interface ClassScenarioOverride {
+  period: number;
+  activeVariantId?: string;  // which template variant is shown (falls back to first)
+  title?: string;            // full custom title (used only if body is set)
+  body?: string;             // full custom body — takes precedence over any variant
+  hidden?: boolean;          // hide the scenario from students for this period
+  updatedAt?: string;        // ISO
+}
+
 export interface SimulationClass {
   id: string;
   name: string;
@@ -130,6 +160,9 @@ export interface SimulationClass {
   marksConfig?: MarksConfig;
   isArchived?: boolean;
   archivedAt?: string;
+  isActionLearningProject?: boolean;
+  classEvents?: ClassEvent[];
+  scenarioOverrides?: Record<number, ClassScenarioOverride>;
 }
 
 
