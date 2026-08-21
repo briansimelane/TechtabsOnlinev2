@@ -329,7 +329,7 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                 {teams.map(t => {
                   const overrides = t.draftDecisions?.supplierOverrides;
                   const isSelected = t.id === selectedTeamId;
-                  const hasOverrides = overrides && Object.keys(overrides).length > 0;
+                  const hasOverrides = !!overrides && Object.values(overrides).some(val => val && typeof val === 'object' && Object.keys(val).length > 0);
 
                   return (
                     <button
