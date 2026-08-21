@@ -420,7 +420,19 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
     if (isDemoMode) {
       const updatedClasses = state.classes.map(c => {
         if (c.id === classId) {
-          const updatedTeams = c.teams.map(t => t.id === updatedTeam.id ? updatedTeam : t);
+          const existingTeam = c.teams.find(t => t.id === updatedTeam.id);
+          const existingOverrides = existingTeam?.draftDecisions?.supplierOverrides;
+          const mergedTeam = existingOverrides ? {
+            ...updatedTeam,
+            draftDecisions: {
+              ...(updatedTeam.draftDecisions || {} as TurnDecisions),
+              supplierOverrides: updatedTeam.draftDecisions?.supplierOverrides 
+                ? { ...existingOverrides, ...updatedTeam.draftDecisions.supplierOverrides }
+                : existingOverrides
+            }
+          } : updatedTeam;
+
+          const updatedTeams = c.teams.map(t => t.id === updatedTeam.id ? mergedTeam : t);
           return { ...c, teams: updatedTeams };
         }
         return c;
@@ -439,9 +451,21 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         const classSnap = await getDoc(classRef);
         if (classSnap.exists()) {
           const classData = classSnap.data() as SimulationClass;
-          const updatedTeams = (classData.teams || []).map(t => t.id === updatedTeam.id ? updatedTeam : t);
+          const existingTeamInClass = (classData.teams || []).find(t => t.id === updatedTeam.id);
+          const existingOverrides = existingTeamInClass?.draftDecisions?.supplierOverrides;
+          const mergedTeam = existingOverrides ? {
+            ...updatedTeam,
+            draftDecisions: {
+              ...(updatedTeam.draftDecisions || {} as TurnDecisions),
+              supplierOverrides: updatedTeam.draftDecisions?.supplierOverrides 
+                ? { ...existingOverrides, ...updatedTeam.draftDecisions.supplierOverrides }
+                : existingOverrides
+            }
+          } : updatedTeam;
+
+          const updatedTeams = (classData.teams || []).map(t => t.id === updatedTeam.id ? mergedTeam : t);
           if (!updatedTeams.find(t => t.id === updatedTeam.id)) {
-            updatedTeams.push(updatedTeam);
+            updatedTeams.push(mergedTeam);
           }
           const updatedClass = { ...classData, teams: updatedTeams };
           await saveClass(updatedClass);
@@ -454,7 +478,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
             return {
               ...prev,
               classes: updatedClasses,
-              currentTeam: prev.currentTeam.id === updatedTeam.id ? updatedTeam : prev.currentTeam
+              currentTeam: prev.currentTeam.id === updatedTeam.id ? mergedTeam : prev.currentTeam
             };
           });
         }
@@ -2339,11 +2363,7 @@ BEHAVIOR RULES:
                     const lastPeriod = team.currentPeriod - 1;
                     const kpis = team.history?.[lastPeriod]?.kpis || YEAR_0_RECORD.kpis;
                     
-                    const localPin = localStorage.getItem('techtabs_ceo_pin');
-                    const isCurrentCeo = localPin === team.ceoPin && team.ceoPin;
-                    const updatedDecisions = (!isCurrentCeo && team.draftDecisions) 
-                      ? team.draftDecisions 
-                      : INITIAL_DECISIONS;
+                    const updatedDecisions = team.draftDecisions || INITIAL_DECISIONS;
 
                     setState(prev => ({
                         ...prev,

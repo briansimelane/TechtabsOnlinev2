@@ -181,21 +181,21 @@ const Procurement: React.FC = () => {
 
   // Supplier Override & Negotiation Cost Helpers
   const getComponentCost = (pId: ProductId, supId: string) => {
-    const overrides = decisions.supplierOverrides;
+    const overrides = decisions.supplierOverrides || currentTeam?.draftDecisions?.supplierOverrides;
     const baseCost = overrides?.componentCosts?.[pId]?.[supId] ?? COMPONENT_COSTS[pId]?.[supId] ?? 400;
     const discount = overrides?.discounts?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedDiscount : 0);
     return Math.round(baseCost * (1 - discount));
   };
 
   const getFinishedGoodsCost = (pId: ProductId, supId: string) => {
-    const overrides = decisions.supplierOverrides;
+    const overrides = decisions.supplierOverrides || currentTeam?.draftDecisions?.supplierOverrides;
     const baseCost = overrides?.finishedGoodsCosts?.[pId]?.[supId] ?? FINISHED_GOODS_COSTS[pId]?.[supId] ?? 1200;
     const discount = overrides?.discounts?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedDiscount : 0);
     return Math.round(baseCost * (1 - discount));
   };
 
   const getSupplierMetric = (supId: string, metricKey: string) => {
-    const overrides = decisions.supplierOverrides;
+    const overrides = decisions.supplierOverrides || currentTeam?.draftDecisions?.supplierOverrides;
     if (metricKey === 'terms') {
       return overrides?.paymentTerms?.[supId] ?? (negotiation.status === 'AGREED' && negotiation.selectedSupplierId === supId ? negotiation.agreedPaymentTerms : SUPPLIER_METRICS[supId as keyof typeof SUPPLIER_METRICS]?.terms ?? 30);
     }

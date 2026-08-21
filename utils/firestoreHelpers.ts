@@ -129,10 +129,34 @@ export const listAdministrators = async (): Promise<Administrator[]> => {
 
 export const saveTeamState = async (classId: string, team: Team): Promise<void> => {
   const ref = doc(db, 'classes', classId, 'teams', team.id);
+  let teamToSave = team;
+
+  try {
+    const existingSnap = await getDoc(ref);
+    if (existingSnap.exists()) {
+      const existingData = existingSnap.data() as Team;
+      const existingOverrides = existingData?.draftDecisions?.supplierOverrides;
+      if (existingOverrides) {
+        const currentOverrides = team.draftDecisions?.supplierOverrides;
+        teamToSave = {
+          ...team,
+          draftDecisions: {
+            ...team.draftDecisions,
+            supplierOverrides: currentOverrides 
+              ? { ...existingOverrides, ...currentOverrides }
+              : existingOverrides
+          }
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("Could not fetch existing team doc during saveTeamState safeguard", err);
+  }
+
   await setDoc(
     ref,
     {
-      ...team,
+      ...teamToSave,
       updatedAt: serverTimestamp()
     },
     { merge: true }
