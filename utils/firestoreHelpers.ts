@@ -129,7 +129,11 @@ export const listAdministrators = async (): Promise<Administrator[]> => {
 
 export const saveTeamState = async (classId: string, team: Team): Promise<void> => {
   const ref = doc(db, 'classes', classId, 'teams', team.id);
-  let teamToSave = team;
+  const nowIso = new Date().toISOString();
+  let teamToSave: Team = {
+    ...team,
+    updatedAt: nowIso
+  };
 
   try {
     const existingSnap = await getDoc(ref);
@@ -139,7 +143,7 @@ export const saveTeamState = async (classId: string, team: Team): Promise<void> 
       if (existingOverrides) {
         const currentOverrides = team.draftDecisions?.supplierOverrides;
         teamToSave = {
-          ...team,
+          ...teamToSave,
           draftDecisions: {
             ...team.draftDecisions,
             supplierOverrides: currentOverrides 
@@ -157,7 +161,7 @@ export const saveTeamState = async (classId: string, team: Team): Promise<void> 
     ref,
     {
       ...teamToSave,
-      updatedAt: serverTimestamp()
+      updatedAt: nowIso
     },
     { merge: true }
   );

@@ -730,14 +730,28 @@ const FacilitatorDashboard: React.FC = () => {
                             const teamCode = currentClass.teamCodes?.[team.id] || 'N/A';
                             
                             const formatLastActive = (t: Team) => {
-                                if (!t.updatedAt) return 'Never';
-                                try {
-                                    const date = (t.updatedAt as any).toDate ? (t.updatedAt as any).toDate() : new Date(t.updatedAt as any);
-                                    return date.toLocaleString();
-                                } catch (e) {
-                                    return 'Invalid Date';
-                                }
-                            };
+                                 if (!t.updatedAt) return 'Never';
+                                 try {
+                                     let date: Date;
+                                     if (t.updatedAt?.toDate && typeof t.updatedAt.toDate === 'function') {
+                                         date = t.updatedAt.toDate();
+                                     } else if (t.updatedAt?.seconds) {
+                                         date = new Date(t.updatedAt.seconds * 1000);
+                                     } else {
+                                         date = new Date(t.updatedAt);
+                                     }
+                                     if (isNaN(date.getTime())) return 'Never';
+
+                                     const now = new Date();
+                                     const isToday = date.toDateString() === now.toDateString();
+                                     if (isToday) {
+                                         return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+                                     }
+                                     return date.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
+                                 } catch (e) {
+                                     return 'Never';
+                                 }
+                             };
 
                             const handleReopenClick = async (teamId: string) => {
                                 if (confirm(`Are you sure you want to reopen decisions for ${team.name}? This will change their status back to InProgress and allow editing.`)) {

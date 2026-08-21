@@ -417,22 +417,29 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
   };
 
   const persistTeam = async (classId: string, updatedTeam: Team) => {
+    const nowIso = new Date().toISOString();
+    const teamWithTimestamp = {
+      ...updatedTeam,
+      updatedAt: updatedTeam.updatedAt || nowIso
+    };
+
     if (isDemoMode) {
       const updatedClasses = state.classes.map(c => {
         if (c.id === classId) {
-          const existingTeam = c.teams.find(t => t.id === updatedTeam.id);
+          const existingTeam = c.teams.find(t => t.id === teamWithTimestamp.id);
           const existingOverrides = existingTeam?.draftDecisions?.supplierOverrides;
-          const mergedTeam = existingOverrides ? {
-            ...updatedTeam,
+          const mergedTeam = {
+            ...teamWithTimestamp,
+            updatedAt: teamWithTimestamp.updatedAt || existingTeam?.updatedAt || nowIso,
             draftDecisions: {
-              ...(updatedTeam.draftDecisions || {} as TurnDecisions),
-              supplierOverrides: updatedTeam.draftDecisions?.supplierOverrides 
-                ? { ...existingOverrides, ...updatedTeam.draftDecisions.supplierOverrides }
+              ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
+              supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
+                ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
                 : existingOverrides
             }
-          } : updatedTeam;
+          };
 
-          const updatedTeams = c.teams.map(t => t.id === updatedTeam.id ? mergedTeam : t);
+          const updatedTeams = c.teams.map(t => t.id === teamWithTimestamp.id ? mergedTeam : t);
           return { ...c, teams: updatedTeams };
         }
         return c;
@@ -441,30 +448,31 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       setState(prev => ({
         ...prev,
         classes: updatedClasses,
-        currentTeam: prev.currentTeam.id === updatedTeam.id ? updatedTeam : prev.currentTeam
+        currentTeam: prev.currentTeam.id === teamWithTimestamp.id ? teamWithTimestamp : prev.currentTeam
       }));
     } else {
-      await saveTeamState(classId, updatedTeam);
+      await saveTeamState(classId, teamWithTimestamp);
       try {
         const db = getAppDb();
         const classRef = doc(db, 'classes', classId);
         const classSnap = await getDoc(classRef);
         if (classSnap.exists()) {
           const classData = classSnap.data() as SimulationClass;
-          const existingTeamInClass = (classData.teams || []).find(t => t.id === updatedTeam.id);
+          const existingTeamInClass = (classData.teams || []).find(t => t.id === teamWithTimestamp.id);
           const existingOverrides = existingTeamInClass?.draftDecisions?.supplierOverrides;
-          const mergedTeam = existingOverrides ? {
-            ...updatedTeam,
+          const mergedTeam = {
+            ...teamWithTimestamp,
+            updatedAt: teamWithTimestamp.updatedAt || existingTeamInClass?.updatedAt || nowIso,
             draftDecisions: {
-              ...(updatedTeam.draftDecisions || {} as TurnDecisions),
-              supplierOverrides: updatedTeam.draftDecisions?.supplierOverrides 
-                ? { ...existingOverrides, ...updatedTeam.draftDecisions.supplierOverrides }
+              ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
+              supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
+                ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
                 : existingOverrides
             }
-          } : updatedTeam;
+          };
 
-          const updatedTeams = (classData.teams || []).map(t => t.id === updatedTeam.id ? mergedTeam : t);
-          if (!updatedTeams.find(t => t.id === updatedTeam.id)) {
+          const updatedTeams = (classData.teams || []).map(t => t.id === teamWithTimestamp.id ? mergedTeam : t);
+          if (!updatedTeams.find(t => t.id === teamWithTimestamp.id)) {
             updatedTeams.push(mergedTeam);
           }
           const updatedClass = { ...classData, teams: updatedTeams };
@@ -478,7 +486,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
             return {
               ...prev,
               classes: updatedClasses,
-              currentTeam: prev.currentTeam.id === updatedTeam.id ? mergedTeam : prev.currentTeam
+              currentTeam: prev.currentTeam.id === teamWithTimestamp.id ? mergedTeam : prev.currentTeam
             };
           });
         }
