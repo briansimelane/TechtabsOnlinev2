@@ -21,6 +21,7 @@ interface ExportDataParams {
     product: string;
     data: { criteria: string; rating: number | null; scores: string[]; bold?: boolean; bg?: string }[];
     decisionsRef?: { label: string; values: string[] }[];
+    inventoryReport?: { label: string; values: string[]; bold?: boolean; bg?: string }[];
   }[] | null;
 }
 
@@ -90,7 +91,7 @@ export const exportReportCSV = (
   if (type === 'all' || type === 'market') {
     if (marketData) {
       marketData.forEach(p => {
-        csvContent += `=== MARKET DATA - ${p.product.toUpperCase()} (SCORES) ===\n`;
+        csvContent += `=== MARKET DATA - ${p.product.toUpperCase()} (SCORES & MARKET SHARE) ===\n`;
         csvContent += headers.map(h => `"${h}"`).join(',') + '\n';
         p.data.forEach(r => {
           const line = [`"${cleanValue(r.criteria)}"`, ...r.scores.map(s => `"${cleanValue(s)}"`)];
@@ -98,8 +99,12 @@ export const exportReportCSV = (
         });
         csvContent += '\n';
 
-        if (p.decisionsRef) {
+        if (p.decisionsRef && p.decisionsRef.length > 0) {
           appendTable(`Market Data - ${p.product} Decisions Reference`, p.decisionsRef);
+        }
+
+        if (p.inventoryReport && p.inventoryReport.length > 0) {
+          appendTable(`Market Data - ${p.product} Inventory Report`, p.inventoryReport);
         }
       });
     }
@@ -156,13 +161,37 @@ export const exportReportPDF = (
 
   let isFirstSection = true;
 
-  const appendPDFTable = (sectionTitle: string, rows: { label: string; values: string[]; bold?: boolean }[]) => {
-    if (!isFirstSection) {
+  const appendPDFTable = (
+    sectionTitle: string,
+    rows: { label: string; values: string[]; bold?: boolean }[],
+    options?: { samePage?: boolean; subTitle?: string }
+  ) => {
+    let startY = 28;
+    if (!isFirstSection && !options?.samePage) {
       doc.addPage();
+      addPDFHeader(doc, sectionTitle);
+    } else if (isFirstSection) {
+      isFirstSection = false;
+      addPDFHeader(doc, sectionTitle);
+    } else if (options?.samePage) {
+      const lastY = (doc as any).lastAutoTable?.finalY || 28;
+      const estimatedTableHeight = (rows.length + 1) * 7 + 10;
+      if (lastY + estimatedTableHeight > 195) {
+        doc.addPage();
+        addPDFHeader(doc, sectionTitle);
+        startY = 28;
+      } else {
+        startY = lastY + 6;
+      }
     }
-    isFirstSection = false;
 
-    addPDFHeader(doc, sectionTitle);
+    if (options?.subTitle) {
+      doc.setFontSize(9.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(options.subTitle, 14, startY);
+      startY += 5;
+    }
 
     const tableBody = rows.map(r => [
       cleanValue(r.label),
@@ -170,7 +199,7 @@ export const exportReportPDF = (
     ]);
 
     autoTable(doc, {
-      startY: 28,
+      startY: startY,
       head: [headers],
       body: tableBody,
       theme: 'grid',
@@ -241,10 +270,20 @@ export const exportReportPDF = (
           values: r.scores,
           bold: r.bold
         }));
-        appendPDFTable(`Market Data — ${p.product}`, rows);
+        appendPDFTable(`Market Data — ${p.product}`, rows, { subTitle: `${p.product} : Market Share Calculation & Criteria Scores` });
 
         if (p.decisionsRef && p.decisionsRef.length > 0) {
-          appendPDFTable(`Market Data — ${p.product} (Decisions Reference)`, p.decisionsRef);
+          appendPDFTable(`Market Data — ${p.product}`, p.decisionsRef, {
+            samePage: true,
+            subTitle: `${p.product} : Decisions Reference (Decisions Driving Market Data)`
+          });
+        }
+
+        if (p.inventoryReport && p.inventoryReport.length > 0) {
+          appendPDFTable(`Market Data — ${p.product}`, p.inventoryReport, {
+            samePage: true,
+            subTitle: `${p.product} : Inventory Report (Plan, Demand, Available, Sold)`
+          });
         }
       });
     }

@@ -9,8 +9,10 @@ interface PdfOptions {
   includeQualityAppendix?: boolean;
 }
 
+const sanitizeFilename = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '_').trim();
+
 export function getTeamPdfFilename(classObj: SimulationClass, teamResult: TeamMarksResult): string {
-  const cleanClassName = classObj.name.replace(/[/\\?%*:|"<>]/g, '').trim();
+  const cleanClassName = sanitizeFilename(classObj.name);
   return `T${teamResult.groupNumber} ${cleanClassName} Results.pdf`;
 }
 

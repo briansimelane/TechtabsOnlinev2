@@ -268,36 +268,111 @@ const MarketReports: React.FC = () => {
         bg: shareColor
       };
 
-      const decisionsRefRows = [
+      const decisionsRef = [
         {
-          criteria: 'Price (R)',
-          rating: null as number | null,
-          scores: realTeams.map((t) => {
+          label: 'Price (R)',
+          values: realTeams.map((t) => {
             const dec = getDecisionsForTeamPeriod(t, reportPeriod);
             return formatCurrency(dec.marketing?.prices?.[pId] ?? 0, 0);
           })
         },
         {
-          criteria: 'Debtor Days (Payment Terms)',
-          rating: null as number | null,
-          scores: realTeams.map((t) => {
+          label: 'Payment Terms (Debtor Days)',
+          values: realTeams.map((t) => {
             const dec = getDecisionsForTeamPeriod(t, reportPeriod);
             return `${dec.finance?.debtorsDays?.[pId] ?? 0} days`;
           })
         },
         {
-          criteria: 'Product Features (Count)',
-          rating: null as number | null,
-          scores: realTeams.map((t) => {
+          label: 'Availability: Factory Capacity',
+          values: realTeams.map((t) => {
+            return formatNumber(getTeamCapacityForPeriod(t, reportPeriod), 0);
+          })
+        },
+        {
+          label: 'Stores (Opening + Decisions)',
+          values: realTeams.map((t) => {
+            return formatNumber(getTeamStoreCountForPeriod(t, reportPeriod), 0);
+          })
+        },
+        {
+          label: 'Agent Commission (%)',
+          values: realTeams.map((t) => {
             const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return formatPercent(dec.marketing?.agentCommission ?? 0, 2, true);
+          })
+        },
+        {
+          label: 'Customer Service Headcount',
+          values: realTeams.map((t) => {
+            return formatNumber(getTeamCSHeadcountForPeriod(t, reportPeriod), 0);
+          })
+        },
+        {
+          label: 'Product Features (Count)',
+          values: realTeams.map((t) => {
             return formatNumber(getTeamFeaturesForPeriod(t, reportPeriod, pId), 0);
+          })
+        },
+        {
+          label: 'Company Advertising (R)',
+          values: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.generalAdSplit ?? 0), 0);
+          })
+        },
+        {
+          label: 'Product Advertising (R)',
+          values: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            return formatCurrency((dec.marketing?.advertisingBudget ?? 0) * (dec.marketing?.adSplits?.[pId] ?? 0), 0);
           })
         }
       ];
-      
+
+      const mktDemand = getMarketSize(pId, reportPeriod);
+      const inventoryReport = [
+        {
+          label: 'Plan (Demand Forecasted)',
+          values: realTeams.map((t) => {
+            const dec = getDecisionsForTeamPeriod(t, reportPeriod);
+            const sharePct = dec.marketing?.forecastedMarketShare?.[pId] ?? 0;
+            const fcUnits = Math.round((sharePct / 100) * mktDemand);
+            return formatNumber(fcUnits, 0);
+          })
+        },
+        {
+          label: 'Demand (Earned)',
+          values: realTeams.map((_, tIdx) => {
+            const earned = Math.round(result.demandUnitsByTeam[tIdx] || 0);
+            return formatNumber(earned, 0);
+          }),
+          bold: true,
+          bg: 'bg-blue-50/50'
+        },
+        {
+          label: 'Available Units (Stock)',
+          values: realTeams.map((_, tIdx) => {
+            const avail = Math.round(result.availableByTeam[tIdx] || 0);
+            return formatNumber(avail, 0);
+          })
+        },
+        {
+          label: 'Actual Units Sold',
+          values: realTeams.map((_, tIdx) => {
+            const sold = Math.round(result.unitsSoldByTeam[tIdx] || 0);
+            return formatNumber(sold, 0);
+          }),
+          bold: true,
+          bg: 'bg-emerald-50/60'
+        }
+      ];
+
       return {
         product: pName,
-        data: [...decisionsRefRows, ...criteriaRows, totalScoresRow, shareRow]
+        data: [...criteriaRows, totalScoresRow, shareRow],
+        decisionsRef,
+        inventoryReport
       };
     });
   }, [currentClass, realTeams, reportPeriod]);
@@ -1530,283 +1605,106 @@ const MarketReports: React.FC = () => {
                                       ))}
                                   </tbody>
                               </table>
-                              
-                              {/* Decisions Snapshot Section */}
-                              <div className="bg-slate-50 p-4 border-t border-slate-200">
-                                  <h4 className="font-bold text-slate-700 text-xs uppercase mb-3">{productData.product} : Decisions Reference</h4>
-                                  <div className="grid grid-cols-1 overflow-x-auto">
-                                       <table className="w-full text-xs table-fixed">
-                                           <colgroup>
-                                                <col className="w-68" />
-                                                {activeTeams.map((_, i) => (
-                                                    <col key={i} style={{ width: `${(100 - 30) / Math.max(1, activeTeams.length)}%` }} />
-                                                ))}
-                                            </colgroup>
-                                           <tbody>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600 w-68">Price</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Price', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Payment Terms</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Payment Terms', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Availability: Factory Capacity</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Availability', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Stores (Opening + Decisions)</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Stores', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                                <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Agents</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Agents', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">CS Headcount</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'CS Headcount', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Cumulative Features</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Cumulative Features', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                                <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Company Advertising</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Company Advertising', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                               <tr className="border-b border-slate-200">
-                                                   <td className="py-1 px-4 font-semibold text-slate-600">Product Advertising</td>
-                                                   {activeTeams.map((_, i) => (
-                                                       <td key={i} className="py-1 px-2 text-center font-mono">
-                                                           {getDecisionRefValue(productData.product, 'Product Advertising', i)}
-                                                       </td>
-                                                   ))}
-                                               </tr>
-                                           </tbody>
-                                       </table>
-                                  </div>
-                              </div>
-
-                               {/* Demand & Inventory Units Breakdown Section */}
-                               <div className="bg-white p-4 border-t border-slate-200">
-                                   <h4 className="font-bold text-slate-800 text-xs uppercase mb-3 flex items-center gap-1.5">
-                                       <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                                       {productData.product} : Demand & Inventory Units Breakdown
-                                   </h4>
+                                                {/* Decisions Snapshot Section */}
+                               <div className="bg-slate-50 p-4 border-t border-slate-200">
+                                   <h4 className="font-bold text-slate-700 text-xs uppercase mb-3">{productData.product} : Decisions Reference</h4>
                                    <div className="grid grid-cols-1 overflow-x-auto">
                                         <table className="w-full text-xs table-fixed">
                                             <colgroup>
-                                                <col className="w-68" />
-                                                {activeTeams.map((_, i) => (
-                                                    <col key={i} style={{ width: `${(100 - 30) / Math.max(1, activeTeams.length)}%` }} />
-                                                ))}
-                                            </colgroup>
+                                                 <col className="w-68" />
+                                                 {activeTeams.map((_, i) => (
+                                                     <col key={i} style={{ width: `${(100 - 30) / Math.max(1, activeTeams.length)}%` }} />
+                                                 ))}
+                                             </colgroup>
                                             <tbody>
-                                                <tr className="border-b border-slate-100 hover:bg-slate-50">
-                                                    <td className="py-2 px-4 font-semibold text-slate-700">Demand Forecasted (Units)</td>
-                                                    {activeTeams.map((_, i) => {
-                                                        const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const dec = realTeams[i] ? getDecisionsForTeamPeriod(realTeams[i], reportPeriod) : INITIAL_DECISIONS;
-                                                        const sharePct = dec.marketing?.forecastedMarketShare?.[pId] ?? 0;
-                                                        const mktDemand = getMarketSize(pId, reportPeriod);
-                                                        const fcUnits = Math.round((sharePct / 100) * mktDemand);
-                                                        return (
-                                                            <td key={i} className="py-2 px-2 text-center font-mono font-medium text-slate-600 whitespace-nowrap">
-                                                                {formatNumber(fcUnits, 0)}
+                                                {productData.decisionsRef?.map((decRow, dIdx) => (
+                                                    <tr key={dIdx} className="border-b border-slate-200">
+                                                        <td className="py-1 px-4 font-semibold text-slate-600 w-68">{decRow.label}</td>
+                                                        {decRow.values.map((val, i) => (
+                                                            <td key={i} className="py-1 px-2 text-center font-mono">
+                                                                {val}
                                                             </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                                <tr className="border-b border-slate-100 bg-blue-50/50 hover:bg-blue-100/50">
-                                                    <td className="py-2 px-4 font-bold text-blue-900">Demand Earned (Units)</td>
-                                                    {activeTeams.map((_, i) => {
-                                                        const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
-                                                        const earned = res ? Math.round(res.demandUnitsByTeam[i] || 0) : 0;
-                                                        return (
-                                                            <td key={i} className="py-2 px-2 text-center font-mono font-bold text-blue-900 whitespace-nowrap">
-                                                                {formatNumber(earned, 0)}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                                <tr className="border-b border-slate-100 hover:bg-slate-50">
-                                                    <td className="py-2 px-4 font-semibold text-slate-700">Available Units (Stock)</td>
-                                                    {activeTeams.map((_, i) => {
-                                                        const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
-                                                        const avail = res ? Math.round(res.availableByTeam[i] || 0) : 0;
-                                                        return (
-                                                            <td key={i} className="py-2 px-2 text-center font-mono font-medium text-slate-600 whitespace-nowrap">
-                                                                {formatNumber(avail, 0)}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                                <tr className="border-b border-slate-100 bg-emerald-50/60 hover:bg-emerald-100/60">
-                                                    <td className="py-2 px-4 font-bold text-emerald-900">Actual Units Sold</td>
-                                                    {activeTeams.map((_, i) => {
-                                                        const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                                        const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
-                                                        const sold = res ? Math.round(res.unitsSoldByTeam[i] || 0) : 0;
-                                                        return (
-                                                            <td key={i} className="py-2 px-2 text-center font-mono font-bold text-emerald-900 whitespace-nowrap">
-                                                                {formatNumber(sold, 0)}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
+                                                        ))}
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                    </div>
                                </div>
-                           </div>
- 
-                           {/* Mobile View */}
-                           <div className="block lg:hidden">
-                               <div className="divide-y divide-slate-100 p-4 space-y-4">
-                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 divide-y divide-slate-100">
-                                       {productData.data.map((row, idx) => (
-                                           <div key={idx} className={`flex justify-between items-center py-2 px-2 text-xs rounded ${row.bg || ''} ${row.bold ? 'font-bold bg-slate-100/50' : ''}`}>
-                                               <div>
-                                                   <span className="text-slate-800 font-medium block">{row.criteria}</span>
-                                                   {row.rating !== null && <span className="text-[10px] text-slate-400">Rating Weight: {row.rating}</span>}
-                                               </div>
-                                               <span className="font-mono text-slate-800">{row.scores[selectedMobileTeam]}</span>
-                                           </div>
-                                       ))}
-                                   </div>
- 
-                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                                       <h4 className="font-bold text-slate-700 text-xs uppercase mb-2">{productData.product} : Decisions Reference</h4>
-                                       <div className="space-y-1.5 text-xs">
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Price</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Price', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Payment Terms</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Payment Terms', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Availability: Factory Capacity</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Availability', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Stores (Opening + Decisions)</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Stores', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Agents</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Agents', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">CS Headcount</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'CS Headcount', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Cumulative Features</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Cumulative Features', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1 border-b border-slate-200/60">
-                                                <span className="text-slate-500">Company Advertising</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Company Advertising', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between py-1">
-                                                <span className="text-slate-500">Product Advertising</span>
-                                                <span className="font-mono font-semibold">
-                                                    {getDecisionRefValue(productData.product, 'Product Advertising', selectedMobileTeam)}
-                                                </span>
-                                            </div>
-                                       </div>
-                                   </div>
 
-                                   <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs">
-                                        <h4 className="font-bold text-slate-800 text-xs uppercase mb-2 flex items-center gap-1.5">
-                                            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-                                            {productData.product} : Demand & Units Breakdown
-                                        </h4>
-                                        {(() => {
-                                            const pId = productData.product.toLowerCase() === 'techbook' ? 'techbook' : (productData.product.toLowerCase() === 'zroid' ? 'zroid' : 'itab');
-                                            const res = computeMarketShareBackModel(realTeams, reportPeriod).find(r => r.productId === pId);
-                                            const dec = realTeams[selectedMobileTeam] ? getDecisionsForTeamPeriod(realTeams[selectedMobileTeam], reportPeriod) : INITIAL_DECISIONS;
-                                            const sharePct = dec.marketing?.forecastedMarketShare?.[pId] ?? 0;
-                                            const mktDemand = getMarketSize(pId, reportPeriod);
-                                            const fcUnits = Math.round((sharePct / 100) * mktDemand);
-                                            const earned = res ? Math.round(res.demandUnitsByTeam[selectedMobileTeam] || 0) : 0;
-                                            const avail = res ? Math.round(res.availableByTeam[selectedMobileTeam] || 0) : 0;
-                                            const sold = res ? Math.round(res.unitsSoldByTeam[selectedMobileTeam] || 0) : 0;
+                                {/* Demand & Inventory Units Breakdown Section */}
+                                <div className="bg-white p-4 border-t border-slate-200">
+                                    <h4 className="font-bold text-slate-800 text-xs uppercase mb-3 flex items-center gap-1.5">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                        {productData.product} : Demand & Inventory Units Breakdown (Plan, Demand, Available, Sold)
+                                    </h4>
+                                    <div className="grid grid-cols-1 overflow-x-auto">
+                                         <table className="w-full text-xs table-fixed">
+                                             <colgroup>
+                                                 <col className="w-68" />
+                                                 {activeTeams.map((_, i) => (
+                                                     <col key={i} style={{ width: `${(100 - 30) / Math.max(1, activeTeams.length)}%` }} />
+                                                 ))}
+                                             </colgroup>
+                                             <tbody>
+                                                 {productData.inventoryReport?.map((invRow, iIdx) => (
+                                                     <tr key={iIdx} className={`border-b border-slate-100 ${invRow.bg || 'hover:bg-slate-50'}`}>
+                                                         <td className={`py-2 px-4 ${invRow.bold ? 'font-bold text-slate-900' : 'font-semibold text-slate-700'}`}>
+                                                             {invRow.label}
+                                                         </td>
+                                                         {invRow.values.map((val, i) => (
+                                                             <td key={i} className={`py-2 px-2 text-center font-mono whitespace-nowrap ${invRow.bold ? 'font-bold' : 'font-medium text-slate-600'}`}>
+                                                                 {val}
+                                                             </td>
+                                                         ))}
+                                                     </tr>
+                                                 ))}
+                                             </tbody>
+                                         </table>
+                                    </div>
+                                </div>
+                            </div>
 
-                                            return (
-                                                <>
-                                                    <div className="flex justify-between py-1 border-b border-slate-100">
-                                                        <span className="text-slate-600">Demand Forecasted</span>
-                                                        <span className="font-mono font-medium text-slate-700">{formatNumber(fcUnits, 0)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between py-1 border-b border-slate-100 bg-blue-50/50 px-1 rounded">
-                                                        <span className="font-bold text-blue-900">Demand Earned</span>
-                                                        <span className="font-mono font-bold text-blue-900">{formatNumber(earned, 0)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between py-1 border-b border-slate-100">
-                                                        <span className="text-slate-600">Available Units (Stock)</span>
-                                                        <span className="font-mono font-medium text-slate-700">{formatNumber(avail, 0)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between py-1 bg-emerald-50/60 px-1 rounded">
-                                                        <span className="font-bold text-emerald-900">Actual Units Sold</span>
-                                                        <span className="font-mono font-bold text-emerald-900">{formatNumber(sold, 0)}</span>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
+                            {/* Mobile View */}
+                            <div className="block lg:hidden">
+                                <div className="divide-y divide-slate-100 p-4 space-y-4">
+                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 divide-y divide-slate-100">
+                                        {productData.data.map((row, idx) => (
+                                            <div key={idx} className={`flex justify-between items-center py-2 px-2 text-xs rounded ${row.bg || ''} ${row.bold ? 'font-bold bg-slate-100/50' : ''}`}>
+                                                <div>
+                                                    <span className="text-slate-800 font-medium block">{row.criteria}</span>
+                                                    {row.rating !== null && <span className="text-[10px] text-slate-400">Rating Weight: {row.rating}</span>}
+                                                </div>
+                                                <span className="font-mono text-slate-800">{row.scores[selectedMobileTeam]}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                                        <h4 className="font-bold text-slate-700 text-xs uppercase mb-2">{productData.product} : Decisions Reference</h4>
+                                        <div className="space-y-1.5 text-xs">
+                                            {productData.decisionsRef?.map((decRow, dIdx) => (
+                                                <div key={dIdx} className="flex justify-between py-1 border-b border-slate-200/60 last:border-0">
+                                                    <span className="text-slate-500">{decRow.label}</span>
+                                                    <span className="font-mono font-semibold">{decRow.values[selectedMobileTeam]}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1.5 text-xs">
+                                         <h4 className="font-bold text-slate-800 text-xs uppercase mb-2 flex items-center gap-1.5">
+                                             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                                             {productData.product} : Demand & Inventory Units Breakdown
+                                         </h4>
+                                         {productData.inventoryReport?.map((invRow, iIdx) => (
+                                             <div key={iIdx} className={`flex justify-between py-1 ${invRow.bg ? invRow.bg + ' px-1 rounded' : 'border-b border-slate-100 last:border-0'}`}>
+                                                 <span className={invRow.bold ? 'font-bold text-slate-900' : 'text-slate-600'}>{invRow.label}</span>
+                                                 <span className={`font-mono ${invRow.bold ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                                                     {invRow.values[selectedMobileTeam]}
+                                                 </span>
+                                             </div>
+                                         ))}
                                     </div>
                                 </div>
                             </div>
