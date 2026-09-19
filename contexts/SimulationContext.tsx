@@ -505,7 +505,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         console.error("Failed to auto-save draft decisions", err);
       }
     }, 1000);
-  }, [isDemoMode, state.classes]);
+  }, [isDemoMode]);
 
   const claimCeoSlot = async (name: string, pin: string): Promise<boolean> => {
     if (!state.currentClassId || !state.currentTeam.id) return false;
@@ -516,10 +516,13 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
        return false;
     }
 
+    const initialDraft = state.currentTeam.draftDecisions || state.decisions || INITIAL_DECISIONS;
+
     const updatedTeam: Team = {
       ...state.currentTeam,
       ceoName: name,
-      ceoPin: pin
+      ceoPin: pin,
+      draftDecisions: initialDraft
     };
 
     localStorage.setItem('techtabs_ceo_pin', pin);
@@ -533,7 +536,22 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
     if (state.currentTeam.ceoPin === pin) {
       localStorage.setItem('techtabs_ceo_pin', pin);
       localStorage.setItem('techtabs_ceo_name', state.currentTeam.ceoName || '');
-      setState(prev => ({ ...prev }));
+      
+      const initialDraft = state.currentTeam.draftDecisions || state.decisions || INITIAL_DECISIONS;
+      const updatedTeam: Team = {
+        ...state.currentTeam,
+        draftDecisions: initialDraft
+      };
+      
+      if (state.currentClassId) {
+        await persistTeam(state.currentClassId, updatedTeam);
+      }
+
+      setState(prev => ({
+        ...prev,
+        currentTeam: updatedTeam,
+        decisions: initialDraft
+      }));
       return true;
     }
     return false;
@@ -900,15 +918,18 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       const localPin = localStorage.getItem('techtabs_ceo_pin');
       const isCurrentCeo = isDemoMode || (localPin === prev.currentTeam.ceoPin && prev.currentTeam.ceoPin);
 
+      const updatedTeam = {
+        ...prev.currentTeam,
+        draftDecisions: updatedDecisions
+      };
+
       if (isCurrentCeo || prev.currentRole !== 'STUDENT') {
-         debouncedSaveDraft(prev.currentClassId, {
-            ...prev.currentTeam,
-            draftDecisions: updatedDecisions
-         });
+         debouncedSaveDraft(prev.currentClassId, updatedTeam);
       }
 
       return {
         ...prev,
+        currentTeam: isCurrentCeo ? updatedTeam : prev.currentTeam,
         decisions: updatedDecisions,
       };
     });
