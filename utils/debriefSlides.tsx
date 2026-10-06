@@ -18,6 +18,11 @@ import { CustomerSatisfactionSlide } from '../pages/debrief/slides/CustomerSatis
 import { EmployeeSatisfactionSlide } from '../pages/debrief/slides/EmployeeSatisfactionSlide';
 import { LeagueCurrentSlide } from '../pages/debrief/slides/LeagueCurrentSlide';
 import { LeagueOverallSlide } from '../pages/debrief/slides/LeagueOverallSlide';
+import { GMExposureSlide } from '../pages/debrief/slides/gm/GMExposureSlide';
+import { GMCostOfCertaintySlide } from '../pages/debrief/slides/gm/GMCostOfCertaintySlide';
+import { GMEconomicProfitSlide } from '../pages/debrief/slides/gm/GMEconomicProfitSlide';
+import { GMCovenantsSlide } from '../pages/debrief/slides/gm/GMCovenantsSlide';
+import { GMPlanVsActualSlide } from '../pages/debrief/slides/gm/GMPlanVsActualSlide';
 
 export interface SlideDefinition {
   id: string;
@@ -162,6 +167,53 @@ export function compileDebriefSlides(dataset: DebriefDataset): SlideDefinition[]
     maxRevealSteps: 1,
     render: (p) => <EmployeeSatisfactionSlide {...p} />
   });
+
+  // Global Markets Edition Debrief Slides (§11)
+  const isGlobalMarkets = dataset.editionId === 'global-markets' || dataset.teams.some(t => t.record?.gm != null);
+
+  if (isGlobalMarkets) {
+    slides.push({
+      id: 'section-global-markets',
+      title: 'Global Markets & Treasury',
+      maxRevealSteps: 0,
+      render: () => <SectionSlide sectionTitle="Treasury & Global Markets" subtitle="Currency Risk, Economic Profit & Capital Structure" />
+    });
+
+    slides.push({
+      id: 'gm-exposure',
+      title: 'Net Open Position by Team',
+      maxRevealSteps: 1,
+      render: (p) => <GMExposureSlide {...p} />
+    });
+
+    slides.push({
+      id: 'gm-cost-of-certainty',
+      title: 'The Cost of Certainty',
+      maxRevealSteps: 1,
+      render: (p) => <GMCostOfCertaintySlide {...p} />
+    });
+
+    slides.push({
+      id: 'gm-economic-profit',
+      title: 'Economic Profit by Market',
+      maxRevealSteps: 1,
+      render: (p) => <GMEconomicProfitSlide {...p} />
+    });
+
+    slides.push({
+      id: 'gm-covenants',
+      title: 'Covenant Headroom',
+      maxRevealSteps: 1,
+      render: (p) => <GMCovenantsSlide {...p} />
+    });
+
+    slides.push({
+      id: 'gm-plan-vs-actual',
+      title: 'Delivery Against Plan',
+      maxRevealSteps: 1,
+      render: (p) => <GMPlanVsActualSlide {...p} />
+    });
+  }
 
   // 26. League Table Section
   slides.push({

@@ -300,7 +300,16 @@ const ClassManagement: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Class Management</h1>
-          <p className="text-slate-500 mt-1">{currentClass.name}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-slate-500">{currentClass.name}</p>
+            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+              currentClass.editionId === 'global-markets' 
+                ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              Edition: {currentClass.editionId === 'global-markets' ? 'Global Markets' : 'Standard'}
+            </span>
+          </div>
         </div>
         <button 
            onClick={() => {

@@ -1,0 +1,140 @@
+{
+  "id": "global-markets",
+  "label": "Global Markets Edition",
+  "flags": {
+    "multiMarket": true,
+    "treasury": true,
+    "covenants": true,
+    "marketDesk": true,
+    "valueScorecard": true
+  },
+  "baseCurrency": "ZAR",
+  "markets": [
+    {
+      "id": "za",
+      "name": "South Africa",
+      "currency": "ZAR",
+      "isHome": true,
+      "demandSource": "schedule",
+      "priceIndex": 1.00,
+      "debtorDaysDefault": 45,
+      "entryCost": 0,
+      "channelOptions": ["OWN"],
+      "countryRiskPremium": 0.000,
+      "repatriationPct": 1.00
+    },
+    {
+      "id": "ng",
+      "name": "Nigeria",
+      "currency": "NGN",
+      "demandUnits": {
+        "techbook": 70000,
+        "zroid": 95000,
+        "itab": 45000
+      },
+      "demandCagr": 0.25,
+      "priceIndex": 0.85,
+      "debtorDaysDefault": 75,
+      "entryCost": 12500000,
+      "distributorEntryCost": 5000000,
+      "channelOptions": ["OWN", "DISTRIBUTOR"],
+      "distributorMargin": 0.15,
+      "importDuty": 0.20,
+      "countryRiskPremium": 0.065,
+      "repatriationPct": 0.60,
+      "repatriationLagPeriods": 1,
+      "maxHedgeTenor": 12
+    },
+    {
+      "id": "ke",
+      "name": "Kenya",
+      "currency": "KES",
+      "demandUnits": {
+        "techbook": 32000,
+        "zroid": 43000,
+        "itab": 20000
+      },
+      "demandCagr": 0.12,
+      "priceIndex": 0.95,
+      "debtorDaysDefault": 40,
+      "entryCost": 7500000,
+      "distributorEntryCost": 3000000,
+      "channelOptions": ["OWN", "DISTRIBUTOR"],
+      "distributorMargin": 0.12,
+      "importDuty": 0.10,
+      "countryRiskPremium": 0.035,
+      "repatriationPct": 1.00,
+      "maxHedgeTenor": 6
+    }
+  ],
+  "currencies": {
+    "ZAR": {
+      "rate": 0.115
+    },
+    "USD": {
+      "spot": 18.50,
+      "rate": 0.045,
+      "path": [18.50, 19.10, 22.50]
+    },
+    "NGN": {
+      "spot": 0.01156,
+      "rate": 0.240,
+      "path": [0.01156, 0.01120, 0.00830]
+    },
+    "KES": {
+      "spot": 0.1435,
+      "rate": 0.140,
+      "path": [0.1435, 0.1405, 0.1330]
+    }
+  },
+  "suppliers": {
+    "Alpha": { "currency": "ZAR" },
+    "Neepo": { "currency": "ZAR" },
+    "Zen": { "currency": "USD" },
+    "Cheng": { "currency": "USD" }
+  },
+  "funding": {
+    "rates": {
+      "ZAR": 0.115,
+      "USD": 0.060,
+      "LOCAL_NG": 0.240,
+      "LOCAL_KE": 0.140
+    },
+    "fixedPremium": 0.010,
+    "floatingPath": [0.000, 0.040, -0.015],
+    "creditGrades": [
+      { "id": "A", "maxLeverage": 1.5, "maxPlanVariance": 0.10, "margin": 0.010 },
+      { "id": "B", "maxLeverage": 2.5, "maxPlanVariance": 0.25, "margin": 0.020 },
+      { "id": "C", "maxLeverage": 3.0, "maxPlanVariance": 0.50, "margin": 0.035 },
+      { "id": "D", "maxLeverage": 99,  "maxPlanVariance": 99,   "margin": 0.055 }
+    ]
+  },
+  "covenants": {
+    "netDebtToEbitda": { "max": 3.0 },
+    "interestCover":   { "min": 3.0 },
+    "breachPenaltyMargin": 0.025,
+    "breachBlocksDividends": true
+  },
+  "scorecard": {
+    "measures": ["economicProfit", "netProfitMargin", "cashConversion", "planDelivery"],
+    "weights": {
+      "economicProfit": 0.25,
+      "netProfitMargin": 0.25,
+      "cashConversion": 0.25,
+      "planDelivery": 0.25
+    },
+    "gates": {
+      "minCSAT": 0.71,
+      "minESAT": 0.71,
+      "noUncuredCovenantBreach": true,
+      "noExcessOverdraft": true
+    }
+  },
+  "events": {
+    "2": {
+      "title": "Naira devaluation and a higher-for-longer rand",
+      "body": "Global FX markets experienced heightened volatility this period. The Nigerian Central Bank transitioned to a unified exchange rate framework, precipitating a significant depreciation of the Naira against major currencies. In South Africa, core inflation stickiness has necessitated a higher-for-longer monetary policy stance, driving domestic borrowing costs up, while the US Dollar has maintained broad global strength across emerging market pairs.",
+      "reveal": "AFTER_DECISIONS"
+    }
+  }
+}

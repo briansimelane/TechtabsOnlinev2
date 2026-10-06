@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot } from 'firebase/firestore';
 import { getAppDb } from '../firebase';
-import { PeriodRecord, SimulationClass, Team } from '../types';
+import { PeriodRecord, SimulationClass, Team, EditionId } from '../types';
 import { ensurePeriodMarketRecord } from '../utils/debriefBackfill';
 import { processTurn } from '../utils/SimulationEngine';
 import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
 import { INITIAL_DECISIONS } from '../constants';
+import { getEdition } from '../utils/editions';
 
 export interface DebriefTeam {
   id: string;
@@ -24,6 +25,7 @@ export interface DebriefDataset {
   teams: DebriefTeam[];
   loading: boolean;
   error: string | null;
+  editionId?: string;
 }
 
 export function useDebriefData(classId: string | null, period: number): DebriefDataset {
@@ -49,6 +51,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
     let unsubTeams: (() => void) | null = null;
 
     let currentClassName = '';
+    let currentEditionId: EditionId | undefined = undefined;
     let rawTeams: Team[] = [];
 
     const loadFallbackTeams = (): Team[] => {
@@ -62,6 +65,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
               const found = parsed.find((c: any) => c.id === classId);
               if (found && found.teams && found.teams.length > 0) {
                 if (!currentClassName) currentClassName = found.name || '';
+                if (!currentEditionId) currentEditionId = found.editionId;
                 return found.teams;
               }
             }
@@ -121,9 +125,11 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const rawRec = t.history?.[period] || t.history?.[String(period)];
         const rawPriorRec = t.history?.[period - 1] || t.history?.[String(period - 1)];
 
+        const edition = currentEditionId ? getEdition({ editionId: currentEditionId }) : null;
+
         const record = rawRec 
           ? ensurePeriodMarketRecord(rawRec) 
-          : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, []).periodRecord);
+          : ensurePeriodMarketRecord(processTurn(t, t.draftDecisions || INITIAL_DECISIONS, [], edition).periodRecord);
 
         const prior = rawPriorRec ? ensurePeriodMarketRecord(rawPriorRec) : undefined;
         
@@ -132,18 +138,19 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const formattedName = t.name.startsWith(`(${teamNum})`) ? t.name : `(${teamNum}) ${t.name}`;
 
         let perf: TeamIndustryPerformance;
+        const effectiveRec = rawRec || record;
         const basePerf = rawRec?.industry || livePerfMap.get(t.id) || livePerfList[index];
 
-        if (rawRec) {
-          const totRev = rawRec.revenue?.total ?? basePerf?.totalRevenue ?? 0;
-          const revByProd = rawRec.revenue?.byProduct ?? basePerf?.revenueByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
-          const totCogs = rawRec.cogs?.total ?? basePerf?.totalCogs ?? 0;
-          const cogsByProd = rawRec.cogs?.byProduct ?? basePerf?.cogsByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
-          const gp = rawRec.grossProfit?.total ?? (totRev - totCogs);
+        if (effectiveRec) {
+          const totRev = effectiveRec.revenue?.total ?? basePerf?.totalRevenue ?? 0;
+          const revByProd = effectiveRec.revenue?.byProduct ?? basePerf?.revenueByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
+          const totCogs = effectiveRec.cogs?.total ?? basePerf?.totalCogs ?? 0;
+          const cogsByProd = effectiveRec.cogs?.byProduct ?? basePerf?.cogsByProduct ?? { techbook: 0, zroid: 0, itab: 0 };
+          const gp = effectiveRec.grossProfit?.total ?? (totRev - totCogs);
           const gpPct = totRev > 0 ? (gp / totRev) * 100 : 0;
-          const np = rawRec.netProfit ?? basePerf?.netProfit ?? 0;
+          const np = effectiveRec.netProfit ?? basePerf?.netProfit ?? 0;
           const npPct = totRev > 0 ? (np / totRev) * 100 : 0;
-          const eq = rawRec.balanceSheet?.equity ?? basePerf?.equity ?? 0;
+          const eq = effectiveRec.balanceSheet?.equity ?? basePerf?.equity ?? 0;
           const roeVal = eq > 0 ? (np / eq) * 100 : 0;
 
           perf = {
@@ -157,36 +164,36 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
             grossProfit: gp,
             gpMargin: gpPct,
             opex: basePerf?.opex || {
-              marketing: rawRec.opex?.marketing || 0,
-              store: rawRec.opex?.store || 0,
-              payroll: rawRec.opex?.payroll || 0,
-              rd: rawRec.opex?.rd || 0,
-              agents: rawRec.opex?.agents || 0,
-              training: rawRec.opex?.training || 0,
-              other: rawRec.opex?.other || 0,
-              total: rawRec.opex?.total || 0
+              marketing: effectiveRec.opex?.marketing || 0,
+              store: effectiveRec.opex?.store || 0,
+              payroll: effectiveRec.opex?.payroll || 0,
+              rd: effectiveRec.opex?.rd || 0,
+              agents: effectiveRec.opex?.agents || 0,
+              training: effectiveRec.opex?.training || 0,
+              other: effectiveRec.opex?.other || 0,
+              total: effectiveRec.opex?.total || 0
             },
-            ebitda: rawRec.operatingProfit ?? basePerf?.ebitda ?? (gp - (rawRec.opex?.total || 0)),
+            ebitda: effectiveRec.operatingProfit ?? basePerf?.ebitda ?? (gp - (effectiveRec.opex?.total || 0)),
             depreciation: basePerf?.depreciation || 0,
-            financeCharges: rawRec.interestExpense ?? basePerf?.financeCharges ?? 0,
-            ebt: rawRec.ebt ?? basePerf?.ebt ?? (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
-            taxation: rawRec.taxExpense ?? basePerf?.taxation ?? 0,
+            financeCharges: effectiveRec.interestExpense ?? basePerf?.financeCharges ?? 0,
+            ebt: effectiveRec.ebt ?? basePerf?.ebt ?? (gp - (effectiveRec.opex?.total || 0) - (effectiveRec.interestExpense || 0)),
+            taxation: effectiveRec.taxExpense ?? basePerf?.taxation ?? 0,
             netProfit: np,
             npMargin: npPct,
             equity: eq,
             roe: roeVal,
             units: basePerf?.units || {
-              techbook: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.techbook || 0, available: 0, actual: rawRec.market?.actualUnits?.techbook || 0 },
-              zroid: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.zroid || 0, available: 0, actual: rawRec.market?.actualUnits?.zroid || 0 },
-              itab: { marketSize: 0, forecast: 0, demand: rawRec.market?.demandUnits?.itab || 0, available: 0, actual: rawRec.market?.actualUnits?.itab || 0 }
+              techbook: { marketSize: 0, forecast: 0, demand: effectiveRec.market?.demandUnits?.techbook || 0, available: 0, actual: effectiveRec.market?.actualUnits?.techbook || 0 },
+              zroid: { marketSize: 0, forecast: 0, demand: effectiveRec.market?.demandUnits?.zroid || 0, available: 0, actual: effectiveRec.market?.actualUnits?.zroid || 0 },
+              itab: { marketSize: 0, forecast: 0, demand: effectiveRec.market?.demandUnits?.itab || 0, available: 0, actual: effectiveRec.market?.actualUnits?.itab || 0 }
             },
             totalScore: basePerf?.totalScore || { techbook: 0, zroid: 0, itab: 0 },
-            marketShare: basePerf?.marketShare || rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
-            price: basePerf?.price || rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
+            marketShare: basePerf?.marketShare || effectiveRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
+            price: basePerf?.price || effectiveRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
             staffCounts: basePerf?.staffCounts || { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
             trainingLevels: basePerf?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
-            unitsProduced: basePerf?.unitsProduced || (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
-            unitsSold: basePerf?.unitsSold || (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
+            unitsProduced: basePerf?.unitsProduced || (effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0),
+            unitsSold: basePerf?.unitsSold || (effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0)
           } as TeamIndustryPerformance;
         } else {
           perf = basePerf;
@@ -209,7 +216,8 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         period,
         teams: debriefTeams,
         loading: false,
-        error: null
+        error: null,
+        editionId: currentEditionId
       });
     };
 
@@ -217,6 +225,7 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
       if (snap.exists()) {
         const cData = snap.data() as SimulationClass;
         currentClassName = cData.name || '';
+        currentEditionId = cData.editionId;
         if (cData.teams && cData.teams.length > 0) {
           rawTeams = mergeTeamsWithHistory(cData.teams, rawTeams);
         }

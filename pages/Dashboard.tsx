@@ -17,7 +17,9 @@ import {
   X,
   Lock,
   Unlock,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  Award
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { PRODUCTS, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, getMarketSize, YEAR_0_RECORD } from '../constants';
@@ -27,6 +29,9 @@ import { formatNumber, formatPercent } from '../utils/numberFormat';
 import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
 import { useFlashOnChange } from '../utils/useFlashOnChange';
 import { computeIndustryPerformance } from '../utils/industryPerformance';
+import { getEdition } from '../utils/editions';
+import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
+import { mergeGlobalMarketsDecisions } from '../utils/editions/globalMarkets/defaults';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -260,6 +265,40 @@ const Dashboard: React.FC = () => {
   
   const forecastedEBIT = grossProfit - totalOPEX;
   const forecastedNetProfit = forecastedEBIT - financeCosts;
+
+  const currentClass = classes.find(c => c.id === currentClassId);
+  const edition = getEdition(currentClass);
+  const isGlobalMarkets = edition?.id === 'global-markets';
+
+  const gmTurnResult = React.useMemo(() => {
+    if (!isGlobalMarkets || !edition) return null;
+    try {
+      return processTurnGlobalMarkets(currentTeam, decisions, [], edition);
+    } catch (err) {
+      console.warn("Error running pro-forma GM simulation:", err);
+      return null;
+    }
+  }, [isGlobalMarkets, currentTeam, decisions, edition]);
+
+  const effectiveForecastedRevenue = isGlobalMarkets && gmTurnResult 
+    ? gmTurnResult.periodRecord.revenue.total 
+    : forecastedRevenue;
+
+  const effectiveForecastedRevenueByProduct = isGlobalMarkets && gmTurnResult
+    ? gmTurnResult.periodRecord.revenue.byProduct
+    : forecastedRevenueByProduct;
+
+  const effectiveForecastedNetProfit = isGlobalMarkets && gmTurnResult 
+    ? gmTurnResult.periodRecord.netProfit 
+    : forecastedNetProfit;
+
+  const forecastedMargin = forecastedRevenue > 0 
+    ? (forecastedNetProfit / forecastedRevenue) * 100 
+    : 0;
+
+  const effectiveForecastedMargin = effectiveForecastedRevenue > 0 
+    ? (effectiveForecastedNetProfit / effectiveForecastedRevenue) * 100 
+    : 0;
   
   const realTeams = React.useMemo(() => {
     const cls = classes.find(c => c.id === currentClassId);
@@ -267,7 +306,7 @@ const Dashboard: React.FC = () => {
   }, [classes, currentClassId]);
 
   let pastInd = pastPeriodRecord?.industry;
-  if (pastPeriod >= 1 && realTeams.length > 0) {
+  if (!isGlobalMarkets && pastPeriod >= 1 && realTeams.length > 0) {
     try {
       const perfList = computeIndustryPerformance(realTeams, pastPeriod);
       const livePastInd = perfList.find(p => p.teamId === currentTeam.id);
@@ -279,10 +318,13 @@ const Dashboard: React.FC = () => {
     }
   }
 
-  const pastRevenue = pastInd?.totalRevenue ?? pastPeriodRecord?.revenue?.total ?? 0;
-  const pastNetProfit = pastInd?.netProfit ?? pastPeriodRecord?.netProfit ?? 0;
+  const pastRevenue = isGlobalMarkets
+    ? (pastPeriodRecord?.revenue?.total ?? 0)
+    : (pastInd?.totalRevenue ?? pastPeriodRecord?.revenue?.total ?? 0);
+  const pastNetProfit = isGlobalMarkets
+    ? (pastPeriodRecord?.netProfit ?? 0)
+    : (pastInd?.netProfit ?? pastPeriodRecord?.netProfit ?? 0);
 
-  const forecastedMargin = forecastedRevenue > 0 ? (forecastedNetProfit / forecastedRevenue) * 100 : 0;
   const pastMargin = pastRevenue > 0 ? (pastNetProfit / pastRevenue) * 100 : 0;
 
   const getMetricTrend = (curr: number, past: number) => {
@@ -294,8 +336,8 @@ const Dashboard: React.FC = () => {
     };
   };
 
-  const revChange = getMetricTrend(forecastedRevenue, pastRevenue);
-  const profitChange = getMetricTrend(forecastedNetProfit, pastNetProfit);
+  const revChange = getMetricTrend(effectiveForecastedRevenue, pastRevenue);
+  const profitChange = getMetricTrend(effectiveForecastedNetProfit, pastNetProfit);
 
   const prevESAT = (pastInd?.kpis?.employeeSatisfaction ?? lastPeriodKPIs.employeeSatisfaction ?? 0.70);
   const prevCSAT = (pastInd?.kpis?.customerSatisfaction ?? lastPeriodKPIs.customerSatisfaction ?? 0.70);
@@ -367,16 +409,16 @@ const Dashboard: React.FC = () => {
   const weightedTrainingFactor = totalStaffCount > 0 ? (sumTrainingFactor / totalStaffCount) : 0;
   const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
-  // Max 2% positive ESAT effect if salaries increase by 50% or more
-  const salaryEffect = weightedSalaryChange >= 0 ? 0.04 * weightedSalaryChange : 0.50 * weightedSalaryChange;
-  const utilizationEffect = weightedUtilization > 1.0 ? 0.30 * (weightedUtilization - 1.0) : 0.0;
+  // Calibrated weights for ESAT
+  const salaryEffect = weightedSalaryChange >= 0 ? 0.20 * weightedSalaryChange : 0.40 * weightedSalaryChange;
+  const utilizationEffect = weightedUtilization > 1.0 ? 0.25 * (weightedUtilization - 1.0) : 0.0;
   const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
 
-  const targetESAT = 0.70 + salaryEffect + (0.33 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
-  const calculatedESAT = prevESAT * 0.8 + targetESAT * 0.2;
+  const targetESAT = 0.72 + salaryEffect + (0.50 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
+  const calculatedESAT = prevESAT * 0.60 + targetESAT * 0.40;
 
   const esatChangeVal = calculatedESAT - prevESAT;
-  const limitedESAT = prevESAT + Math.max(-0.05, Math.min(0.05, esatChangeVal));
+  const limitedESAT = prevESAT + Math.max(-0.08, Math.min(0.08, esatChangeVal));
   const forecastedESAT = Math.min(0.95, Math.max(0.10, limitedESAT));
 
   let totalSalesUnitsForCSAT = 0;
@@ -432,26 +474,40 @@ const Dashboard: React.FC = () => {
     const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
     const available = getAvailableInventory(p.id);
     const stockoutRatio = demand > 0 ? (available / demand) : 1.0;
-    const penalty = stockoutRatio < 1.0 ? 0.05 + 0.15 * (1.0 - stockoutRatio) : 0.0;
+    const penalty = stockoutRatio < 1.0 ? 0.02 + 0.10 * (1.0 - stockoutRatio) : 0.0;
     sumStockoutPenalty += penalty * demand;
     totalSalesDemand += demand;
   });
   const avgStockoutPenalty = totalSalesDemand > 0 ? (sumStockoutPenalty / totalSalesDemand) : 0.0;
   
   const csAgentRatio = requiredCS > 0 ? (staffCountsForecast.customerService / requiredCS) : 1.0;
-  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.04, 0.02 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
+  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.06, 0.02 + 0.03 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
 
-  const targetCSAT = 0.50 + 0.40 * weightedCustomerScore + csAgentEffect;
-  const calculatedCSAT = prevCSAT * 0.8 + targetCSAT * 0.2;
+  const targetCSAT = 0.54 + 0.44 * weightedCustomerScore + csAgentEffect;
+  const calculatedCSAT = prevCSAT * 0.60 + targetCSAT * 0.40;
 
   const csatChangeVal = calculatedCSAT - prevCSAT;
-  const limitedCSAT = prevCSAT + Math.max(-0.07, Math.min(0.07, csatChangeVal));
+  const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
   const forecastedCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
 
   const csatDiffPercent = (forecastedCSAT - lastPeriodKPIs.customerSatisfaction) * 100;
   const esatDiffPercent = (forecastedESAT - lastPeriodKPIs.employeeSatisfaction) * 100;
 
-  const metrics = [
+  const gmScorecard = gmTurnResult?.periodRecord?.gm?.scorecard;
+  const gmPastScorecard = pastPeriodRecord?.gm?.scorecard;
+  const epVal = gmScorecard?.economicProfit ?? 0;
+  const epPast = gmPastScorecard?.economicProfit ?? 0;
+  const epChange = getMetricTrend(epVal, epPast);
+
+  const ccVal = gmScorecard?.cashConversion ?? 0;
+  const ccPast = gmPastScorecard?.cashConversion ?? 0;
+  const ccDiff = ccVal - ccPast;
+
+  const pdVal = gmScorecard?.planVariance ?? 0;
+  const pdPast = gmPastScorecard?.planVariance ?? 0;
+  const pdDiff = pdVal - pdPast;
+
+  const domesticMetrics = [
     { 
       label: `Revenue (Year ${currentPeriod} Forecast)`, 
       value: `R ${formatNumber(forecastedRevenue / 1000000, 2)}M`, 
@@ -494,9 +550,54 @@ const Dashboard: React.FC = () => {
     },
   ];
 
+  const gmMetrics = [
+    { 
+      label: `Economic Profit (Year ${currentPeriod} Forecast)`, 
+      value: `R ${formatNumber(epVal / 1000000, 2)}M`, 
+      change: epChange.text, 
+      isPositive: epChange.isPositive,
+      pastValue: gmPastScorecard?.economicProfit !== undefined ? `R ${formatNumber(epPast / 1000000, 2)}M` : 'R 0.00M',
+      pastLabel: `Year ${pastPeriod}`,
+      icon: Award,
+      color: 'bg-indigo-500'
+    },
+    { 
+      label: `Net Profit % (Year ${currentPeriod} Forecast)`, 
+      value: formatPercent(effectiveForecastedMargin, 2, false), 
+      change: profitChange.text, 
+      isPositive: profitChange.isPositive,
+      pastValue: formatPercent(pastMargin, 2, false),
+      pastLabel: `Year ${pastPeriod}`,
+      icon: TrendingUp,
+      color: 'bg-emerald-500'
+    },
+    { 
+      label: `Cash Conversion % (Year ${currentPeriod} Forecast)`, 
+      value: formatPercent(ccVal, 1, false), 
+      change: `${ccDiff >= 0 ? '+' : ''}${formatNumber(ccDiff, 1)}%`, 
+      isPositive: ccDiff >= 0,
+      pastValue: formatPercent(ccPast, 1, false),
+      pastLabel: `Year ${pastPeriod}`,
+      icon: DollarSign,
+      color: 'bg-blue-500'
+    },
+    { 
+      label: `Delivery vs Plan % (Year ${currentPeriod} Forecast)`, 
+      value: formatPercent(pdVal, 1, false), 
+      change: `${pdDiff >= 0 ? '+' : ''}${formatNumber(pdDiff, 1)}%`, 
+      isPositive: pdDiff >= 0,
+      pastValue: formatPercent(pdPast, 1, false),
+      pastLabel: `Year ${pastPeriod}`,
+      icon: PieChart,
+      color: 'bg-purple-500'
+    },
+  ];
+
+  const metrics = isGlobalMarkets ? gmMetrics : domesticMetrics;
+
   const salesData = PRODUCTS.map(p => ({
     name: p.name,
-    currentYear: forecastedRevenueByProduct[p.id],
+    currentYear: effectiveForecastedRevenueByProduct[p.id],
     pastYear: pastPeriodRecord?.revenue?.byProduct?.[p.id] || 0
   }));
 
@@ -507,9 +608,9 @@ const Dashboard: React.FC = () => {
     const pastItems = sortedHistory.map(([periodStr, record]) => {
       const pNum = Number(periodStr);
       const rec = record as any;
-      let np = rec?.industry?.netProfit ?? rec?.netProfit ?? 0;
+      let np = rec?.netProfit ?? rec?.industry?.netProfit ?? 0;
 
-      if (pNum >= 1 && realTeams.length > 0) {
+      if (!isGlobalMarkets && pNum >= 1 && realTeams.length > 0) {
         try {
           const perfList = computeIndustryPerformance(realTeams, pNum);
           const teamPerf = perfList.find(t => t.teamId === currentTeam.id);
@@ -531,10 +632,10 @@ const Dashboard: React.FC = () => {
       ...pastItems,
       {
         period: `Y${currentPeriod} (Forecast)`,
-        profit: Math.round(forecastedNetProfit / 1000000)
+        profit: Math.round(effectiveForecastedNetProfit / 1000000)
       }
     ];
-  }, [currentTeam, realTeams, currentPeriod, forecastedNetProfit]);
+  }, [currentTeam, realTeams, currentPeriod, effectiveForecastedNetProfit, isGlobalMarkets]);
 
   return (
     <div className="space-y-6">
@@ -703,6 +804,122 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Executive Treasury & Regional Markets Overview Banner (Global Markets Edition) */}
+      {isGlobalMarkets && gmTurnResult?.periodRecord?.gm && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-700">
+                <Globe size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Executive Treasury & Regional Markets Overview</h3>
+                <p className="text-xs text-slate-500">Period {currentPeriod} pro-forma solvency, banking facility, and market exposure</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {(gmTurnResult.periodRecord.gm.covenants?.breached?.length || 0) > 0 ? (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  <ShieldAlert size={14} /> Covenant Breach Alert
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <CheckCircle2 size={14} /> All Covenants Compliant
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-1">
+            {/* Active Territories */}
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Territories</div>
+              {(() => {
+                const gmDec = mergeGlobalMarketsDecisions(decisions);
+                return (
+                  <div className="text-xs font-bold text-slate-800 flex flex-wrap gap-1 mt-1">
+                    <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[11px]">🇿🇦 SA</span>
+                    {gmDec.markets?.ng?.active ? (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px]">
+                        🇳🇬 NG ({gmDec.markets.ng.channel === 'DISTRIBUTOR' ? 'Dist' : 'Store'})
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 text-[11px]">🇳🇬 NG Off</span>
+                    )}
+                    {gmDec.markets?.ke?.active ? (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[11px]">
+                        🇰🇪 KE ({gmDec.markets.ke.channel === 'DISTRIBUTOR' ? 'Dist' : 'Store'})
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 text-[11px]">🇰🇪 KE Off</span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Credit Rating & Spread */}
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Credit Grade & Debt</div>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-base font-extrabold text-indigo-900">
+                  Grade {gmTurnResult.periodRecord.gm.funding?.creditGrade || 'A'}
+                </span>
+                <span className="text-xs text-slate-500 font-medium">
+                  ({gmTurnResult.periodRecord.gm.funding?.currency || 'ZAR'})
+                </span>
+              </div>
+              <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                Borrowing Rate: {formatPercent(gmTurnResult.periodRecord.gm.funding?.rate ?? 0.115, 2)}
+              </div>
+            </div>
+
+            {/* Covenants Status */}
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Debt Covenants</div>
+              <div className="text-xs space-y-0.5 mt-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Leverage:</span>
+                  <span className={(gmTurnResult.periodRecord.gm.covenants?.netDebtToEbitda ?? 0) > 3.0 ? 'text-rose-600 font-bold' : 'text-slate-700 font-semibold'}>
+                    {(gmTurnResult.periodRecord.gm.covenants?.netDebtToEbitda ?? 0).toFixed(2)}x / 3.0x
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Int Cover:</span>
+                  <span className={(gmTurnResult.periodRecord.gm.covenants?.interestCover ?? 99) < 3.0 ? 'text-rose-600 font-bold' : 'text-slate-700 font-semibold'}>
+                    {(gmTurnResult.periodRecord.gm.covenants?.interestCover ?? 0).toFixed(1)}x / 3.0x
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Net Hedge Impact */}
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Hedging & FX Impact</div>
+              {(() => {
+                const exposures = gmTurnResult.periodRecord.gm.exposures || {};
+                const usdBenefit = -(exposures['USD_COSTS']?.hedgeCostOrGain || 0);
+                const ngnBenefit = exposures['NGN_REVENUE']?.hedgeCostOrGain || 0;
+                const kesBenefit = exposures['KES_REVENUE']?.hedgeCostOrGain || 0;
+                const netHedgeImpact = usdBenefit + ngnBenefit + kesBenefit;
+                return (
+                  <div className="mt-1">
+                    <div className="text-xs font-bold text-slate-800">
+                      Net Payoff: <span className={netHedgeImpact >= 0 ? 'text-emerald-600' : 'text-rose-600'}>
+                        {netHedgeImpact >= 0 ? '+' : ''}R {formatNumber(netHedgeImpact / 1000, 0)}k
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">
+                      Relative to unhedged spot
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {metrics.map((metric, index) => (

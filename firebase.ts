@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -15,8 +15,15 @@ const firebaseConfig = {
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
+let firestoreDb: ReturnType<typeof getFirestore>;
+try {
+  firestoreDb = initializeFirestore(app, { ignoreUndefinedProperties: true });
+} catch {
+  firestoreDb = getFirestore(app);
+}
+
 export const getAppAuth = () => getAuth(app);
-export const getAppDb = () => getFirestore(app);
+export const getAppDb = () => firestoreDb;
 export const googleProvider = new GoogleAuthProvider();
 
 export const getAppAnalytics = async () => {

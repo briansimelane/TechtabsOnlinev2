@@ -5,9 +5,15 @@ import { PRODUCTS, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, getMarketSize, 
 import { ProductId, HRRole } from '../types';
 import { formatNumber, formatPercent } from '../utils/numberFormat';
 import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
+import { getEdition } from '../utils/editions';
+import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
 
 const DecisionsSummary: React.FC = () => {
-  const { decisions, currentTeam, isReadOnly, currentRole } = useSimulation();
+  const { decisions, currentTeam, isReadOnly, currentRole, classes, currentClassId } = useSimulation();
+
+  const currentClass = classes?.find(c => c.id === currentClassId);
+  const edition = getEdition(currentClass);
+  const isGlobalMarkets = edition?.id === 'global-markets';
 
   const currentPeriod = currentTeam.currentPeriod;
   const pastPeriod = currentPeriod - 1;
@@ -142,15 +148,31 @@ const DecisionsSummary: React.FC = () => {
   const tax = ebt > 0 ? ebt * FINANCE_CONSTANTS.taxRate : 0;
   const forecastedNetProfit = ebt - tax;
 
+  let finalRevenue = forecastedRevenue;
+  let finalNetProfit = forecastedNetProfit;
+  let finalEquity = currentTeam.shareholdersEquity + forecastedNetProfit + decisions.finance.equityChange;
+
+  if (isGlobalMarkets && edition) {
+    try {
+      const gmRec = processTurnGlobalMarkets(currentTeam, decisions, [], edition).periodRecord;
+      if (gmRec) {
+        finalRevenue = gmRec.revenue.total;
+        finalNetProfit = gmRec.netProfit;
+        finalEquity = gmRec.balanceSheet.equity;
+      }
+    } catch (e) {
+      // fallback
+    }
+  }
+
   // Net Profit % (Net Profit Margin)
-  const netProfitPercent = forecastedRevenue !== 0 
-    ? (forecastedNetProfit / forecastedRevenue) * 100 
+  const netProfitPercent = finalRevenue !== 0 
+    ? (finalNetProfit / finalRevenue) * 100 
     : 0;
 
   // ROE Calculation: Forecasted Net Profit / Forecasted Shareholders Equity
-  const forecastedEquity = currentTeam.shareholdersEquity + forecastedNetProfit + decisions.finance.equityChange;
-  const roe = forecastedEquity !== 0 
-    ? (forecastedNetProfit / forecastedEquity) * 100 
+  const roe = finalEquity !== 0 
+    ? (finalNetProfit / finalEquity) * 100 
     : 0;
 
   // --- Forecasted ESAT and CSAT calculations ---
@@ -228,17 +250,17 @@ const DecisionsSummary: React.FC = () => {
   const weightedTrainingFactor = totalStaffCount > 0 ? (sumTrainingFactor / totalStaffCount) : 0;
   const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
-  // Max 2% positive ESAT effect if salaries increase by 50% or more
-  const salaryEffect = weightedSalaryChange >= 0 ? 0.04 * weightedSalaryChange : 0.50 * weightedSalaryChange;
-  const utilizationEffect = weightedUtilization > 1.0 ? 0.30 * (weightedUtilization - 1.0) : 0.0;
+  // Calibrated weights for ESAT
+  const salaryEffect = weightedSalaryChange >= 0 ? 0.20 * weightedSalaryChange : 0.40 * weightedSalaryChange;
+  const utilizationEffect = weightedUtilization > 1.0 ? 0.25 * (weightedUtilization - 1.0) : 0.0;
   const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
 
-  const targetESAT = 0.70 + salaryEffect + (0.33 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
-  const calculatedESAT = prevESAT * 0.8 + targetESAT * 0.2;
+  const targetESAT = 0.72 + salaryEffect + (0.50 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
+  const calculatedESAT = prevESAT * 0.60 + targetESAT * 0.40;
 
-  // ESAT Change Constraint (max 5% change per year)
+  // ESAT Change Constraint (max 8% change per year)
   const esatChangeVal = calculatedESAT - prevESAT;
-  const limitedESAT = prevESAT + Math.max(-0.05, Math.min(0.05, esatChangeVal));
+  const limitedESAT = prevESAT + Math.max(-0.08, Math.min(0.08, esatChangeVal));
   const forecastedESAT = Math.min(0.95, Math.max(0.10, limitedESAT));
 
   // Customer satisfaction forecast logic based on Customer Buying Criteria scores weighted by sales volume
@@ -290,7 +312,7 @@ const DecisionsSummary: React.FC = () => {
 
   const weightedCustomerScore = totalSalesUnitsForCSAT > 0 ? (sumProductCSAT / totalSalesUnitsForCSAT) : 0.5;
 
-  // Average stockout penalty across products (under stock penalizes CSAT up to -15% per product)
+  // Average stockout penalty across products (under stock penalizes CSAT up to -12% per product)
   let totalSalesDemand = 0;
   let sumStockoutPenalty = 0;
   PRODUCTS.forEach(p => {
@@ -298,21 +320,21 @@ const DecisionsSummary: React.FC = () => {
     const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
     const available = getAvailableInventory(p.id);
     const stockoutRatio = demand > 0 ? (available / demand) : 1.0;
-    const penalty = stockoutRatio < 1.0 ? 0.05 + 0.15 * (1.0 - stockoutRatio) : 0.0;
+    const penalty = stockoutRatio < 1.0 ? 0.02 + 0.10 * (1.0 - stockoutRatio) : 0.0;
     sumStockoutPenalty += penalty * demand;
     totalSalesDemand += demand;
   });
   const avgStockoutPenalty = totalSalesDemand > 0 ? (sumStockoutPenalty / totalSalesDemand) : 0.0;
   
   const csAgentRatio = requiredCS > 0 ? (staffCountsForecast.customerService / requiredCS) : 1.0;
-  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.04, 0.02 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
+  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.06, 0.02 + 0.03 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
 
-  const targetCSAT = 0.50 + 0.40 * weightedCustomerScore + csAgentEffect;
-  const calculatedCSAT = prevCSAT * 0.8 + targetCSAT * 0.2;
+  const targetCSAT = 0.54 + 0.44 * weightedCustomerScore + csAgentEffect;
+  const calculatedCSAT = prevCSAT * 0.60 + targetCSAT * 0.40;
 
-  // CSAT Change Constraint (max 7% change per year)
+  // CSAT Change Constraint (max 9% change per year)
   const csatChangeVal = calculatedCSAT - prevCSAT;
-  const limitedCSAT = prevCSAT + Math.max(-0.07, Math.min(0.07, csatChangeVal));
+  const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
   const forecastedCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
 
   console.log('CSAT DEBUG:', {
@@ -329,7 +351,7 @@ const DecisionsSummary: React.FC = () => {
   const metrics = [
     { 
       label: `Revenue (Y${currentPeriod} Fc)`, 
-      value: `R ${formatNumber(forecastedRevenue / 1000000, 1)}M`, 
+      value: `R ${formatNumber(finalRevenue / 1000000, 1)}M`, 
       icon: DollarSign,
       color: 'text-blue-600',
       bg: 'bg-blue-50'

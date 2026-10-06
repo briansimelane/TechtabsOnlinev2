@@ -101,12 +101,25 @@ const Marketing: React.FC = () => {
   };
 
   const handlePriceChange = (productId: ProductId, value: string) => {
+    const newPrice = parseNumber(value);
     updateDecisions('marketing', {
       prices: {
         ...marketing.prices,
-                [productId]: parseNumber(value),
+        [productId]: newPrice,
       },
     });
+    if (decisions.markets?.za) {
+      updateDecisions('markets' as any, {
+        ...decisions.markets,
+        za: {
+          ...decisions.markets.za,
+          prices: {
+            ...(decisions.markets.za.prices || {}),
+            [productId]: newPrice
+          }
+        }
+      } as any);
+    }
   };
 
     const handleAdSplitChange = (productId: ProductId, value: string) => {

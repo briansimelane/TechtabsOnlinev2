@@ -2,6 +2,7 @@ import React from 'react';
 import { DebriefDataset } from '../../../hooks/useDebriefData';
 import { SlideFrame, TEAM_COLORS } from '../components/SlideFrame';
 import { scoreCumulative, getCumCsatEsat, getCumFinancialPct } from '../../../utils/leagueScoring';
+import { scoreCumulativeGlobalMarkets } from '../../../utils/editions/globalMarkets/scoring';
 
 interface SlideProps {
   dataset: DebriefDataset;
@@ -11,7 +12,10 @@ interface SlideProps {
 }
 
 export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, currentSlide, totalSlides }) => {
-  const cumScores = scoreCumulative(dataset.teams, dataset.period);
+  const isGM = dataset.editionId === 'global-markets';
+  const cumScores = isGM
+    ? scoreCumulativeGlobalMarkets(dataset.teams, dataset.period)
+    : scoreCumulative(dataset.teams, dataset.period);
 
   // Apply Tie-Breaker Rules:
   // 1. Primary: Total Cumulative Points
@@ -44,9 +48,9 @@ export const LeagueOverallSlide: React.FC<SlideProps> = ({ dataset, currentSlide
 
   return (
     <SlideFrame
-      title="Cumulative League Leaderboard"
-      eyebrow="Overall Championship Standings"
-      footer="Tie-breakers (year under review): TB 1 = Year CSAT+ESAT · TB 2 = Year GP%+NP%+ROE%"
+      title={isGM ? "Global Markets Cumulative Leaderboard" : "Cumulative League Leaderboard"}
+      eyebrow={isGM ? "Overall Championship Standings (Scorecard Points)" : "Overall Championship Standings"}
+      footer={isGM ? "Cumulative Global Markets Scorecard Points across all periods · TB 1 = CSAT+ESAT" : "Tie-breakers (year under review): TB 1 = Year CSAT+ESAT · TB 2 = Year GP%+NP%+ROE%"}
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}

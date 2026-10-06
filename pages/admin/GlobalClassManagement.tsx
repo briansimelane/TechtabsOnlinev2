@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { Search, Plus, Trash2, ExternalLink, Calendar, Users, KeyRound, Archive, RefreshCw, X, Check } from 'lucide-react';
+import { EditionId } from '../../types';
 
 const GlobalClassManagement: React.FC = () => {
   const { classes, createClass, deleteClass, archiveClass, restoreClass, selectClass, resetClassToYear1 } = useSimulation();
@@ -29,6 +30,7 @@ const GlobalClassManagement: React.FC = () => {
   // New Class Form
   const [newClassName, setNewClassName] = useState('');
   const [newClassTeams, setNewClassTeams] = useState(4);
+  const [newClassEdition, setNewClassEdition] = useState<EditionId>('standard');
 
   const activeClasses = classes.filter(c => !c.isArchived);
   const archivedClasses = classes.filter(c => c.isArchived);
@@ -42,9 +44,10 @@ const GlobalClassManagement: React.FC = () => {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newClassName.trim()) {
-      createClass(newClassName, newClassTeams);
+      createClass(newClassName, newClassTeams, newClassEdition);
       setNewClassName('');
       setNewClassTeams(4);
+      setNewClassEdition('standard');
       setIsCreateModalOpen(false);
     }
   };
@@ -230,6 +233,11 @@ const GlobalClassManagement: React.FC = () => {
                               <td className="px-6 py-4">
                                   <div className="font-bold text-slate-900 flex items-center gap-2">
                                       <span>{c.name}</span>
+                                      {c.editionId === 'global-markets' && (
+                                          <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-200">
+                                              Global Markets
+                                          </span>
+                                      )}
                                       {c.isArchived && (
                                           <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold border border-red-200">
                                               Archived
@@ -350,6 +358,22 @@ const GlobalClassManagement: React.FC = () => {
                                   <option key={n} value={n}>{n} Teams</option>
                               ))}
                           </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Simulation Edition</label>
+                          <select 
+                              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                              value={newClassEdition}
+                              onChange={e => setNewClassEdition(e.target.value as EditionId)}
+                          >
+                              <option value="standard">Standard Edition</option>
+                              <option value="global-markets">Global Markets Edition</option>
+                          </select>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {newClassEdition === 'global-markets' 
+                              ? 'Includes multi-currency (USD, NGN, KES), treasury hedging, credit spreads, and covenants.' 
+                              : 'Standard single-currency South African market simulation.'}
+                          </p>
                       </div>
                       <div className="pt-4 flex justify-end space-x-3">
                           <button 

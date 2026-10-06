@@ -23,6 +23,33 @@ export type UserProfile = {
   updatedAt?: unknown;
 };
 
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined) {
+    return null as unknown as T;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (data instanceof Date) {
+    return data;
+  }
+  if ('_methodName' in (data as Record<string, any>) || 'toMillis' in (data as Record<string, any>)) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const sanitized: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      sanitized[key] = sanitizeForFirestore(value);
+    }
+  }
+  return sanitized as T;
+}
+
 export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
   const ref = doc(db, 'users', uid);
   const snapshot = await getDoc(ref);
@@ -34,27 +61,21 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 
 export const upsertUserProfile = async (profile: UserProfile): Promise<void> => {
   const ref = doc(db, 'users', profile.uid);
-  await setDoc(
-    ref,
-    {
-      ...profile,
-      createdAt: profile.createdAt ?? serverTimestamp(),
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  const cleanData = sanitizeForFirestore({
+    ...profile,
+    createdAt: profile.createdAt ?? serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+  await setDoc(ref, cleanData, { merge: true });
 };
 
 export const saveClass = async (simClass: SimulationClass): Promise<void> => {
   const ref = doc(db, 'classes', simClass.id);
-  await setDoc(
-    ref,
-    {
-      ...simClass,
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  const cleanData = sanitizeForFirestore({
+    ...simClass,
+    updatedAt: serverTimestamp()
+  });
+  await setDoc(ref, cleanData, { merge: true });
 };
 
 export const deleteClassById = async (classId: string): Promise<void> => {
@@ -73,6 +94,16 @@ export const listClasses = async (): Promise<SimulationClass[]> => {
       const dbTeams = teamsSnapshot.docs.map(tSnap => tSnap.data() as Team);
       if (dbTeams.length > 0) {
         cls.teams = dbTeams.sort((a, b) => a.id.localeCompare(b.id));
+        const maxTeamPeriod = Math.max(...dbTeams.map(t => t.currentPeriod || 1));
+        if (maxTeamPeriod > (cls.currentPeriod || 1)) {
+          console.log(`Auto-healing class ${cls.id} currentPeriod from ${cls.currentPeriod} to ${maxTeamPeriod}`);
+          cls.currentPeriod = maxTeamPeriod;
+          void setDoc(
+            doc(db, 'classes', cls.id),
+            sanitizeForFirestore({ currentPeriod: maxTeamPeriod, updatedAt: serverTimestamp() }),
+            { merge: true }
+          ).catch(err => console.warn(`Failed to auto-heal class ${cls.id} currentPeriod`, err));
+        }
       }
     } catch (e) {
       console.error(`Failed to load subcollection teams for class ${cls.id}`, e);
@@ -85,14 +116,11 @@ export const listClasses = async (): Promise<SimulationClass[]> => {
 
 export const saveFacilitator = async (facilitator: Facilitator): Promise<void> => {
   const ref = doc(db, 'facilitators', facilitator.id);
-  await setDoc(
-    ref,
-    {
-      ...facilitator,
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  const cleanData = sanitizeForFirestore({
+    ...facilitator,
+    updatedAt: serverTimestamp()
+  });
+  await setDoc(ref, cleanData, { merge: true });
 };
 
 export const deleteFacilitatorById = async (facilitatorId: string): Promise<void> => {
@@ -107,14 +135,11 @@ export const listFacilitators = async (): Promise<Facilitator[]> => {
 
 export const saveAdministrator = async (admin: Administrator): Promise<void> => {
   const ref = doc(db, 'administrators', admin.id);
-  await setDoc(
-    ref,
-    {
-      ...admin,
-      updatedAt: serverTimestamp()
-    },
-    { merge: true }
-  );
+  const cleanData = sanitizeForFirestore({
+    ...admin,
+    updatedAt: serverTimestamp()
+  });
+  await setDoc(ref, cleanData, { merge: true });
 };
 
 export const deleteAdministratorById = async (adminId: string): Promise<void> => {
@@ -157,12 +182,9 @@ export const saveTeamState = async (classId: string, team: Team): Promise<void> 
     console.warn("Could not fetch existing team doc during saveTeamState safeguard", err);
   }
 
-  await setDoc(
-    ref,
-    {
-      ...teamToSave,
-      updatedAt: nowIso
-    },
-    { merge: true }
-  );
+  const cleanData = sanitizeForFirestore({
+    ...teamToSave,
+    updatedAt: nowIso
+  });
+  await setDoc(ref, cleanData, { merge: true });
 };

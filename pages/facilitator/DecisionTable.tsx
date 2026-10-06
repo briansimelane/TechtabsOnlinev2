@@ -3,6 +3,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS } from '../../constants';
 import { formatNumber, formatCurrency, formatPercent } from '../../utils/numberFormat';
 import { Team, TurnDecisions } from '../../types';
+import { mergeGlobalMarketsDecisions } from '../../utils/editions/globalMarkets/defaults';
 import { 
   Download, 
   FileSpreadsheet, 
@@ -364,7 +365,123 @@ export default function DecisionTable() {
           formatRaw: (v) => v
         }
       ]
-    }
+    },
+    ...(currentClass.editionId === 'global-markets' ? [
+      {
+        title: 'Treasury & Regional Markets',
+        rows: [
+          {
+            label: 'Nigeria: Expansion Status',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.markets?.ng?.active ? 'Active' : 'Inactive';
+            },
+            format: (v: any) => (
+              <span className={v === 'Active' ? 'text-emerald-700 font-bold' : 'text-slate-400'}>
+                {v}
+              </span>
+            ),
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Nigeria: Sales Channel',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              if (!gm.markets?.ng?.active) return '—';
+              return gm.markets?.ng?.channel === 'DISTRIBUTOR' ? 'Distributor' : 'Company Stores';
+            },
+            format: (v: any) => v,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Kenya: Expansion Status',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.markets?.ke?.active ? 'Active' : 'Inactive';
+            },
+            format: (v: any) => (
+              <span className={v === 'Active' ? 'text-emerald-700 font-bold' : 'text-slate-400'}>
+                {v}
+              </span>
+            ),
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Kenya: Sales Channel',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              if (!gm.markets?.ke?.active) return '—';
+              return gm.markets?.ke?.channel === 'DISTRIBUTOR' ? 'Distributor' : 'Company Stores';
+            },
+            format: (v: any) => v,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'USD Hedge Cover %',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.hedges?.USD_COSTS?.coverPct ?? 0;
+            },
+            format: (v: any) => `${v}%`,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'USD Hedge Tenor',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.hedges?.USD_COSTS?.tenorMonths ?? 12;
+            },
+            format: (v: any) => `${v}m`,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'NGN Hedge Cover %',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.hedges?.NGN_REVENUE?.coverPct ?? 0;
+            },
+            format: (v: any) => `${v}%`,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'KES Hedge Cover %',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.hedges?.KES_REVENUE?.coverPct ?? 0;
+            },
+            format: (v: any) => `${v}%`,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Debt Currency',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.fundingCurrency || 'ZAR';
+            },
+            format: (v: any) => v,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Debt Interest Basis',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.rateBasis === 'FIXED' ? 'Fixed (+1.2%)' : 'Floating (JIBAR/SOFR)';
+            },
+            format: (v: any) => v,
+            formatRaw: (v: any) => v
+          },
+          {
+            label: 'Target Planned Net Profit',
+            getValue: (t: Team, d: TurnDecisions) => {
+              const gm = mergeGlobalMarketsDecisions(d);
+              return gm.treasury?.plannedNetProfit ?? 0;
+            },
+            format: (v: any) => formatCurrency(v, 0),
+            formatRaw: (v: any) => v
+          }
+        ]
+      }
+    ] : [])
   ];
 
   // Helper to generate filename

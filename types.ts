@@ -73,6 +73,49 @@ export interface PeriodRecord {
   staffCounts?: Record<HRRole, number>;
   requiredCS?: number;
   industry?: any;
+  gm?: GlobalMarketsRecord;
+}
+
+export type EditionId = 'standard' | 'global-markets';
+
+export interface GlobalMarketsRecord {
+  byMarket: Record<string, {
+    revenueLocal: number;
+    revenueZAR: number;
+    unitsSold: Record<ProductId, number>;
+    unfilledDemand: Record<ProductId, number>;
+    grossProfitZAR: number;
+    investedCapital: number;
+    wacc: number;
+    economicProfit: number;
+    trappedCash: number;
+  }>;
+  exposures: Record<string, {
+    exposureForeign: number;
+    coverPct: number;
+    forwardRate: number;
+    avgSpot: number;
+    hedgeCostOrGain: number;
+    counterfactual: number;
+    overHedged: number;
+  }>;
+  funding: {
+    currency: string;
+    rate: number;
+    creditGrade: string;
+    fxRevaluation: number;
+  };
+  covenants: {
+    netDebtToEbitda: number;
+    interestCover: number;
+    breached: string[];
+  };
+  scorecard: {
+    economicProfit: number;
+    cashConversion: number;
+    planVariance: number;
+    plannedNetProfit?: number;
+  };
 }
 
 export interface Team {
@@ -161,6 +204,7 @@ export interface SimulationClass {
   isArchived?: boolean;
   archivedAt?: string;
   isActionLearningProject?: boolean;
+  editionId?: EditionId;
   classEvents?: ClassEvent[];
   scenarioOverrides?: Record<number, ClassScenarioOverride>;
 }
@@ -261,6 +305,21 @@ export interface TeamSupplierOverride {
   status?: Record<string, 'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED'>;
 }
 
+export interface MarketDecision {
+  active: boolean;                          // is the team selling here this period
+  channel: 'OWN' | 'DISTRIBUTOR';
+  prices: Record<ProductId, number>;        // in LOCAL currency
+  debtorDays: Record<ProductId, number>;    // per market, local terms
+}
+
+export interface TreasuryDecisions {
+  hedges: Record<string, { coverPct: number; tenorMonths: 6 | 12 }>;  // keyed by exposure id
+  fundingCurrency: 'ZAR' | 'USD' | 'LOCAL';
+  rateBasis: 'FIXED' | 'FLOATING';
+  fixedPct: number;                 // 0–100, only when rateBasis === 'FIXED'
+  plannedNetProfit?: number;        // Captured in period 1
+}
+
 export interface TurnDecisions {
   marketing: MarketingDecisions;
   operations: OperationsDecisions;
@@ -269,6 +328,8 @@ export interface TurnDecisions {
   finance: FinanceDecisions;
   negotiation: NegotiationDecision;
   supplierOverrides?: TeamSupplierOverride;
+  markets?: Record<string, MarketDecision>; // keyed by market id; absent => standard
+  treasury?: TreasuryDecisions;
 }
 
 // Reporting Types

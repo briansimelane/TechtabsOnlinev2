@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { PRODUCTS, MARKET_SIZES, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, COMPONENT_COSTS, FINISHED_GOODS_COSTS, SUPPLIERS, LAST_YEAR_DATA, YEAR_0_RECORD, getMarketSize } from '../constants';
 import { ProductId, HRRole, PeriodRecord } from '../types';
-import { FileText, PieChart as PieChartIcon, TrendingUp, DollarSign, Activity, BarChart as BarChartIcon } from 'lucide-react';
+import { FileText, PieChart as PieChartIcon, TrendingUp, DollarSign, Activity, BarChart as BarChartIcon, Globe, Scale, Shield } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, 
   ComposedChart, Line, Cell
@@ -11,15 +11,23 @@ import { formatCurrency, formatNumber, formatPercent } from '../utils/numberForm
 import { computeIndustryPerformance } from '../utils/industryPerformance';
 import { processTurn } from '../utils/SimulationEngine';
 import { getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../utils/marketShareBackModel';
+import { getEdition } from '../utils/editions';
+import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
+import { ExposureReport, ValueCreationReport, CovenantsFundingReport, MarketDeskReport } from './editions/globalMarkets/GlobalMarketsReports';
 
 // --- Types & Interfaces for Reports ---
-type ReportTab = 'summary' | 'income' | 'balance' | 'cashflow';
+type ReportTab = 'summary' | 'income' | 'balance' | 'cashflow' | 'exposure' | 'valueCreation' | 'covenantsFunding' | 'marketDesk';
 
 const FinancialReports: React.FC = () => {
   const { decisions, currentTeam, lastPeriodKPIs, classes, currentClassId } = useSimulation();
   const [activeTab, setActiveTab] = useState<ReportTab>('summary');
 
   const currentClass = classes.find(c => c.id === currentClassId);
+  const edition = getEdition(currentClass);
+  const isGlobalMarkets = edition?.id === 'global-markets';
+  const prevPeriod = Math.max(0, currentTeam.currentPeriod - 1);
+  const [selectedGmPeriod, setSelectedGmPeriod] = useState<number>(currentTeam.currentPeriod);
+
   const realTeams = useMemo(() => {
     return currentClass?.teams ? currentClass.teams.filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)) : [];
   }, [currentClass]);
@@ -159,6 +167,30 @@ const FinancialReports: React.FC = () => {
   // --- Calculations (Forecast Logic) ---
 
   const forecast = useMemo(() => {
+    if (isGlobalMarkets && edition) {
+      try {
+        const gmResult = processTurnGlobalMarkets(currentTeam, decisions, [], edition);
+        const rec = gmResult.periodRecord;
+        return {
+          revenue: rec.revenue,
+          cogs: rec.cogs,
+          grossProfit: rec.grossProfit,
+          opex: rec.opex,
+          ebitda: rec.ebitda,
+          depreciation: rec.depreciation,
+          interest: rec.interest,
+          ebt: rec.ebt,
+          tax: rec.tax,
+          netProfit: rec.netProfit,
+          balanceSheet: rec.balanceSheet,
+          cashFlow: rec.cashFlow,
+          gm: rec.gm
+        };
+      } catch (err) {
+        console.error('Error generating GM pro-forma forecast:', err);
+      }
+    }
+
     const currentPeriod = currentTeam.currentPeriod;
 
     // Helper to get available inventory for sale
@@ -398,7 +430,7 @@ const FinancialReports: React.FC = () => {
             net: netCashFlow
         }
     };
-  }, [decisions, currentTeam, actuals]);
+  }, [decisions, currentTeam, actuals, isGlobalMarkets, edition]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-24">
@@ -417,6 +449,12 @@ const FinancialReports: React.FC = () => {
                 { id: 'income', label: 'Income Statement', icon: DollarSign },
                 { id: 'balance', label: 'Balance Sheet', icon: PieChartIcon },
                 { id: 'cashflow', label: 'Cash Flow', icon: Activity },
+                ...(isGlobalMarkets ? [
+                  { id: 'exposure', label: 'Exposure Report', icon: Globe },
+                  { id: 'valueCreation', label: 'Value Creation Report', icon: TrendingUp },
+                  { id: 'covenantsFunding', label: 'Covenants & Funding', icon: Scale },
+                  { id: 'marketDesk', label: 'Market Desk', icon: BarChartIcon },
+                ] : [])
             ].map((tab) => (
                 <button
                     key={tab.id}
@@ -625,6 +663,189 @@ const FinancialReports: React.FC = () => {
                           })}
                       </div>
                   </div>
+
+                  {/* Treasury & International Markets Decisions (Global Markets Edition) */}
+                  {isGlobalMarkets && (
+                    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden md:col-span-2 xl:col-span-3">
+                      <div className="bg-indigo-700 px-4 py-2.5 text-white font-bold text-sm flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Globe size={16} />
+                          <span>Treasury & International Markets Decisions</span>
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-0.5 bg-indigo-500/40 rounded">
+                          Multi-Market & Risk Desk
+                        </span>
+                      </div>
+
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                        {/* Col 1: Regional Markets Expansion */}
+                        <div className="space-y-3">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
+                            <Globe size={13} className="text-indigo-600" />
+                            <span>Regional Market Expansion</span>
+                          </h4>
+
+                          {/* South Africa */}
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1 text-xs">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-slate-900">🇿🇦 South Africa (Domestic)</span>
+                              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px]">Active</span>
+                            </div>
+                            <div className="text-slate-500 text-[11px]">Channel: Company Stores and Agents</div>
+                            <div className="flex justify-between pt-1 border-t border-slate-200/60 font-mono text-[11px]">
+                              <span>Prices (R):</span>
+                              <span>TB: R {decisions.marketing?.prices?.techbook?.toLocaleString()} | ZR: R {decisions.marketing?.prices?.zroid?.toLocaleString()} | IT: R {decisions.marketing?.prices?.itab?.toLocaleString()}</span>
+                            </div>
+                          </div>
+
+                          {/* Nigeria */}
+                          {(() => {
+                            const m = decisions.markets?.ng;
+                            const isActive = m?.active ?? false;
+                            const channel = m?.channel || 'DISTRIBUTOR';
+                            return (
+                              <div className={`p-2.5 rounded-lg border space-y-1 text-xs ${isActive ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-slate-900">🇳🇬 Nigeria</span>
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                                    {isActive ? 'Active' : 'Not Entered'}
+                                  </span>
+                                </div>
+                                {isActive ? (
+                                  <>
+                                    <div className="text-slate-600 text-[11px] flex justify-between">
+                                      <span>Channel:</span>
+                                      <span className="font-semibold">{channel === 'OWN' ? 'Company Stores (R 12.5m CapEx)' : 'Distributor (R 5.0m CapEx, 15% cut)'}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-1 border-t border-slate-200/60 font-mono text-[11px]">
+                                      <span>Prices (₦):</span>
+                                      <span>TB: ₦{m?.prices?.techbook?.toLocaleString() || '—'} | ZR: ₦{m?.prices?.zroid?.toLocaleString() || '—'} | IT: ₦{m?.prices?.itab?.toLocaleString() || '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-500 text-[11px]">
+                                      <span>Debtor Terms:</span>
+                                      <span className="font-mono">{m?.debtorDays?.techbook || 75} / {m?.debtorDays?.zroid || 75} / {m?.debtorDays?.itab || 75} Days</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-slate-400 text-[11px] italic">No active operations this period</div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          {/* Kenya */}
+                          {(() => {
+                            const m = decisions.markets?.ke;
+                            const isActive = m?.active ?? false;
+                            const channel = m?.channel || 'DISTRIBUTOR';
+                            return (
+                              <div className={`p-2.5 rounded-lg border space-y-1 text-xs ${isActive ? 'bg-indigo-50/50 border-indigo-200' : 'bg-slate-50 border-slate-100 opacity-80'}`}>
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-slate-900">🇰🇪 Kenya</span>
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                                    {isActive ? 'Active' : 'Not Entered'}
+                                  </span>
+                                </div>
+                                {isActive ? (
+                                  <>
+                                    <div className="text-slate-600 text-[11px] flex justify-between">
+                                      <span>Channel:</span>
+                                      <span className="font-semibold">{channel === 'OWN' ? 'Company Stores (R 7.5m CapEx)' : 'Distributor (R 3.0m CapEx, 12% cut)'}</span>
+                                    </div>
+                                    <div className="flex justify-between pt-1 border-t border-slate-200/60 font-mono text-[11px]">
+                                      <span>Prices (KSh):</span>
+                                      <span>TB: {m?.prices?.techbook?.toLocaleString() || '—'} | ZR: {m?.prices?.zroid?.toLocaleString() || '—'} | IT: {m?.prices?.itab?.toLocaleString() || '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between text-slate-500 text-[11px]">
+                                      <span>Debtor Terms:</span>
+                                      <span className="font-mono">{m?.debtorDays?.techbook || 40} / {m?.debtorDays?.zroid || 40} / {m?.debtorDays?.itab || 40} Days</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="text-slate-400 text-[11px] italic">No active operations this period</div>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Col 2: FX Risk & Hedging Strategy */}
+                        <div className="space-y-3">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
+                            <Shield size={13} className="text-indigo-600" />
+                            <span>FX Risk & Hedging Desk</span>
+                          </h4>
+
+                          {(() => {
+                            const hedges = decisions.treasury?.hedges || {};
+                            const exposures = [
+                              { id: 'USD_COSTS', label: 'USD Component Sourcing', curr: 'USD', defaultTenor: 12 },
+                              { id: 'NGN_REVENUE', label: 'NGN Sales Revenue', curr: 'NGN', defaultTenor: 12 },
+                              { id: 'KES_REVENUE', label: 'KES Sales Revenue', curr: 'KES', defaultTenor: 6 },
+                            ];
+
+                            return (
+                              <div className="space-y-2">
+                                {exposures.map(exp => {
+                                  const h = hedges[exp.id];
+                                  const cover = h?.coverPct ?? 0;
+                                  const tenor = h?.tenorMonths ?? exp.defaultTenor;
+
+                                  return (
+                                    <div key={exp.id} className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center text-xs">
+                                      <div>
+                                        <div className="font-semibold text-slate-800">{exp.label}</div>
+                                        <div className="text-slate-400 text-[11px]">Tenor: {tenor} Months ({exp.curr})</div>
+                                      </div>
+                                      <div className="text-right">
+                                        <span className={`font-mono font-bold px-2 py-0.5 rounded text-xs ${cover > 0 ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-600'}`}>
+                                          {cover}% Covered
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </div>
+
+                        {/* Col 3: Funding & Capital Structure */}
+                        <div className="space-y-3">
+                          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1 flex items-center gap-1.5">
+                            <DollarSign size={13} className="text-indigo-600" />
+                            <span>Funding & Capital Strategy</span>
+                          </h4>
+
+                          <div className="space-y-2 text-xs">
+                            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center">
+                              <span className="text-slate-600">Borrowing Currency:</span>
+                              <span className="font-bold font-mono text-slate-900 px-2 py-0.5 bg-slate-200 rounded">
+                                {decisions.treasury?.fundingCurrency || 'ZAR'}
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 flex justify-between items-center">
+                              <span className="text-slate-600">Rate Basis:</span>
+                              <span className="font-bold font-mono text-slate-900">
+                                {decisions.treasury?.rateBasis === 'FLOATING' ? 'Floating (Benchmark + Spread)' : 'Fixed (Benchmark + 1.0% Fixed Premium)'}
+                              </span>
+                            </div>
+
+                            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
+                              <div className="text-slate-600">Planned Net Profit Commitment:</div>
+                              <div className="font-bold font-mono text-base text-indigo-700">
+                                R {(decisions.treasury?.plannedNetProfit || 0).toLocaleString()}
+                              </div>
+                              <p className="text-[10px] text-slate-400">
+                                Governs the Delivery Against Plan score on the Value Creation scorecard across all periods.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
              </div>
           )}
@@ -955,6 +1176,77 @@ const FinancialReports: React.FC = () => {
                       </tbody>
                   </table>
               </div>
+          )}
+
+          {/* 5. GLOBAL MARKETS TABS */}
+          {isGlobalMarkets && ['exposure', 'valueCreation', 'covenantsFunding'].includes(activeTab) && (
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm">
+              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Reporting Period:{' '}
+                <span className="text-slate-900 font-mono font-bold">
+                  {selectedGmPeriod === currentTeam.currentPeriod ? `Year ${selectedGmPeriod} (Forecast Pro-Forma)` : `Year ${selectedGmPeriod} (Actual)`}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from({ length: currentTeam.currentPeriod - 1 }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setSelectedGmPeriod(p)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      selectedGmPeriod === p
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Year {p}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setSelectedGmPeriod(currentTeam.currentPeriod)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedGmPeriod === currentTeam.currentPeriod
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                >
+                  <TrendingUp size={13} />
+                  <span>Year {currentTeam.currentPeriod} (Forecast)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'exposure' && isGlobalMarkets && (
+            <ExposureReport 
+              gmRecord={selectedGmPeriod === currentTeam.currentPeriod ? forecast.gm : (currentTeam.history?.[selectedGmPeriod]?.gm || currentTeam.history?.[String(selectedGmPeriod)]?.gm)} 
+              period={selectedGmPeriod} 
+              editionConfig={edition} 
+            />
+          )}
+
+          {activeTab === 'valueCreation' && isGlobalMarkets && (
+            <ValueCreationReport 
+              gmRecord={selectedGmPeriod === currentTeam.currentPeriod ? forecast.gm : (currentTeam.history?.[selectedGmPeriod]?.gm || currentTeam.history?.[String(selectedGmPeriod)]?.gm)} 
+              period={selectedGmPeriod} 
+              editionConfig={edition} 
+            />
+          )}
+
+          {activeTab === 'covenantsFunding' && isGlobalMarkets && (
+            <CovenantsFundingReport 
+              gmRecord={selectedGmPeriod === currentTeam.currentPeriod ? forecast.gm : (currentTeam.history?.[selectedGmPeriod]?.gm || currentTeam.history?.[String(selectedGmPeriod)]?.gm)} 
+              period={selectedGmPeriod} 
+              editionConfig={edition} 
+            />
+          )}
+
+          {activeTab === 'marketDesk' && isGlobalMarkets && (
+            <MarketDeskReport 
+              period={currentTeam.currentPeriod} 
+              editionConfig={edition} 
+            />
           )}
 
       </div>

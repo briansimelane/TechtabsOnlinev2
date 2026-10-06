@@ -10,6 +10,7 @@ import Operations from './pages/decisions/Operations';
 import Procurement from './pages/decisions/Procurement';
 import HR from './pages/decisions/HR';
 import Finance from './pages/decisions/Finance';
+import TreasuryMarketsDecision from './pages/editions/globalMarkets/TreasuryMarketsDecision';
 import FinancialReports from './pages/FinancialReports';
 import MarketReports from './pages/MarketReports';
 import FacilitatorDashboard from './pages/facilitator/FacilitatorDashboard';
@@ -100,6 +101,7 @@ const AppLayout: React.FC = () => {
           <Route path="/decisions/procurement" element={<Procurement />} />
           <Route path="/decisions/hr" element={<HR />} />
           <Route path="/decisions/finance" element={<Finance />} />
+          <Route path="/decisions/treasury" element={<TreasuryMarketsDecision />} />
           
           <Route path="/reports" element={<FinancialReports />} />
           <Route path="/market-reports" element={<MarketReports />} />

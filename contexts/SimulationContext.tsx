@@ -2,10 +2,11 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
-import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride } from '../types';
+import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride, EditionId } from '../types';
 import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
+import { getEdition } from '../utils/editions';
 import { computeIndustryPerformance } from '../utils/industryPerformance';
 import { formatNumber } from '../utils/numberFormat';
 import { getAppAuth, googleProvider, getAppDb } from '../firebase';
@@ -43,7 +44,7 @@ interface SimulationContextType extends SimulationState {
   login: (code: string) => Promise<{ success: boolean; message?: string; role?: Role }>;
   loginWithGoogle: () => Promise<{ role: Role } | null>;
   logout: () => void;
-  createClass: (name: string, teamCount: number) => void;
+  createClass: (name: string, teamCount: number, editionId?: EditionId) => void;
   deleteClass: (classId: string) => void;
   archiveClass: (classId: string, archive?: boolean) => Promise<void>;
   restoreClass: (classId: string) => Promise<void>;
@@ -244,17 +245,18 @@ const getPermittedDiscountRange = (supplierId: string, totalVolume: number, fact
   return { min: 0, max: baseMax };
 };
 
-export function reconcileTeamPeriod(team: Team, targetPeriod: number): Team {
+export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: SimulationClass | null): Team {
   if (team.isArchived || team.currentPeriod >= targetPeriod) {
     return team;
   }
 
   let currentTeamState: Team = { ...team };
+  const edition = getEdition(cls);
 
   while (currentTeamState.currentPeriod < targetPeriod) {
     const p = currentTeamState.currentPeriod;
     const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
-    const result = processTurn(currentTeamState, decs, []);
+    const result = processTurn(currentTeamState, decs, [], edition);
     
     const carriedDecisions: TurnDecisions = {
       ...decs,
@@ -374,7 +376,10 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
   }, [state.decisions.negotiation.selectedSupplierId]);
 
   const localPin = localStorage.getItem('techtabs_ceo_pin');
-  const isReadOnly = !isDemoMode && state.currentRole === 'STUDENT' && ((!state.currentTeam.ceoPin || localPin !== state.currentTeam.ceoPin) || state.currentTeam.status === 'Submitted');
+  const isReadOnly = !isDemoMode && state.currentRole === 'STUDENT' && (
+    (Boolean(state.currentTeam.ceoPin) && localPin !== state.currentTeam.ceoPin) || 
+    state.currentTeam.status === 'Submitted'
+  );
 
   const ensureFirebaseSession = async () => {
       const auth = getAppAuth();
@@ -478,14 +483,24 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
           const updatedClass = { ...classData, teams: updatedTeams };
           await saveClass(updatedClass);
           
+          const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+          if (!updatedClasses.find(c => c.id === classId)) {
+            updatedClasses.push(updatedClass);
+          }
+          try {
+            localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+          } catch (e) {
+            console.warn("Failed to write classes to localStorage", e);
+          }
+
           setState(prev => {
-            const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
-            if (!updatedClasses.find(c => c.id === classId)) {
-              updatedClasses.push(updatedClass);
+            const nextClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+            if (!nextClasses.find(c => c.id === classId)) {
+              nextClasses.push(updatedClass);
             }
             return {
               ...prev,
-              classes: updatedClasses,
+              classes: nextClasses,
               currentTeam: prev.currentTeam.id === teamWithTimestamp.id ? mergedTeam : prev.currentTeam
             };
           });
@@ -591,17 +606,24 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
           const syncedClasses = dbClasses.map(cls => {
             let hasChanges = false;
+            const maxTeamPeriod = Math.max(cls.currentPeriod || 1, ...(cls.teams || []).map(t => t.currentPeriod || 1));
+            let effectivePeriod = cls.currentPeriod || 1;
+            if (maxTeamPeriod > effectivePeriod) {
+              effectivePeriod = maxTeamPeriod;
+              hasChanges = true;
+            }
+
             const syncedTeams = (cls.teams || []).map(t => {
-              if (!t.isArchived && t.currentPeriod < cls.currentPeriod) {
+              if (!t.isArchived && t.currentPeriod < effectivePeriod) {
                 hasChanges = true;
-                const synced = reconcileTeamPeriod(t, cls.currentPeriod);
+                const synced = reconcileTeamPeriod(t, effectivePeriod, cls);
                 void saveTeamState(cls.id, synced).catch(err => console.error("Failed auto-sync team period", err));
                 return synced;
               }
               return t;
             });
             if (hasChanges) {
-              const updatedCls = { ...cls, teams: syncedTeams };
+              const updatedCls = { ...cls, currentPeriod: effectivePeriod, teams: syncedTeams };
               void saveClass(updatedCls).catch(err => console.error("Failed auto-sync class teams", err));
               return updatedCls;
             }
@@ -698,16 +720,27 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       const existingTeams = existingClass?.teams || [];
                       const incomingTeams = updatedClass.teams || [];
 
+                      const effectivePeriod = Math.max(
+                          updatedClass.currentPeriod || 1,
+                          existingClass?.currentPeriod || 1
+                      );
+
                       const mergedTeams = incomingTeams.map(inTeam => {
                           const exTeam = existingTeams.find(t => t.id === inTeam.id);
                           if (!exTeam) return inTeam;
+
+                          if (inTeam.currentPeriod > exTeam.currentPeriod) {
+                              return inTeam;
+                          }
+                          if (exTeam.currentPeriod > inTeam.currentPeriod) {
+                              return exTeam;
+                          }
+
                           return {
-                              ...inTeam,
                               ...exTeam,
-                              updatedAt: exTeam.updatedAt || inTeam.updatedAt,
-                              ceoName: exTeam.ceoName || inTeam.ceoName,
-                              ceoPin: exTeam.ceoPin || inTeam.ceoPin,
-                              status: exTeam.status || inTeam.status,
+                              ...inTeam,
+                              ceoName: inTeam.ceoName || exTeam.ceoName,
+                              ceoPin: inTeam.ceoPin || exTeam.ceoPin,
                               draftDecisions: {
                                   ...(inTeam.draftDecisions || {}),
                                   ...(exTeam.draftDecisions || {}),
@@ -723,7 +756,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       });
 
                       const mergedClass = {
+                          ...existingClass,
                           ...updatedClass,
+                          currentPeriod: effectivePeriod,
                           teams: mergedTeams.length > 0 ? mergedTeams : (existingClass?.teams || [])
                       };
 
@@ -755,7 +790,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                   setState(prev => {
                       const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
                       if (targetClass && targetClass.currentPeriod > teamData.currentPeriod && !teamData.isArchived) {
-                          teamData = reconcileTeamPeriod(teamData, targetClass.currentPeriod);
+                          teamData = reconcileTeamPeriod(teamData, targetClass.currentPeriod, targetClass);
                           void saveTeamState(prev.currentClassId!, teamData).catch(err => console.error("Failed auto-sync student team period", err));
                       }
 
@@ -764,11 +799,11 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       }
                       
                       const localPin = localStorage.getItem('techtabs_ceo_pin');
-                      const isCurrentCeo = localPin === teamData.ceoPin && teamData.ceoPin;
+                      const canEdit = isDemoMode || !teamData.ceoPin || (localPin === teamData.ceoPin);
                       
-                      const updatedDecisions = (!isCurrentCeo && teamData.draftDecisions) 
+                      const updatedDecisions = (!canEdit && teamData.draftDecisions) 
                         ? teamData.draftDecisions 
-                        : prev.decisions;
+                        : (teamData.draftDecisions ? { ...teamData.draftDecisions, ...prev.decisions } : prev.decisions);
 
                       return {
                           ...prev,
@@ -800,9 +835,15 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
               setState(prev => {
                   const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
+                  const maxTeamPeriod = Math.max(
+                      targetClass?.currentPeriod || 1,
+                      ...sortedTeams.map(t => t.currentPeriod || 1)
+                  );
+                  const effectivePeriod = Math.max(targetClass?.currentPeriod || 1, maxTeamPeriod);
+
                   const reconciledTeams = sortedTeams.map(tData => {
-                      if (targetClass && targetClass.currentPeriod > tData.currentPeriod && !tData.isArchived) {
-                          const synced = reconcileTeamPeriod(tData, targetClass.currentPeriod);
+                      if (targetClass && effectivePeriod > tData.currentPeriod && !tData.isArchived) {
+                          const synced = reconcileTeamPeriod(tData, effectivePeriod, targetClass);
                           void saveTeamState(prev.currentClassId!, synced).catch(err => console.error("Failed auto-sync team period", err));
                           return synced;
                       }
@@ -813,6 +854,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       if (c.id === prev.currentClassId) {
                           return {
                               ...c,
+                              currentPeriod: effectivePeriod,
                               teams: reconciledTeams
                           };
                       }
@@ -828,9 +870,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       if (matched) {
                           updatedCurrentTeam = matched;
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
-                          const isCurrentCeo = isDemoMode || (localPin === matched.ceoPin && matched.ceoPin);
+                          const canEdit = isDemoMode || !matched.ceoPin || (localPin === matched.ceoPin);
                           if (matched.draftDecisions) {
-                              if (!isCurrentCeo) {
+                              if (!canEdit) {
                                   updatedDecisions = matched.draftDecisions;
                               } else {
                                   updatedDecisions = {
@@ -871,10 +913,10 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                           const kpis = teamInClass.history?.[lastPeriod]?.kpis || YEAR_0_RECORD.kpis;
                           
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
-                          const isCurrentCeo = isDemoMode || (localPin === teamInClass.ceoPin && teamInClass.ceoPin);
+                          const canEdit = isDemoMode || !teamInClass.ceoPin || (localPin === teamInClass.ceoPin);
                           let updatedDecisions = prev.decisions;
                           if (teamInClass.draftDecisions) {
-                            if (!isCurrentCeo) {
+                            if (!canEdit) {
                               updatedDecisions = teamInClass.draftDecisions;
                             } else {
                               updatedDecisions = {
@@ -916,20 +958,23 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       };
 
       const localPin = localStorage.getItem('techtabs_ceo_pin');
-      const isCurrentCeo = isDemoMode || (localPin === prev.currentTeam.ceoPin && prev.currentTeam.ceoPin);
+      const canEdit = isDemoMode || 
+                      prev.currentRole !== 'STUDENT' || 
+                      !prev.currentTeam.ceoPin || 
+                      (localPin === prev.currentTeam.ceoPin);
 
       const updatedTeam = {
         ...prev.currentTeam,
         draftDecisions: updatedDecisions
       };
 
-      if (isCurrentCeo || prev.currentRole !== 'STUDENT') {
+      if (canEdit) {
          debouncedSaveDraft(prev.currentClassId, updatedTeam);
       }
 
       return {
         ...prev,
-        currentTeam: isCurrentCeo ? updatedTeam : prev.currentTeam,
+        currentTeam: canEdit ? updatedTeam : prev.currentTeam,
         decisions: updatedDecisions,
       };
     });
@@ -942,7 +987,8 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       const activeEvents = currentClass?.activeEvents?.filter(e => e.activePeriod === state.currentTeam.currentPeriod) || [];
 
       // 2. Run the Simulation Engine
-      const result = processTurn(state.currentTeam, state.decisions, activeEvents);
+      const edition = getEdition(currentClass);
+      const result = processTurn(state.currentTeam, state.decisions, activeEvents, edition);
 
       const updatedTeam: Team = {
           ...result.newTeamState,
@@ -1800,7 +1846,7 @@ BEHAVIOR RULES:
     });
   };
 
-  const createClass = (name: string, teamCount: number) => {
+  const createClass = (name: string, teamCount: number, editionId?: EditionId) => {
     const newClassId = `class_${Date.now()}`;
     const teams: Team[] = [];
     const teamCodes: Record<string, string> = {};
@@ -1835,7 +1881,8 @@ BEHAVIOR RULES:
         creatorUid: currentUser?.uid || undefined,
         activeEvents: [],
         surveyConfig: DEFAULT_SURVEY_CONFIG,
-        surveyResponses: []
+        surveyResponses: [],
+        ...(editionId && editionId !== 'standard' ? { editionId } : {})
     };
 
         void persistClass(newClass).catch((error) => {
@@ -2213,12 +2260,14 @@ BEHAVIOR RULES:
         const foundDbAdmin = dbAdmins.find(a => a.accessCode === code);
 
         if (foundDbFac) {
+            const dbClasses = await listClasses();
             localStorage.setItem('techtabs_is_demo', 'false');
             setIsDemoMode(false);
             const displayName = foundDbFac.name;
             setCurrentUser({ uid: foundDbFac.id, email: foundDbFac.email, displayName });
             setState(prev => ({
                 ...prev,
+                classes: dbClasses,
                 isAuthenticated: true,
                 currentRole: 'FACILITATOR',
                 originalRole: 'FACILITATOR',
@@ -2238,12 +2287,14 @@ BEHAVIOR RULES:
         }
 
         if (foundDbAdmin) {
+            const dbClasses = await listClasses();
             localStorage.setItem('techtabs_is_demo', 'false');
             setIsDemoMode(false);
             const displayName = foundDbAdmin.name;
             setCurrentUser({ uid: foundDbAdmin.id, email: foundDbAdmin.email, displayName });
             setState(prev => ({
                 ...prev,
+                classes: dbClasses,
                 isAuthenticated: true,
                 currentRole: 'ADMIN',
                 originalRole: 'ADMIN',
@@ -2273,6 +2324,7 @@ BEHAVIOR RULES:
             setCurrentUser({ uid: authUser?.uid || 'fac-class-local', email: authUser?.email ?? 'fac@class.com', displayName });
             setState(prev => ({
                 ...prev,
+                classes: dbClasses,
                 isAuthenticated: true,
                 currentRole: 'FACILITATOR',
                 originalRole: 'FACILITATOR',
@@ -2313,6 +2365,7 @@ BEHAVIOR RULES:
 
                         setState(prev => ({
                             ...prev,
+                            classes: dbClasses,
                             isAuthenticated: true,
                             currentRole: 'STUDENT',
                             originalRole: 'STUDENT',
@@ -2475,98 +2528,111 @@ BEHAVIOR RULES:
   };
 
   const runClassSimulation = async (classId: string) => {
-    setState(prev => {
-      const cls = prev.classes.find(c => c.id === classId);
-      if (!cls) return prev;
+    const cls = state.classes.find(c => c.id === classId);
+    if (!cls) {
+      console.warn(`runClassSimulation: Class ${classId} not found`);
+      return;
+    }
 
-      const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
-      const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod);
-      const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
+    const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
+    const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod);
+    const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
 
-      const updatedTeams = cls.teams.map(team => {
-        if (team.isArchived) {
-          return team;
-        }
-        const decs = team.draftDecisions || INITIAL_DECISIONS;
-        const result = processTurn(team, decs, activeEvents);
-        const rawTeamPerf = perfMap.get(team.id);
-        const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
-        const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
-        const gp = result.periodRecord.grossProfit?.total ?? (totRev - totCogs);
-        const np = result.periodRecord.netProfit ?? rawTeamPerf?.netProfit ?? 0;
-        const eq = result.periodRecord.balanceSheet?.equity ?? rawTeamPerf?.equity ?? 0;
+    const updatedTeams = cls.teams.map(team => {
+      if (team.isArchived) {
+        return team;
+      }
+      const decs = team.draftDecisions || INITIAL_DECISIONS;
+      const edition = getEdition(cls);
+      const result = processTurn(team, decs, activeEvents, edition);
+      const rawTeamPerf = perfMap.get(team.id);
+      const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
+      const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
+      const gp = result.periodRecord.grossProfit?.total ?? (totRev - totCogs);
+      const np = result.periodRecord.netProfit ?? rawTeamPerf?.netProfit ?? 0;
+      const eq = result.periodRecord.balanceSheet?.equity ?? rawTeamPerf?.equity ?? 0;
 
-        const teamPerf = rawTeamPerf ? {
-          ...rawTeamPerf,
-          revenueByProduct: result.periodRecord.revenue?.byProduct ?? rawTeamPerf.revenueByProduct,
-          totalRevenue: totRev,
-          cogsByProduct: result.periodRecord.cogs?.byProduct ?? rawTeamPerf.cogsByProduct,
-          totalCogs: totCogs,
-          grossProfit: gp,
-          gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
-          netProfit: np,
-          npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
-          equity: eq,
-          roe: eq > 0 ? (np / eq) * 100 : 0
-        } : undefined;
+      const teamPerf = rawTeamPerf ? {
+        ...rawTeamPerf,
+        revenueByProduct: result.periodRecord.revenue?.byProduct ?? rawTeamPerf.revenueByProduct,
+        totalRevenue: totRev,
+        cogsByProduct: result.periodRecord.cogs?.byProduct ?? rawTeamPerf.cogsByProduct,
+        totalCogs: totCogs,
+        grossProfit: gp,
+        gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
+        netProfit: np,
+        npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
+        equity: eq,
+        roe: eq > 0 ? (np / eq) * 100 : 0
+      } : undefined;
 
-        const periodRecordWithIndustry = {
-          ...result.periodRecord,
-          decisions: decs,
-          draftDecisions: decs,
-          industry: teamPerf,
-          fullIndustryReport: industryPerfList
-        };
-
-        const carriedDecisions: TurnDecisions = {
-          ...decs,
-          operations: {
-            ...decs.operations,
-            capacityChange: 0,
-            reqFinishedGoods: { techbook: 0, zroid: 0, itab: 0 }
-          },
-          hr: {
-            ...decs.hr,
-            hiring: { engineers: 0, technicians: 0, semiSkilled: 0, adminSales: 0, customerService: 0 }
-          },
-          finance: {
-            ...decs.finance,
-            debtChange: 0,
-            equityChange: 0
-          },
-          negotiation: {
-            ...INITIAL_DECISIONS.negotiation
-          }
-        };
-
-        const newTeam: Team = {
-          ...result.newTeamState,
-          status: 'Saved',
-          draftDecisions: carriedDecisions,
-          history: {
-            ...(team.history || {}),
-            [team.currentPeriod]: periodRecordWithIndustry
-          }
-        };
-
-        void saveTeamState(classId, newTeam).catch(err => 
-          console.error(`Failed to save team ${newTeam.id} in class simulation run`, err)
-        );
-
-        return newTeam;
-      });
-
-      const updatedClass: SimulationClass = {
-        ...cls,
-        currentPeriod: cls.currentPeriod + 1,
-        teams: updatedTeams
+      const periodRecordWithIndustry = {
+        ...result.periodRecord,
+        decisions: decs,
+        draftDecisions: decs,
+        industry: teamPerf,
+        fullIndustryReport: industryPerfList
       };
 
-      void saveClass(updatedClass).catch(err => 
-        console.error(`Failed to save class ${classId} in class simulation run`, err)
-      );
+      const carriedDecisions: TurnDecisions = {
+        ...decs,
+        operations: {
+          ...decs.operations,
+          capacityChange: 0,
+          reqFinishedGoods: { techbook: 0, zroid: 0, itab: 0 }
+        },
+        hr: {
+          ...decs.hr,
+          hiring: { engineers: 0, technicians: 0, semiSkilled: 0, adminSales: 0, customerService: 0 }
+        },
+        finance: {
+          ...decs.finance,
+          debtChange: 0,
+          equityChange: 0
+        },
+        negotiation: {
+          ...INITIAL_DECISIONS.negotiation
+        }
+      };
 
-      const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+      const newTeam: Team = {
+        ...result.newTeamState,
+        currentPeriod: team.currentPeriod + 1,
+        status: 'Saved',
+        draftDecisions: carriedDecisions,
+        history: {
+          ...(team.history || {}),
+          [team.currentPeriod]: periodRecordWithIndustry
+        }
+      };
+
+      return newTeam;
+    });
+
+    const nextPeriod = cls.currentPeriod + 1;
+    const updatedClass: SimulationClass = {
+      ...cls,
+      currentPeriod: nextPeriod,
+      teams: updatedTeams
+    };
+
+    const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+
+    try {
+      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+    } catch (e) {
+      console.warn("Could not write updated classes to localStorage", e);
+    }
+
+    if (!isDemoMode) {
+      await Promise.all(
+        updatedTeams.map(newTeam => saveTeamState(classId, newTeam))
+      );
+      await saveClass(updatedClass);
+    }
+
+    setState(prev => {
+      const refreshedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
 
       let updatedCurrentTeam = prev.currentTeam;
       let updatedDecisions = prev.decisions;
@@ -2584,7 +2650,7 @@ BEHAVIOR RULES:
 
       return {
         ...prev,
-        classes: updatedClasses,
+        classes: refreshedClasses,
         currentTeam: updatedCurrentTeam,
         decisions: updatedDecisions,
         lastPeriodKPIs: updatedLastPeriodKPIs
@@ -2593,98 +2659,96 @@ BEHAVIOR RULES:
   };
 
   const reopenTeamDecisions = async (classId: string, teamId: string) => {
-    setState(prev => {
-      const cls = prev.classes.find(c => c.id === classId);
-      if (!cls) return prev;
+    const cls = state.classes.find(c => c.id === classId);
+    if (!cls) return;
 
-      const updatedTeams = cls.teams.map(team => {
-        if (team.id === teamId) {
-          const unlockedTeam: Team = {
-            ...team,
-            status: 'InProgress',
-            reopenRequested: false
-          };
-
-          void saveTeamState(classId, unlockedTeam).catch(err => 
-            console.error(`Failed to save team ${unlockedTeam.id} in reopenTeamDecisions`, err)
-          );
-
-          return unlockedTeam;
-        }
-        return team;
-      });
-
-      const updatedClass: SimulationClass = {
-        ...cls,
-        teams: updatedTeams
-      };
-
-      void saveClass(updatedClass).catch(err => 
-        console.error(`Failed to save class ${classId} in reopenTeamDecisions`, err)
-      );
-
-      const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
-
-      let updatedCurrentTeam = prev.currentTeam;
-      if (prev.currentClassId === classId && prev.currentTeam.id === teamId) {
-        const foundTeam = updatedTeams.find(t => t.id === teamId);
-        if (foundTeam) {
-          updatedCurrentTeam = foundTeam;
-        }
+    let unlockedTeam: Team | undefined;
+    const updatedTeams = cls.teams.map(team => {
+      if (team.id === teamId) {
+        unlockedTeam = {
+          ...team,
+          status: 'InProgress',
+          reopenRequested: false
+        };
+        return unlockedTeam;
       }
+      return team;
+    });
 
+    const updatedClass: SimulationClass = {
+      ...cls,
+      teams: updatedTeams
+    };
+
+    const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+    try {
+      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+    } catch (e) {
+      console.warn("Could not write updated classes to localStorage", e);
+    }
+
+    if (!isDemoMode && unlockedTeam) {
+      await saveTeamState(classId, unlockedTeam);
+      await saveClass(updatedClass);
+    }
+
+    setState(prev => {
+      const nextClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+      let updatedCurrentTeam = prev.currentTeam;
+      if (prev.currentClassId === classId && prev.currentTeam.id === teamId && unlockedTeam) {
+        updatedCurrentTeam = unlockedTeam;
+      }
       return {
         ...prev,
-        classes: updatedClasses,
+        classes: nextClasses,
         currentTeam: updatedCurrentTeam
       };
     });
   };
 
   const submitTeamDecisionsByFacilitator = async (classId: string, teamId: string) => {
-    setState(prev => {
-      const cls = prev.classes.find(c => c.id === classId);
-      if (!cls) return prev;
+    const cls = state.classes.find(c => c.id === classId);
+    if (!cls) return;
 
-      const updatedTeams = cls.teams.map(team => {
-        if (team.id === teamId) {
-          const submittedTeam: Team = {
-            ...team,
-            status: 'Submitted',
-            reopenRequested: false
-          };
-
-          void saveTeamState(classId, submittedTeam).catch(err => 
-            console.error(`Failed to save team ${submittedTeam.id} in submitTeamDecisionsByFacilitator`, err)
-          );
-
-          return submittedTeam;
-        }
-        return team;
-      });
-
-      const updatedClass: SimulationClass = {
-        ...cls,
-        teams: updatedTeams
-      };
-
-      void saveClass(updatedClass).catch(err => 
-        console.error(`Failed to save class ${classId} in submitTeamDecisionsByFacilitator`, err)
-      );
-
-      const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
-
-      let updatedCurrentTeam = prev.currentTeam;
-      if (prev.currentClassId === classId && prev.currentTeam.id === teamId) {
-        const foundTeam = updatedTeams.find(t => t.id === teamId);
-        if (foundTeam) {
-          updatedCurrentTeam = foundTeam;
-        }
+    let submittedTeam: Team | undefined;
+    const updatedTeams = cls.teams.map(team => {
+      if (team.id === teamId) {
+        submittedTeam = {
+          ...team,
+          status: 'Submitted',
+          reopenRequested: false
+        };
+        return submittedTeam;
       }
+      return team;
+    });
 
+    const updatedClass: SimulationClass = {
+      ...cls,
+      teams: updatedTeams
+    };
+
+    const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
+    try {
+      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+    } catch (e) {
+      console.warn("Could not write updated classes to localStorage", e);
+    }
+
+    if (!isDemoMode && submittedTeam) {
+      await saveTeamState(classId, submittedTeam);
+      await saveClass(updatedClass);
+    }
+
+    setState(prev => {
+      const nextClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+      let updatedCurrentTeam = prev.currentTeam;
+      if (prev.currentClassId === classId && prev.currentTeam.id === teamId && submittedTeam) {
+        updatedCurrentTeam = submittedTeam;
+      }
       return {
         ...prev,
-        classes: updatedClasses,
+        classes: nextClasses,
         currentTeam: updatedCurrentTeam
       };
     });

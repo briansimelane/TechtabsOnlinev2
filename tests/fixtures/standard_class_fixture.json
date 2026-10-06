@@ -1,0 +1,5192 @@
+{
+  "initialTeams": [
+    {
+      "id": "team_1_test",
+      "name": "Team 1",
+      "ceoName": "CEO Name",
+      "universeId": "class_test_reg",
+      "currentPeriod": 1,
+      "cashBalance": 147305847,
+      "storeCount": 8,
+      "factoryCapacity": 40000,
+      "inventory": {
+        "techbook": 8533,
+        "zroid": 9200,
+        "itab": 0
+      },
+      "staffCounts": {
+        "engineers": 22,
+        "technicians": 28,
+        "semiSkilled": 37,
+        "adminSales": 29,
+        "customerService": 58
+      },
+      "longTermDebt": 0,
+      "shareholdersEquity": 341050070,
+      "history": {
+        "0": {
+          "period": 0,
+          "revenue": {
+            "total": 289138300,
+            "byProduct": {
+              "techbook": 108282000,
+              "zroid": 107932800,
+              "itab": 72923500
+            }
+          },
+          "cogs": {
+            "total": 123170388,
+            "byProduct": {
+              "techbook": 57998802,
+              "zroid": 44113220,
+              "itab": 21058366
+            }
+          },
+          "grossProfit": {
+            "total": 165967912,
+            "byProduct": {
+              "techbook": 50283198,
+              "zroid": 63819580,
+              "itab": 51865134
+            }
+          },
+          "opex": {
+            "marketing": 25051494,
+            "store": 40082390,
+            "agents": 2255279,
+            "payroll": 19696818,
+            "training": 2958080,
+            "rd": 15055857,
+            "other": 15800800,
+            "total": 120900718
+          },
+          "ebitda": 45067194,
+          "depreciation": 1535965,
+          "interest": 0,
+          "ebt": 43531229,
+          "tax": 12188743,
+          "netProfit": 31342486,
+          "balanceSheet": {
+            "cash": 147305847,
+            "receivables": 18547918,
+            "inventory": 112334926,
+            "fixedAssets": 299459535,
+            "totalAssets": 577648226,
+            "equity": 341050070,
+            "longTermDebt": 0,
+            "currentLiabilities": 236598156,
+            "totalLiabilitiesAndEquity": 577648226
+          },
+          "cashFlow": {
+            "operating": 55989632,
+            "investing": -15000000,
+            "financing": 0,
+            "net": 40989632
+          },
+          "debtorDays": {
+            "techbook": 30,
+            "zroid": 45,
+            "itab": 30
+          },
+          "creditorDays": 45,
+          "interestCoverage": 114.5,
+          "kpis": {
+            "revenue": 289138300,
+            "netProfit": 31342486,
+            "marketShare": {
+              "techbook": 0.125,
+              "zroid": 0.125,
+              "itab": 0.125
+            },
+            "customerSatisfaction": 0.7,
+            "employeeSatisfaction": 0.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "salaries": {
+            "engineers": 45000,
+            "technicians": 20000,
+            "semiSkilled": 15000,
+            "adminSales": 15000,
+            "customerService": 10000
+          },
+          "features": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        }
+      },
+      "features": {
+        "techbook": 0,
+        "zroid": 0,
+        "itab": 0
+      },
+      "status": "InProgress"
+    },
+    {
+      "id": "team_2_test",
+      "name": "Team 2",
+      "ceoName": "CEO Name",
+      "universeId": "class_test_reg",
+      "currentPeriod": 1,
+      "cashBalance": 147305847,
+      "storeCount": 8,
+      "factoryCapacity": 40000,
+      "inventory": {
+        "techbook": 8533,
+        "zroid": 9200,
+        "itab": 0
+      },
+      "staffCounts": {
+        "engineers": 22,
+        "technicians": 28,
+        "semiSkilled": 37,
+        "adminSales": 29,
+        "customerService": 58
+      },
+      "longTermDebt": 0,
+      "shareholdersEquity": 341050070,
+      "history": {
+        "0": {
+          "period": 0,
+          "revenue": {
+            "total": 289138300,
+            "byProduct": {
+              "techbook": 108282000,
+              "zroid": 107932800,
+              "itab": 72923500
+            }
+          },
+          "cogs": {
+            "total": 123170388,
+            "byProduct": {
+              "techbook": 57998802,
+              "zroid": 44113220,
+              "itab": 21058366
+            }
+          },
+          "grossProfit": {
+            "total": 165967912,
+            "byProduct": {
+              "techbook": 50283198,
+              "zroid": 63819580,
+              "itab": 51865134
+            }
+          },
+          "opex": {
+            "marketing": 25051494,
+            "store": 40082390,
+            "agents": 2255279,
+            "payroll": 19696818,
+            "training": 2958080,
+            "rd": 15055857,
+            "other": 15800800,
+            "total": 120900718
+          },
+          "ebitda": 45067194,
+          "depreciation": 1535965,
+          "interest": 0,
+          "ebt": 43531229,
+          "tax": 12188743,
+          "netProfit": 31342486,
+          "balanceSheet": {
+            "cash": 147305847,
+            "receivables": 18547918,
+            "inventory": 112334926,
+            "fixedAssets": 299459535,
+            "totalAssets": 577648226,
+            "equity": 341050070,
+            "longTermDebt": 0,
+            "currentLiabilities": 236598156,
+            "totalLiabilitiesAndEquity": 577648226
+          },
+          "cashFlow": {
+            "operating": 55989632,
+            "investing": -15000000,
+            "financing": 0,
+            "net": 40989632
+          },
+          "debtorDays": {
+            "techbook": 30,
+            "zroid": 45,
+            "itab": 30
+          },
+          "creditorDays": 45,
+          "interestCoverage": 114.5,
+          "kpis": {
+            "revenue": 289138300,
+            "netProfit": 31342486,
+            "marketShare": {
+              "techbook": 0.125,
+              "zroid": 0.125,
+              "itab": 0.125
+            },
+            "customerSatisfaction": 0.7,
+            "employeeSatisfaction": 0.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "salaries": {
+            "engineers": 45000,
+            "technicians": 20000,
+            "semiSkilled": 15000,
+            "adminSales": 15000,
+            "customerService": 10000
+          },
+          "features": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        }
+      },
+      "features": {
+        "techbook": 0,
+        "zroid": 0,
+        "itab": 0
+      },
+      "status": "InProgress"
+    },
+    {
+      "id": "team_3_test",
+      "name": "Team 3",
+      "ceoName": "CEO Name",
+      "universeId": "class_test_reg",
+      "currentPeriod": 1,
+      "cashBalance": 147305847,
+      "storeCount": 8,
+      "factoryCapacity": 40000,
+      "inventory": {
+        "techbook": 8533,
+        "zroid": 9200,
+        "itab": 0
+      },
+      "staffCounts": {
+        "engineers": 22,
+        "technicians": 28,
+        "semiSkilled": 37,
+        "adminSales": 29,
+        "customerService": 58
+      },
+      "longTermDebt": 0,
+      "shareholdersEquity": 341050070,
+      "history": {
+        "0": {
+          "period": 0,
+          "revenue": {
+            "total": 289138300,
+            "byProduct": {
+              "techbook": 108282000,
+              "zroid": 107932800,
+              "itab": 72923500
+            }
+          },
+          "cogs": {
+            "total": 123170388,
+            "byProduct": {
+              "techbook": 57998802,
+              "zroid": 44113220,
+              "itab": 21058366
+            }
+          },
+          "grossProfit": {
+            "total": 165967912,
+            "byProduct": {
+              "techbook": 50283198,
+              "zroid": 63819580,
+              "itab": 51865134
+            }
+          },
+          "opex": {
+            "marketing": 25051494,
+            "store": 40082390,
+            "agents": 2255279,
+            "payroll": 19696818,
+            "training": 2958080,
+            "rd": 15055857,
+            "other": 15800800,
+            "total": 120900718
+          },
+          "ebitda": 45067194,
+          "depreciation": 1535965,
+          "interest": 0,
+          "ebt": 43531229,
+          "tax": 12188743,
+          "netProfit": 31342486,
+          "balanceSheet": {
+            "cash": 147305847,
+            "receivables": 18547918,
+            "inventory": 112334926,
+            "fixedAssets": 299459535,
+            "totalAssets": 577648226,
+            "equity": 341050070,
+            "longTermDebt": 0,
+            "currentLiabilities": 236598156,
+            "totalLiabilitiesAndEquity": 577648226
+          },
+          "cashFlow": {
+            "operating": 55989632,
+            "investing": -15000000,
+            "financing": 0,
+            "net": 40989632
+          },
+          "debtorDays": {
+            "techbook": 30,
+            "zroid": 45,
+            "itab": 30
+          },
+          "creditorDays": 45,
+          "interestCoverage": 114.5,
+          "kpis": {
+            "revenue": 289138300,
+            "netProfit": 31342486,
+            "marketShare": {
+              "techbook": 0.125,
+              "zroid": 0.125,
+              "itab": 0.125
+            },
+            "customerSatisfaction": 0.7,
+            "employeeSatisfaction": 0.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "salaries": {
+            "engineers": 45000,
+            "technicians": 20000,
+            "semiSkilled": 15000,
+            "adminSales": 15000,
+            "customerService": 10000
+          },
+          "features": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        }
+      },
+      "features": {
+        "techbook": 0,
+        "zroid": 0,
+        "itab": 0
+      },
+      "status": "InProgress"
+    },
+    {
+      "id": "team_4_test",
+      "name": "Team 4",
+      "ceoName": "CEO Name",
+      "universeId": "class_test_reg",
+      "currentPeriod": 1,
+      "cashBalance": 147305847,
+      "storeCount": 8,
+      "factoryCapacity": 40000,
+      "inventory": {
+        "techbook": 8533,
+        "zroid": 9200,
+        "itab": 0
+      },
+      "staffCounts": {
+        "engineers": 22,
+        "technicians": 28,
+        "semiSkilled": 37,
+        "adminSales": 29,
+        "customerService": 58
+      },
+      "longTermDebt": 0,
+      "shareholdersEquity": 341050070,
+      "history": {
+        "0": {
+          "period": 0,
+          "revenue": {
+            "total": 289138300,
+            "byProduct": {
+              "techbook": 108282000,
+              "zroid": 107932800,
+              "itab": 72923500
+            }
+          },
+          "cogs": {
+            "total": 123170388,
+            "byProduct": {
+              "techbook": 57998802,
+              "zroid": 44113220,
+              "itab": 21058366
+            }
+          },
+          "grossProfit": {
+            "total": 165967912,
+            "byProduct": {
+              "techbook": 50283198,
+              "zroid": 63819580,
+              "itab": 51865134
+            }
+          },
+          "opex": {
+            "marketing": 25051494,
+            "store": 40082390,
+            "agents": 2255279,
+            "payroll": 19696818,
+            "training": 2958080,
+            "rd": 15055857,
+            "other": 15800800,
+            "total": 120900718
+          },
+          "ebitda": 45067194,
+          "depreciation": 1535965,
+          "interest": 0,
+          "ebt": 43531229,
+          "tax": 12188743,
+          "netProfit": 31342486,
+          "balanceSheet": {
+            "cash": 147305847,
+            "receivables": 18547918,
+            "inventory": 112334926,
+            "fixedAssets": 299459535,
+            "totalAssets": 577648226,
+            "equity": 341050070,
+            "longTermDebt": 0,
+            "currentLiabilities": 236598156,
+            "totalLiabilitiesAndEquity": 577648226
+          },
+          "cashFlow": {
+            "operating": 55989632,
+            "investing": -15000000,
+            "financing": 0,
+            "net": 40989632
+          },
+          "debtorDays": {
+            "techbook": 30,
+            "zroid": 45,
+            "itab": 30
+          },
+          "creditorDays": 45,
+          "interestCoverage": 114.5,
+          "kpis": {
+            "revenue": 289138300,
+            "netProfit": 31342486,
+            "marketShare": {
+              "techbook": 0.125,
+              "zroid": 0.125,
+              "itab": 0.125
+            },
+            "customerSatisfaction": 0.7,
+            "employeeSatisfaction": 0.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "salaries": {
+            "engineers": 45000,
+            "technicians": 20000,
+            "semiSkilled": 15000,
+            "adminSales": 15000,
+            "customerService": 10000
+          },
+          "features": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        }
+      },
+      "features": {
+        "techbook": 0,
+        "zroid": 0,
+        "itab": 0
+      },
+      "status": "InProgress"
+    }
+  ],
+  "periodDecisions": {
+    "1": {
+      "team_1_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3250,
+            "zroid": 5100,
+            "itab": 6900
+          },
+          "advertisingBudget": 29000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 16000,
+            "zroid": 16000,
+            "itab": 11000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_2_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 2850,
+            "zroid": 4600,
+            "itab": 6300
+          },
+          "advertisingBudget": 22000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 5,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 22000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_3_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 2,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 18000000,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 10000000,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_4_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      }
+    },
+    "2": {
+      "team_1_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3300,
+            "zroid": 5200,
+            "itab": 7000
+          },
+          "advertisingBudget": 30000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 16000,
+            "zroid": 16000,
+            "itab": 11000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_2_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 2850,
+            "zroid": 4600,
+            "itab": 6300
+          },
+          "advertisingBudget": 22000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 5,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 22000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_3_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 2,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 18000000,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 10000000,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_4_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      }
+    },
+    "3": {
+      "team_1_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3350,
+            "zroid": 5300,
+            "itab": 7100
+          },
+          "advertisingBudget": 31000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 16000,
+            "zroid": 16000,
+            "itab": 11000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_2_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 2850,
+            "zroid": 4600,
+            "itab": 6300
+          },
+          "advertisingBudget": 22000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 5,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 22000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_3_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 2,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 18000000,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 10000000,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      },
+      "team_4_test": {
+        "marketing": {
+          "forecastedMarketShare": {
+            "techbook": 16.7,
+            "zroid": 16.7,
+            "itab": 16.7
+          },
+          "prices": {
+            "techbook": 3000,
+            "zroid": 4800,
+            "itab": 6500
+          },
+          "advertisingBudget": 25000000,
+          "adSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.25
+          },
+          "generalAdSplit": 0.25,
+          "openCloseStores": 0,
+          "agentCommission": 0.015
+        },
+        "operations": {
+          "production": {
+            "techbook": 15000,
+            "zroid": 15000,
+            "itab": 10000
+          },
+          "reqFinishedGoods": {
+            "techbook": 8500,
+            "zroid": 20000,
+            "itab": 12500
+          },
+          "capacityChange": 0,
+          "rdBudget": 15055857,
+          "rdSplits": {
+            "techbook": 0.25,
+            "zroid": 0.25,
+            "itab": 0.5
+          }
+        },
+        "hr": {
+          "hiring": {
+            "engineers": 0,
+            "technicians": 0,
+            "semiSkilled": 0,
+            "adminSales": 0,
+            "customerService": 0
+          },
+          "salaries": {
+            "engineers": 55000,
+            "technicians": 38000,
+            "semiSkilled": 30000,
+            "adminSales": 20000,
+            "customerService": 9250
+          },
+          "trainingLevels": {
+            "engineers": "Basic",
+            "technicians": "Basic",
+            "semiSkilled": "Basic",
+            "adminSales": "Basic",
+            "customerService": "Basic"
+          }
+        },
+        "procurement": {
+          "supplierAllocation": {
+            "techbook": {
+              "Alpha": {
+                "components": 10000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 8500
+              }
+            },
+            "zroid": {
+              "Alpha": {
+                "components": 8500,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 2000,
+                "finishedGoods": 20000
+              }
+            },
+            "itab": {
+              "Alpha": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Neepo": {
+                "components": 0,
+                "finishedGoods": 0
+              },
+              "Zen": {
+                "components": 5000,
+                "finishedGoods": 0
+              },
+              "Cheng": {
+                "components": 0,
+                "finishedGoods": 12500
+              }
+            }
+          }
+        },
+        "finance": {
+          "dividends": 0,
+          "debtChange": 0,
+          "equityChange": 0,
+          "debtorsDays": {
+            "techbook": 0,
+            "zroid": 0,
+            "itab": 0
+          }
+        },
+        "negotiation": {
+          "selectedSupplierId": null,
+          "status": "NOT_STARTED",
+          "agreedDiscount": 0,
+          "agreedPaymentTerms": 0,
+          "transcript": [],
+          "roundCount": 0,
+          "maxRounds": 10,
+          "sessionScores": {
+            "preparation": 0,
+            "interests": 0,
+            "trading": 0,
+            "concessions": 0,
+            "professionalism": 0
+          },
+          "debriefFeedback": "",
+          "contractPeriods": 1,
+          "extras": []
+        }
+      }
+    }
+  },
+  "expectedPeriodRecords": {
+    "1": {
+      "team_1_test": {
+        "period": 1,
+        "revenue": {
+          "total": 454675700,
+          "byProduct": {
+            "techbook": 89628500,
+            "zroid": 210135300,
+            "itab": 154911900
+          }
+        },
+        "cogs": {
+          "total": 185360494.09075454,
+          "byProduct": {
+            "techbook": 56514211.97259863,
+            "zroid": 83631835.97259863,
+            "itab": 45214446.14555728
+          }
+        },
+        "grossProfit": {
+          "total": 269315205.9092455,
+          "byProduct": {
+            "techbook": 33114288.027401373,
+            "zroid": 126503464.02740137,
+            "itab": 109697453.85444272
+          }
+        },
+        "opex": {
+          "marketing": 29000000,
+          "store": 44912040,
+          "agents": 3546470.46,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 16957950,
+          "total": 129754717.46
+        },
+        "ebitda": 139560488.4492455,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 138024523.4492455,
+        "tax": 38646866.565788746,
+        "netProfit": 99377656.88345677,
+        "balanceSheet": {
+          "cash": 201352515.97421122,
+          "receivables": 83651035,
+          "inventory": 97933991.90924546,
+          "fixedAssets": 297923570,
+          "totalAssets": 680861112.8834567,
+          "equity": 440427726.88345677,
+          "longTermDebt": 0,
+          "currentLiabilities": 240433386,
+          "totalLiabilitiesAndEquity": 680861112.8834567
+        },
+        "cashFlow": {
+          "operating": 54046668.974211216,
+          "investing": 0,
+          "financing": 0,
+          "net": 54046668.974211216
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 157.8153358594175,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 454675700,
+          "netProfit": 99377656.88345677,
+          "marketShare": {
+            "techbook": 0.14701876464230665,
+            "zroid": 0.15832762503125103,
+            "itab": 0.17600718148214045
+          },
+          "customerSatisfaction": 0.7088103041124418,
+          "employeeSatisfaction": 0.7230799203142717
+        },
+        "prices": {
+          "techbook": 3250,
+          "zroid": 5100,
+          "itab": 6900
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 3,
+          "zroid": 2,
+          "itab": 5
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 92,
+        "market": {
+          "marketSize": {
+            "techbook": 187588,
+            "zroid": 260242,
+            "itab": 127559
+          },
+          "forecastUnits": {
+            "techbook": 31327,
+            "zroid": 43460,
+            "itab": 21302
+          },
+          "demandUnits": {
+            "techbook": 27578,
+            "zroid": 41203,
+            "itab": 22451
+          },
+          "actualUnits": {
+            "techbook": 27578,
+            "zroid": 41203,
+            "itab": 22451
+          },
+          "availableUnits": {
+            "techbook": 31916,
+            "zroid": 44083,
+            "itab": 22732
+          },
+          "actualShare": {
+            "techbook": 0.14701876464230665,
+            "zroid": 0.15832762503125103,
+            "itab": 0.17600718148214045
+          },
+          "valueScore": {
+            "techbook": 0.4594336395072082,
+            "zroid": 0.4947738282226594,
+            "itab": 0.5500224421316889
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.4594336395072082,
+            "zroid": 0.4947738282226594,
+            "itab": 0.5500224421316889
+          }
+        }
+      },
+      "team_2_test": {
+        "period": 1,
+        "revenue": {
+          "total": 393967150,
+          "byProduct": {
+            "techbook": 78155550,
+            "zroid": 180122200,
+            "itab": 135689400
+          }
+        },
+        "cogs": {
+          "total": 177642583.6,
+          "byProduct": {
+            "techbook": 55402500,
+            "zroid": 79663500,
+            "itab": 42576583.599999994
+          }
+        },
+        "grossProfit": {
+          "total": 216324566.4,
+          "byProduct": {
+            "techbook": 22753050,
+            "zroid": 100458700,
+            "itab": 93112816.4
+          }
+        },
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "agents": 3072943.77,
+          "payroll": 18612000,
+          "training": 1718400,
+          "rd": 15055857,
+          "other": 15841591,
+          "total": 121212831.77
+        },
+        "ebitda": 95111734.63000001,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 93575769.63000001,
+        "tax": 26201215.496400006,
+        "netProfit": 67374554.1336,
+        "balanceSheet": {
+          "cash": 173055895.23360002,
+          "receivables": 74929202.5,
+          "inventory": 102949342.4,
+          "fixedAssets": 297923570,
+          "totalAssets": 648858010.1336,
+          "equity": 408424624.1336,
+          "longTermDebt": 0,
+          "currentLiabilities": 240433386,
+          "totalLiabilitiesAndEquity": 648858010.1336
+        },
+        "cashFlow": {
+          "operating": 25750048.23360002,
+          "investing": 0,
+          "financing": 0,
+          "net": 25750048.23360002
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 164.67182607447737,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 393967150,
+          "netProfit": 67374554.1336,
+          "marketShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "customerSatisfaction": 0.7065633580386868,
+          "employeeSatisfaction": 0.7209624628074693
+        },
+        "prices": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 22000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 3,
+          "zroid": 2,
+          "itab": 5
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 33,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 89,
+        "market": {
+          "marketSize": {
+            "techbook": 187588,
+            "zroid": 260242,
+            "itab": 127559
+          },
+          "forecastUnits": {
+            "techbook": 31327,
+            "zroid": 43460,
+            "itab": 21302
+          },
+          "demandUnits": {
+            "techbook": 27423,
+            "zroid": 39157,
+            "itab": 21538
+          },
+          "actualUnits": {
+            "techbook": 27423,
+            "zroid": 39157,
+            "itab": 21538
+          },
+          "availableUnits": {
+            "techbook": 32033,
+            "zroid": 44200,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "valueScore": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          }
+        }
+      },
+      "team_3_test": {
+        "period": 1,
+        "revenue": {
+          "total": 436262400,
+          "byProduct": {
+            "techbook": 87030000,
+            "zroid": 202982400,
+            "itab": 146250000
+          }
+        },
+        "cogs": {
+          "total": 189494000,
+          "byProduct": {
+            "techbook": 58797000,
+            "zroid": 85374000,
+            "itab": 45323000
+          }
+        },
+        "grossProfit": {
+          "total": 246768400,
+          "byProduct": {
+            "techbook": 28233000,
+            "zroid": 117608400,
+            "itab": 100927000
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 74847850,
+          "agents": 3402846.7199999997,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 18000000,
+          "other": 21278191,
+          "total": 162811287.72
+        },
+        "ebitda": 83957112.28,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 82421147.28,
+        "tax": 23077921.2384,
+        "netProfit": 59343226.041600004,
+        "balanceSheet": {
+          "cash": 178038908.0416,
+          "receivables": 81062278,
+          "inventory": 93801926,
+          "fixedAssets": 297923570,
+          "totalAssets": 650826682.0416,
+          "equity": 400393296.0416,
+          "longTermDebt": 10000000,
+          "currentLiabilities": 240433386,
+          "totalLiabilitiesAndEquity": 650826682.0416
+        },
+        "cashFlow": {
+          "operating": 20733061.04159999,
+          "investing": 0,
+          "financing": 10000000,
+          "net": 30733061.04159999
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 154.37284890286764,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 436262400,
+          "netProfit": 59343226.041600004,
+          "marketShare": {
+            "techbook": 0.15465226887507305,
+            "zroid": 0.16249705644992593,
+            "itab": 0.18484650084856977
+          },
+          "customerSatisfaction": 0.7055619153235341,
+          "employeeSatisfaction": 0.7153982329217674
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 3,
+          "zroid": 3,
+          "itab": 5
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 94,
+        "market": {
+          "marketSize": {
+            "techbook": 187588,
+            "zroid": 260242,
+            "itab": 127559
+          },
+          "forecastUnits": {
+            "techbook": 31327,
+            "zroid": 43460,
+            "itab": 21302
+          },
+          "demandUnits": {
+            "techbook": 29010,
+            "zroid": 42288,
+            "itab": 23578
+          },
+          "actualUnits": {
+            "techbook": 29010,
+            "zroid": 42288,
+            "itab": 22500
+          },
+          "availableUnits": {
+            "techbook": 32033,
+            "zroid": 44200,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.15465226887507305,
+            "zroid": 0.16249705644992593,
+            "itab": 0.18484650084856977
+          },
+          "valueScore": {
+            "techbook": 0.48328834023460326,
+            "zroid": 0.5078033014060185,
+            "itab": 0.5776453151517805
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.48328834023460326,
+            "zroid": 0.5078033014060185,
+            "itab": 0.5776453151517805
+          }
+        }
+      },
+      "team_4_test": {
+        "period": 1,
+        "revenue": {
+          "total": 417457300,
+          "byProduct": {
+            "techbook": 82533000,
+            "zroid": 192268800,
+            "itab": 142655500
+          }
+        },
+        "cogs": {
+          "total": 182669950.6,
+          "byProduct": {
+            "techbook": 56548500,
+            "zroid": 82026000,
+            "itab": 44095450.6
+          }
+        },
+        "grossProfit": {
+          "total": 234787349.4,
+          "byProduct": {
+            "techbook": 25984500,
+            "zroid": 110242800,
+            "itab": 98560049.4
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "agents": 3256166.94,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 16312943,
+          "total": 124819406.94
+        },
+        "ebitda": 109967942.46000001,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 108431977.46000001,
+        "tax": 30360953.688800003,
+        "netProfit": 78071023.7712,
+        "balanceSheet": {
+          "cash": 182691531.37119997,
+          "receivables": 78313403,
+          "inventory": 100625975.4,
+          "fixedAssets": 297923570,
+          "totalAssets": 659554479.7712,
+          "equity": 419121093.7712,
+          "longTermDebt": 0,
+          "currentLiabilities": 240433386,
+          "totalLiabilitiesAndEquity": 659554479.7712
+        },
+        "cashFlow": {
+          "operating": 35385684.371199965,
+          "investing": 0,
+          "financing": 0,
+          "net": 35385684.371199965
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 160.13979603057933,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 417457300,
+          "netProfit": 78071023.7712,
+          "marketShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "customerSatisfaction": 0.7076523947295361,
+          "employeeSatisfaction": 0.7268924857953307
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 3,
+          "zroid": 2,
+          "itab": 5
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 90,
+        "market": {
+          "marketSize": {
+            "techbook": 187588,
+            "zroid": 260242,
+            "itab": 127559
+          },
+          "forecastUnits": {
+            "techbook": 31327,
+            "zroid": 43460,
+            "itab": 21302
+          },
+          "demandUnits": {
+            "techbook": 27511,
+            "zroid": 40056,
+            "itab": 21947
+          },
+          "actualUnits": {
+            "techbook": 27511,
+            "zroid": 40056,
+            "itab": 21947
+          },
+          "availableUnits": {
+            "techbook": 32033,
+            "zroid": 44200,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "valueScore": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          }
+        }
+      }
+    },
+    "2": {
+      "team_1_test": {
+        "period": 2,
+        "revenue": {
+          "total": 448937900,
+          "byProduct": {
+            "techbook": 91479300,
+            "zroid": 196367600,
+            "itab": 161091000
+          }
+        },
+        "cogs": {
+          "total": 181460264,
+          "byProduct": {
+            "techbook": 56728711.97259863,
+            "zroid": 78471835.97259863,
+            "itab": 46259716.05480274
+          }
+        },
+        "grossProfit": {
+          "total": 267477636,
+          "byProduct": {
+            "techbook": 34750588.02740137,
+            "zroid": 117895764.02740137,
+            "itab": 114831283.94519725
+          }
+        },
+        "opex": {
+          "marketing": 30000000,
+          "store": 44912040,
+          "agents": 3501715.6199999996,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 17101562,
+          "total": 130853574.62
+        },
+        "ebitda": 136624061.38,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 135088096.38,
+        "tax": 37824666.9864,
+        "netProfit": 97263429.39359999,
+        "balanceSheet": {
+          "cash": 250368979.3678112,
+          "receivables": 147769900,
+          "inventory": 87433287.90924549,
+          "fixedAssets": 296387605,
+          "totalAssets": 781959772.2770567,
+          "equity": 537691156.2770567,
+          "longTermDebt": 0,
+          "currentLiabilities": 244268616,
+          "totalLiabilitiesAndEquity": 781959772.2770567
+        },
+        "cashFlow": {
+          "operating": 49016463.39359999,
+          "investing": 0,
+          "financing": 0,
+          "net": 49016463.39359999
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 163.7788220125151,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 448937900,
+          "netProfit": 97263429.39359999,
+          "marketShare": {
+            "techbook": 0.14722807147764147,
+            "zroid": 0.1593281385027594,
+            "itab": 0.17696062016028022
+          },
+          "customerSatisfaction": 0.6851266255189279,
+          "employeeSatisfaction": 0.7059368124772919
+        },
+        "prices": {
+          "techbook": 3300,
+          "zroid": 5200,
+          "itab": 7000
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 6,
+          "zroid": 4,
+          "itab": 10
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 89,
+        "market": {
+          "marketSize": {
+            "techbook": 197905,
+            "zroid": 279760,
+            "itab": 140953
+          },
+          "forecastUnits": {
+            "techbook": 33050,
+            "zroid": 46720,
+            "itab": 23539
+          },
+          "demandUnits": {
+            "techbook": 29137,
+            "zroid": 44573,
+            "itab": 24943
+          },
+          "actualUnits": {
+            "techbook": 27721,
+            "zroid": 37763,
+            "itab": 23013
+          },
+          "availableUnits": {
+            "techbook": 27721,
+            "zroid": 37763,
+            "itab": 23013
+          },
+          "actualShare": {
+            "techbook": 0.14722807147764147,
+            "zroid": 0.1593281385027594,
+            "itab": 0.17696062016028022
+          },
+          "valueScore": {
+            "techbook": 0.46008772336762954,
+            "zroid": 0.4979004328211231,
+            "itab": 0.5530019380008757
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.46008772336762954,
+            "zroid": 0.4979004328211231,
+            "itab": 0.5530019380008757
+          }
+        }
+      },
+      "team_2_test": {
+        "period": 2,
+        "revenue": {
+          "total": 412121900,
+          "byProduct": {
+            "techbook": 80113500,
+            "zroid": 184197800,
+            "itab": 147810600
+          }
+        },
+        "cogs": {
+          "total": 184395500,
+          "byProduct": {
+            "techbook": 56763000,
+            "zroid": 81322500,
+            "itab": 46310000
+          }
+        },
+        "grossProfit": {
+          "total": 227726400,
+          "byProduct": {
+            "techbook": 23350500,
+            "zroid": 102875300,
+            "itab": 101500600
+          }
+        },
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "agents": 3214550.82,
+          "payroll": 18612000,
+          "training": 1766400,
+          "rd": 15055857,
+          "other": 15870097,
+          "total": 121430944.82
+        },
+        "ebitda": 106295455.18,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 104759490.18,
+        "tax": 29332657.250400003,
+        "netProfit": 75426832.9296,
+        "balanceSheet": {
+          "cash": 210250350.16320002,
+          "receivables": 133791275.5,
+          "inventory": 87690842.39999998,
+          "fixedAssets": 296387605,
+          "totalAssets": 728120073.0632,
+          "equity": 483851457.0632,
+          "longTermDebt": 0,
+          "currentLiabilities": 244268616,
+          "totalLiabilitiesAndEquity": 728120073.0632
+        },
+        "cashFlow": {
+          "operating": 37194454.9296,
+          "investing": 0,
+          "financing": 0,
+          "net": 37194454.9296
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 161.17176547150012,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 412121900,
+          "netProfit": 75426832.9296,
+          "marketShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "customerSatisfaction": 0.6863954781005597,
+          "employeeSatisfaction": 0.711353732781357
+        },
+        "prices": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 22000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 6,
+          "zroid": 4,
+          "itab": 10
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 38,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 92,
+        "market": {
+          "marketSize": {
+            "techbook": 197905,
+            "zroid": 279760,
+            "itab": 140953
+          },
+          "forecastUnits": {
+            "techbook": 33050,
+            "zroid": 46720,
+            "itab": 23539
+          },
+          "demandUnits": {
+            "techbook": 28931,
+            "zroid": 42094,
+            "itab": 23799
+          },
+          "actualUnits": {
+            "techbook": 28110,
+            "zroid": 40043,
+            "itab": 23462
+          },
+          "availableUnits": {
+            "techbook": 28110,
+            "zroid": 40043,
+            "itab": 23462
+          },
+          "actualShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "valueScore": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          }
+        }
+      },
+      "team_3_test": {
+        "period": 2,
+        "revenue": {
+          "total": 402996600,
+          "byProduct": {
+            "techbook": 79569000,
+            "zroid": 177177600,
+            "itab": 146250000
+          }
+        },
+        "cogs": {
+          "total": 177699500,
+          "byProduct": {
+            "techbook": 55066500,
+            "zroid": 77310000,
+            "itab": 45323000
+          }
+        },
+        "grossProfit": {
+          "total": 225297100,
+          "byProduct": {
+            "techbook": 24502500,
+            "zroid": 99867600,
+            "itab": 100927000
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 86075860,
+          "agents": 3143373.48,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 18000000,
+          "other": 22927209,
+          "total": 175428842.48000002
+        },
+        "ebitda": 49868257.51999998,
+        "depreciation": 1535965,
+        "interest": 650000,
+        "ebt": 47682292.51999998,
+        "tax": 13351041.905599996,
+        "netProfit": 34331250.614399984,
+        "balanceSheet": {
+          "cash": 176955363.6559999,
+          "receivables": 138586768,
+          "inventory": 87063426,
+          "fixedAssets": 296387605,
+          "totalAssets": 698993162.6559999,
+          "equity": 434724546.65599996,
+          "longTermDebt": 20000000,
+          "currentLiabilities": 244268616,
+          "totalLiabilitiesAndEquity": 698993162.6559999
+        },
+        "cashFlow": {
+          "operating": -11083544.38560009,
+          "investing": 0,
+          "financing": 10000000,
+          "net": -1083544.38560009
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 167.2449741276706,
+        "interestCoverage": 74.35737310769228,
+        "kpis": {
+          "revenue": 402996600,
+          "netProfit": 34331250.614399984,
+          "marketShare": {
+            "techbook": 0.1596857001024955,
+            "zroid": 0.16789878752325732,
+            "itab": 0.18904102687142182
+          },
+          "customerSatisfaction": 0.6819818962426575,
+          "employeeSatisfaction": 0.6976691011550322
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 6,
+          "zroid": 6,
+          "itab": 10
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 86,
+        "market": {
+          "marketSize": {
+            "techbook": 197905,
+            "zroid": 279760,
+            "itab": 140953
+          },
+          "forecastUnits": {
+            "techbook": 33050,
+            "zroid": 46720,
+            "itab": 23539
+          },
+          "demandUnits": {
+            "techbook": 31602,
+            "zroid": 46971,
+            "itab": 26645
+          },
+          "actualUnits": {
+            "techbook": 26523,
+            "zroid": 36912,
+            "itab": 22500
+          },
+          "availableUnits": {
+            "techbook": 26523,
+            "zroid": 36912,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.1596857001024955,
+            "zroid": 0.16789878752325732,
+            "itab": 0.18904102687142182
+          },
+          "valueScore": {
+            "techbook": 0.49901781282029845,
+            "zroid": 0.5246837110101791,
+            "itab": 0.5907532089731932
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.49901781282029845,
+            "zroid": 0.5246837110101791,
+            "itab": 0.5907532089731932
+          }
+        }
+      },
+      "team_4_test": {
+        "period": 2,
+        "revenue": {
+          "total": 421801700,
+          "byProduct": {
+            "techbook": 84066000,
+            "zroid": 187891200,
+            "itab": 149844500
+          }
+        },
+        "cogs": {
+          "total": 184125500,
+          "byProduct": {
+            "techbook": 57315000,
+            "zroid": 80658000,
+            "itab": 46152500
+          }
+        },
+        "grossProfit": {
+          "total": 237676200,
+          "byProduct": {
+            "techbook": 26751000,
+            "zroid": 107233200,
+            "itab": 103692000
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "agents": 3290053.26,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 16318037,
+          "total": 124858387.26
+        },
+        "ebitda": 112817812.74,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 111281847.74,
+        "tax": 31158917.367200002,
+        "netProfit": 80122930.3728,
+        "balanceSheet": {
+          "cash": 221076791.74400008,
+          "receivables": 138586768,
+          "inventory": 87461475.39999998,
+          "fixedAssets": 296387605,
+          "totalAssets": 743512640.144,
+          "equity": 499244024.144,
+          "longTermDebt": 0,
+          "currentLiabilities": 244268616,
+          "totalLiabilitiesAndEquity": 743512640.144
+        },
+        "cashFlow": {
+          "operating": 38385260.37280011,
+          "investing": 0,
+          "financing": 0,
+          "net": 38385260.37280011
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 161.40810631878801,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 421801700,
+          "netProfit": 80122930.3728,
+          "marketShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "customerSatisfaction": 0.6857010621317882,
+          "employeeSatisfaction": 0.7085886413849174
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 6,
+          "zroid": 4,
+          "itab": 10
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 91,
+        "market": {
+          "marketSize": {
+            "techbook": 197905,
+            "zroid": 279760,
+            "itab": 140953
+          },
+          "forecastUnits": {
+            "techbook": 33050,
+            "zroid": 46720,
+            "itab": 23539
+          },
+          "demandUnits": {
+            "techbook": 29024,
+            "zroid": 43060,
+            "itab": 24252
+          },
+          "actualUnits": {
+            "techbook": 28022,
+            "zroid": 39144,
+            "itab": 23053
+          },
+          "availableUnits": {
+            "techbook": 28022,
+            "zroid": 39144,
+            "itab": 23053
+          },
+          "actualShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "valueScore": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          }
+        }
+      }
+    },
+    "3": {
+      "team_1_test": {
+        "period": 3,
+        "revenue": {
+          "total": 424610150,
+          "byProduct": {
+            "techbook": 78333050,
+            "zroid": 184879900,
+            "itab": 161397200
+          }
+        },
+        "cogs": {
+          "total": 170211764,
+          "byProduct": {
+            "techbook": 50221711.97259863,
+            "zroid": 74151835.97259863,
+            "itab": 45838216.05480274
+          }
+        },
+        "grossProfit": {
+          "total": 254398386,
+          "byProduct": {
+            "techbook": 28111338.027401373,
+            "zroid": 110728064.02740137,
+            "itab": 115558983.94519725
+          }
+        },
+        "opex": {
+          "marketing": 31000000,
+          "store": 44912040,
+          "agents": 3311959.17,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 17223375,
+          "total": 131785631.17
+        },
+        "ebitda": 122612754.83,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 121076789.83,
+        "tax": 33901501.1524,
+        "netProfit": 87175288.6776,
+        "balanceSheet": {
+          "cash": 281704088.5454112,
+          "receivables": 208233478.5,
+          "inventory": 88181083.90924549,
+          "fixedAssets": 294851640,
+          "totalAssets": 872970290.9546567,
+          "equity": 624866444.9546567,
+          "longTermDebt": 0,
+          "currentLiabilities": 248103846,
+          "totalLiabilitiesAndEquity": 872970290.9546567
+        },
+        "cashFlow": {
+          "operating": 31335109.177600026,
+          "investing": 0,
+          "financing": 0,
+          "net": 31335109.177600026
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 177.34360552188392,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 424610150,
+          "netProfit": 87175288.6776,
+          "marketShare": {
+            "techbook": 0.14743712097817635,
+            "zroid": 0.16031300523573971,
+            "itab": 0.17789571967089698
+          },
+          "customerSatisfaction": 0.6604701972748531,
+          "employeeSatisfaction": 0.7013980742118856
+        },
+        "prices": {
+          "techbook": 3350,
+          "zroid": 5300,
+          "itab": 7100
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 9,
+          "zroid": 6,
+          "itab": 15
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 81,
+        "market": {
+          "marketSize": {
+            "techbook": 208790,
+            "zroid": 300742,
+            "itab": 155753
+          },
+          "forecastUnits": {
+            "techbook": 34868,
+            "zroid": 50224,
+            "itab": 26011
+          },
+          "demandUnits": {
+            "techbook": 30783,
+            "zroid": 48212,
+            "itab": 27707
+          },
+          "actualUnits": {
+            "techbook": 23383,
+            "zroid": 34883,
+            "itab": 22732
+          },
+          "availableUnits": {
+            "techbook": 23383,
+            "zroid": 34883,
+            "itab": 22732
+          },
+          "actualShare": {
+            "techbook": 0.14743712097817635,
+            "zroid": 0.16031300523573971,
+            "itab": 0.17789571967089698
+          },
+          "valueScore": {
+            "techbook": 0.46074100305680105,
+            "zroid": 0.5009781413616866,
+            "itab": 0.5559241239715531
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.46074100305680105,
+            "zroid": 0.5009781413616866,
+            "itab": 0.5559241239715531
+          }
+        }
+      },
+      "team_2_test": {
+        "period": 3,
+        "revenue": {
+          "total": 369725000,
+          "byProduct": {
+            "techbook": 66975000,
+            "zroid": 161000000,
+            "itab": 141750000
+          }
+        },
+        "cogs": {
+          "total": 169353000,
+          "byProduct": {
+            "techbook": 50178000,
+            "zroid": 74088000,
+            "itab": 45087000
+          }
+        },
+        "grossProfit": {
+          "total": 200372000,
+          "byProduct": {
+            "techbook": 16797000,
+            "zroid": 86912000,
+            "itab": 96663000
+          }
+        },
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "agents": 2883855,
+          "payroll": 18612000,
+          "training": 1814400,
+          "rd": 15055857,
+          "other": 15827596,
+          "total": 121105748
+        },
+        "ebitda": 79266252,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 77730287,
+        "tax": 21764480.360000003,
+        "netProfit": 55965806.64,
+        "balanceSheet": {
+          "cash": 218299601.8032,
+          "receivables": 186415025.5,
+          "inventory": 88354842.39999998,
+          "fixedAssets": 294851640,
+          "totalAssets": 787921109.7032,
+          "equity": 539817263.7032,
+          "longTermDebt": 0,
+          "currentLiabilities": 248103846,
+          "totalLiabilitiesAndEquity": 787921109.7032
+        },
+        "cashFlow": {
+          "operating": 8049251.639999986,
+          "investing": 0,
+          "financing": 0,
+          "net": 8049251.639999986
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 178.24288869993447,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 369725000,
+          "netProfit": 55965806.64,
+          "marketShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "customerSatisfaction": 0.6607185410030092,
+          "employeeSatisfaction": 0.7170760043378599
+        },
+        "prices": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 22000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 9,
+          "zroid": 6,
+          "itab": 15
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 43,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 81,
+        "market": {
+          "marketSize": {
+            "techbook": 208790,
+            "zroid": 300742,
+            "itab": 155753
+          },
+          "forecastUnits": {
+            "techbook": 34868,
+            "zroid": 50224,
+            "itab": 26011
+          },
+          "demandUnits": {
+            "techbook": 30522,
+            "zroid": 45251,
+            "itab": 26298
+          },
+          "actualUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "availableUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.14618981482693202,
+            "zroid": 0.15046763264381155,
+            "itab": 0.16884829632524137
+          },
+          "valueScore": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.4568431713341626,
+            "zroid": 0.47021135201191105,
+            "itab": 0.5276509260163793
+          }
+        }
+      },
+      "team_3_test": {
+        "period": 3,
+        "revenue": {
+          "total": 384750000,
+          "byProduct": {
+            "techbook": 70500000,
+            "zroid": 168000000,
+            "itab": 146250000
+          }
+        },
+        "cogs": {
+          "total": 170297000,
+          "byProduct": {
+            "techbook": 50532000,
+            "zroid": 74442000,
+            "itab": 45323000
+          }
+        },
+        "grossProfit": {
+          "total": 214453000,
+          "byProduct": {
+            "techbook": 19968000,
+            "zroid": 93558000,
+            "itab": 100927000
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 97303870,
+          "agents": 3001050,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 18000000,
+          "other": 24593840,
+          "total": 188181160
+        },
+        "ebitda": 26271840,
+        "depreciation": 1535965,
+        "interest": 1300000,
+        "ebt": 23435875,
+        "tax": 6562045.000000001,
+        "netProfit": 16873830,
+        "balanceSheet": {
+          "cash": 153748888.6559999,
+          "receivables": 193374268,
+          "inventory": 87727426,
+          "fixedAssets": 294851640,
+          "totalAssets": 729702222.6559999,
+          "equity": 451598376.65599996,
+          "longTermDebt": 30000000,
+          "currentLiabilities": 248103846,
+          "totalLiabilitiesAndEquity": 729702222.6559999
+        },
+        "cashFlow": {
+          "operating": -33206475,
+          "investing": 0,
+          "financing": 10000000,
+          "net": -23206475
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 177.25484259851905,
+        "interestCoverage": 19.027596153846154,
+        "kpis": {
+          "revenue": 384750000,
+          "netProfit": 16873830,
+          "marketShare": {
+            "techbook": 0.164092175022771,
+            "zroid": 0.17262768743769932,
+            "itab": 0.19271308930498474
+          },
+          "customerSatisfaction": 0.6601957508810966,
+          "employeeSatisfaction": 0.6910546106007383
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 9,
+          "zroid": 9,
+          "itab": 15
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 81,
+        "market": {
+          "marketSize": {
+            "techbook": 208790,
+            "zroid": 300742,
+            "itab": 155753
+          },
+          "forecastUnits": {
+            "techbook": 34868,
+            "zroid": 50224,
+            "itab": 26011
+          },
+          "demandUnits": {
+            "techbook": 34260,
+            "zroid": 51916,
+            "itab": 30015
+          },
+          "actualUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "availableUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.164092175022771,
+            "zroid": 0.17262768743769932,
+            "itab": 0.19271308930498474
+          },
+          "valueScore": {
+            "techbook": 0.5127880469461593,
+            "zroid": 0.5394615232428104,
+            "itab": 0.6022284040780773
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.5127880469461593,
+            "zroid": 0.5394615232428104,
+            "itab": 0.6022284040780773
+          }
+        }
+      },
+      "team_4_test": {
+        "period": 3,
+        "revenue": {
+          "total": 384750000,
+          "byProduct": {
+            "techbook": 70500000,
+            "zroid": 168000000,
+            "itab": 146250000
+          }
+        },
+        "cogs": {
+          "total": 170297000,
+          "byProduct": {
+            "techbook": 50532000,
+            "zroid": 74442000,
+            "itab": 45323000
+          }
+        },
+        "grossProfit": {
+          "total": 214453000,
+          "byProduct": {
+            "techbook": 19968000,
+            "zroid": 93558000,
+            "itab": 100927000
+          }
+        },
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "agents": 3001050,
+          "payroll": 18612000,
+          "training": 1670400,
+          "rd": 15055857,
+          "other": 16274588,
+          "total": 124525935
+        },
+        "ebitda": 89927065,
+        "depreciation": 1535965,
+        "interest": 0,
+        "ebt": 88391100,
+        "tax": 24749508.000000004,
+        "netProfit": 63641592,
+        "balanceSheet": {
+          "cash": 234638078.74400008,
+          "receivables": 193374268,
+          "inventory": 88125475.39999998,
+          "fixedAssets": 294851640,
+          "totalAssets": 810989462.144,
+          "equity": 562885616.144,
+          "longTermDebt": 0,
+          "currentLiabilities": 248103846,
+          "totalLiabilitiesAndEquity": 810989462.144
+        },
+        "cashFlow": {
+          "operating": 13561287,
+          "investing": 0,
+          "financing": 0,
+          "net": 13561287
+        },
+        "debtorDays": {
+          "techbook": 30,
+          "zroid": 30,
+          "itab": 30
+        },
+        "creditorDays": 177.25484259851905,
+        "interestCoverage": 0,
+        "kpis": {
+          "revenue": 384750000,
+          "netProfit": 63641592,
+          "marketShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "customerSatisfaction": 0.6604343106968965,
+          "employeeSatisfaction": 0.7056523117501636
+        },
+        "prices": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "salaries": {
+          "engineers": 55000,
+          "technicians": 38000,
+          "semiSkilled": 30000,
+          "adminSales": 20000,
+          "customerService": 9250
+        },
+        "features": {
+          "techbook": 9,
+          "zroid": 6,
+          "itab": 15
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "requiredCS": 81,
+        "market": {
+          "marketSize": {
+            "techbook": 208790,
+            "zroid": 300742,
+            "itab": 155753
+          },
+          "forecastUnits": {
+            "techbook": 34868,
+            "zroid": 50224,
+            "itab": 26011
+          },
+          "demandUnits": {
+            "techbook": 30621,
+            "zroid": 46290,
+            "itab": 26798
+          },
+          "actualUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "availableUnits": {
+            "techbook": 23500,
+            "zroid": 35000,
+            "itab": 22500
+          },
+          "actualShare": {
+            "techbook": 0.14665994866683632,
+            "zroid": 0.1539199323240133,
+            "itab": 0.17205765960976158
+          },
+          "valueScore": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          },
+          "valueScoreExPrice": {
+            "techbook": 0.45831233958386347,
+            "zroid": 0.48099978851254155,
+            "itab": 0.537680186280505
+          }
+        }
+      }
+    }
+  },
+  "expectedIndustryPerf": {
+    "1": [
+      {
+        "teamId": "team_1_test",
+        "teamName": "Team 1",
+        "revenueByProduct": {
+          "techbook": 103727000,
+          "zroid": 224823300,
+          "itab": 156850800
+        },
+        "totalRevenue": 485401100,
+        "cogsByProduct": {
+          "techbook": 60782908.65116279,
+          "zroid": 76372259.72093023,
+          "itab": 33403881.02325581
+        },
+        "totalCogs": 170559049.39534885,
+        "grossProfit": 314842050.60465115,
+        "gpMargin": 64.8622449773293,
+        "opex": {
+          "marketing": 29000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3786129,
+          "training": 870000,
+          "other": 8945211,
+          "total": 121181237
+        },
+        "ebitda": 193660813.60465115,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 188874848.60465115,
+        "taxation": 52884958,
+        "netProfit": 135989890.60465115,
+        "npMargin": 28.015983195063043,
+        "equity": 477039960.60465115,
+        "roe": 28.50702285659321,
+        "units": {
+          "techbook": {
+            "marketSize": 187588,
+            "forecast": 31327,
+            "demand": 47496,
+            "available": 31916,
+            "actual": 31916
+          },
+          "zroid": {
+            "marketSize": 260242,
+            "forecast": 43460,
+            "demand": 67297,
+            "available": 44083,
+            "actual": 44083
+          },
+          "itab": {
+            "marketSize": 127559,
+            "forecast": 21302,
+            "demand": 33040,
+            "available": 22732,
+            "actual": 22732
+          }
+        },
+        "totalScore": {
+          "techbook": 25.818781643747446,
+          "zroid": 29.43842505940106,
+          "itab": 26.93302564511169
+        },
+        "marketShare": {
+          "techbook": 0.17013881484956395,
+          "zroid": 0.16939233482681504,
+          "itab": 0.17820773132432835
+        },
+        "price": {
+          "techbook": 3250,
+          "zroid": 5100,
+          "itab": 6900
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 39998,
+        "unitsSold": 98731
+      },
+      {
+        "teamId": "team_2_test",
+        "teamName": "Team 2",
+        "revenueByProduct": {
+          "techbook": 91294050,
+          "zroid": 203320000,
+          "itab": 141750000
+        },
+        "totalRevenue": 436364050,
+        "cogsByProduct": {
+          "techbook": 59812017.6,
+          "zroid": 74927840,
+          "itab": 32224500
+        },
+        "totalCogs": 166964357.6,
+        "grossProfit": 269399692.4,
+        "gpMargin": 61.737370986450415,
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3403640,
+          "training": 895000,
+          "other": 8358819,
+          "total": 113237356
+        },
+        "ebitda": 156162336.39999998,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 151376371.39999998,
+        "taxation": 42385384,
+        "netProfit": 108990987.39999998,
+        "npMargin": 24.977077602978518,
+        "equity": 450041057.4,
+        "roe": 24.218009803298447,
+        "units": {
+          "techbook": {
+            "marketSize": 187588,
+            "forecast": 31327,
+            "demand": 44995,
+            "available": 32033,
+            "actual": 32033
+          },
+          "zroid": {
+            "marketSize": 260242,
+            "forecast": 43460,
+            "demand": 58659,
+            "available": 44200,
+            "actual": 44200
+          },
+          "itab": {
+            "marketSize": 127559,
+            "forecast": 21302,
+            "demand": 30332,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 24.459145258515015,
+          "zroid": 25.660010813008494,
+          "itab": 24.725218105706283
+        },
+        "marketShare": {
+          "techbook": 0.1707625221229503,
+          "zroid": 0.16984191637014778,
+          "itab": 0.17638896510634294
+        },
+        "price": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 33,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 98733
+      },
+      {
+        "teamId": "team_3_test",
+        "teamName": "Team 3",
+        "revenueByProduct": {
+          "techbook": 96099000,
+          "zroid": 212160000,
+          "itab": 146250000
+        },
+        "totalRevenue": 454509000,
+        "cogsByProduct": {
+          "techbook": 61977448.4,
+          "zroid": 77915760,
+          "itab": 33745500
+        },
+        "totalCogs": 173638708.4,
+        "grossProfit": 280870291.6,
+        "gpMargin": 61.796420224902036,
+        "opex": {
+          "marketing": 25000000,
+          "store": 74847850,
+          "payroll": 18612000,
+          "rd": 18000000,
+          "agents": 3545170,
+          "training": 870000,
+          "other": 11227739,
+          "total": 152102759
+        },
+        "ebitda": 128767532.60000002,
+        "depreciation": 1535965,
+        "financeCharges": 3900000,
+        "ebt": 123331567.60000002,
+        "taxation": 34532839,
+        "netProfit": 88798728.60000002,
+        "npMargin": 19.537287182432035,
+        "equity": 429848798.6,
+        "roe": 20.65813115895958,
+        "units": {
+          "techbook": {
+            "marketSize": 187588,
+            "forecast": 31327,
+            "demand": 48924,
+            "available": 32033,
+            "actual": 32033
+          },
+          "zroid": {
+            "marketSize": 260242,
+            "forecast": 43460,
+            "demand": 71893,
+            "available": 44200,
+            "actual": 44200
+          },
+          "itab": {
+            "marketSize": 127559,
+            "forecast": 21302,
+            "demand": 32666,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 26.595255716587165,
+          "zroid": 31.449027062761232,
+          "itab": 26.628192574323453
+        },
+        "marketShare": {
+          "techbook": 0.1707625221229503,
+          "zroid": 0.16984191637014778,
+          "itab": 0.17638896510634294
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 98733
+      },
+      {
+        "teamId": "team_4_test",
+        "teamName": "Team 4",
+        "revenueByProduct": {
+          "techbook": 96099000,
+          "zroid": 212160000,
+          "itab": 146250000
+        },
+        "totalRevenue": 454509000,
+        "cogsByProduct": {
+          "techbook": 61977448.4,
+          "zroid": 77915760,
+          "itab": 33745500
+        },
+        "totalCogs": 173638708.4,
+        "grossProfit": 280870291.6,
+        "gpMargin": 61.796420224902036,
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3545170,
+          "training": 870000,
+          "other": 8607207,
+          "total": 116602274
+        },
+        "ebitda": 164268017.60000002,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 159482052.60000002,
+        "taxation": 44654975,
+        "netProfit": 114827077.60000002,
+        "npMargin": 25.263983243456128,
+        "equity": 455877147.6,
+        "roe": 25.18816268911831,
+        "units": {
+          "techbook": {
+            "marketSize": 187588,
+            "forecast": 31327,
+            "demand": 46174,
+            "available": 32033,
+            "actual": 32033
+          },
+          "zroid": {
+            "marketSize": 260242,
+            "forecast": 43460,
+            "demand": 62393,
+            "available": 44200,
+            "actual": 44200
+          },
+          "itab": {
+            "marketSize": 127559,
+            "forecast": 21302,
+            "demand": 31520,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 25.10014584195715,
+          "zroid": 27.29319777530095,
+          "itab": 25.693748902679694
+        },
+        "marketShare": {
+          "techbook": 0.1707625221229503,
+          "zroid": 0.16984191637014778,
+          "itab": 0.17638896510634294
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 98733
+      }
+    ],
+    "2": [
+      {
+        "teamId": "team_1_test",
+        "teamName": "Team 1",
+        "revenueByProduct": {
+          "techbook": 91479300,
+          "zroid": 196367600,
+          "itab": 161091000
+        },
+        "totalRevenue": 448937900,
+        "cogsByProduct": {
+          "techbook": 52793677.48837209,
+          "zroid": 65423080.18604651,
+          "itab": 33816800.72093023
+        },
+        "totalCogs": 152033558.39534885,
+        "grossProfit": 296904341.60465115,
+        "gpMargin": 66.13483548719124,
+        "opex": {
+          "marketing": 30000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3501716,
+          "training": 870000,
+          "other": 9002244,
+          "total": 121953857
+        },
+        "ebitda": 174950484.60465115,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 170164519.60465115,
+        "taxation": 47646065,
+        "netProfit": 122518454.60465115,
+        "npMargin": 27.29073544573785,
+        "equity": 562946181.4881079,
+        "roe": 21.76379530291553,
+        "units": {
+          "techbook": {
+            "marketSize": 197905,
+            "forecast": 33050,
+            "demand": 60606,
+            "available": 27721,
+            "actual": 27721
+          },
+          "zroid": {
+            "marketSize": 279760,
+            "forecast": 46720,
+            "demand": 75326,
+            "available": 37763,
+            "actual": 37763
+          },
+          "itab": {
+            "marketSize": 140953,
+            "forecast": 23539,
+            "demand": 65182,
+            "available": 23013,
+            "actual": 23013
+          }
+        },
+        "totalScore": {
+          "techbook": 25.636495885159142,
+          "zroid": 29.77765398994362,
+          "itab": 26.93901503752033
+        },
+        "marketShare": {
+          "techbook": 0.14007225689093253,
+          "zroid": 0.13498355733485845,
+          "itab": 0.16326718835356466
+        },
+        "price": {
+          "techbook": 3300,
+          "zroid": 5200,
+          "itab": 7000
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 39998,
+        "unitsSold": 88497
+      },
+      {
+        "teamId": "team_2_test",
+        "teamName": "Team 2",
+        "revenueByProduct": {
+          "techbook": 80113500,
+          "zroid": 184197800,
+          "itab": 147810600
+        },
+        "totalRevenue": 412121900,
+        "cogsByProduct": {
+          "techbook": 53105412,
+          "zroid": 68761839.60000001,
+          "itab": 34118440.4
+        },
+        "totalCogs": 155985692,
+        "grossProfit": 256136208,
+        "gpMargin": 62.15059379275889,
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3214551,
+          "training": 920000,
+          "other": 8345742,
+          "total": 113060190
+        },
+        "ebitda": 143076018,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 138290053,
+        "taxation": 38721215,
+        "netProfit": 99568838,
+        "npMargin": 24.160045365218398,
+        "equity": 507993462.1336,
+        "roe": 19.600417214388056,
+        "units": {
+          "techbook": {
+            "marketSize": 197905,
+            "forecast": 33050,
+            "demand": 56979,
+            "available": 28110,
+            "actual": 28110
+          },
+          "zroid": {
+            "marketSize": 279760,
+            "forecast": 46720,
+            "demand": 64653,
+            "available": 40043,
+            "actual": 40043
+          },
+          "itab": {
+            "marketSize": 140953,
+            "forecast": 23539,
+            "demand": 59196,
+            "available": 23462,
+            "actual": 23462
+          }
+        },
+        "totalScore": {
+          "techbook": 24.10200260320446,
+          "zroid": 25.55828488288482,
+          "itab": 24.465100183526403
+        },
+        "marketShare": {
+          "techbook": 0.14203784644147444,
+          "zroid": 0.14313340005719188,
+          "itab": 0.16645264733634615
+        },
+        "price": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 38,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 91615
+      },
+      {
+        "teamId": "team_3_test",
+        "teamName": "Team 3",
+        "revenueByProduct": {
+          "techbook": 79569000,
+          "zroid": 177177600,
+          "itab": 146250000
+        },
+        "totalRevenue": 402996600,
+        "cogsByProduct": {
+          "techbook": 51316700.4,
+          "zroid": 65068473.6,
+          "itab": 33745500
+        },
+        "totalCogs": 150130674,
+        "grossProfit": 252865926,
+        "gpMargin": 62.7464167191485,
+        "opex": {
+          "marketing": 25000000,
+          "store": 86075860,
+          "payroll": 18612000,
+          "rd": 18000000,
+          "agents": 3143373,
+          "training": 870000,
+          "other": 12090588,
+          "total": 163791821
+        },
+        "ebitda": 89074105,
+        "depreciation": 1535965,
+        "financeCharges": 1300000,
+        "ebt": 86238140,
+        "taxation": 24146679,
+        "netProfit": 62091461,
+        "npMargin": 15.407440410167233,
+        "equity": 462484757.0416,
+        "roe": 13.42562323506263,
+        "units": {
+          "techbook": {
+            "marketSize": 197905,
+            "forecast": 33050,
+            "demand": 64753,
+            "available": 26523,
+            "actual": 26523
+          },
+          "zroid": {
+            "marketSize": 279760,
+            "forecast": 46720,
+            "demand": 79232,
+            "available": 36912,
+            "actual": 36912
+          },
+          "itab": {
+            "marketSize": 140953,
+            "forecast": 23539,
+            "demand": 65526,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 27.390368274568676,
+          "zroid": 31.321670330723762,
+          "itab": 27.081468509033357
+        },
+        "marketShare": {
+          "techbook": 0.13401884742679568,
+          "zroid": 0.1319416642836717,
+          "itab": 0.15962767731087668
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 85935
+      },
+      {
+        "teamId": "team_4_test",
+        "teamName": "Team 4",
+        "revenueByProduct": {
+          "techbook": 84066000,
+          "zroid": 187891200,
+          "itab": 149844500
+        },
+        "totalRevenue": 421801700,
+        "cogsByProduct": {
+          "techbook": 54216965.6,
+          "zroid": 69003043.2,
+          "itab": 34574889.4
+        },
+        "totalCogs": 157794898.20000002,
+        "grossProfit": 264006801.79999998,
+        "gpMargin": 62.59026499893196,
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3290053,
+          "training": 870000,
+          "other": 8586874,
+          "total": 116326824
+        },
+        "ebitda": 147679977.79999998,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 142894012.79999998,
+        "taxation": 40010324,
+        "netProfit": 102883688.79999998,
+        "npMargin": 24.391482727547086,
+        "equity": 522004782.5712,
+        "roe": 19.709338349973248,
+        "units": {
+          "techbook": {
+            "marketSize": 197905,
+            "forecast": 33050,
+            "demand": 58462,
+            "available": 28022,
+            "actual": 28022
+          },
+          "zroid": {
+            "marketSize": 279760,
+            "forecast": 46720,
+            "demand": 68719,
+            "available": 39144,
+            "actual": 39144
+          },
+          "itab": {
+            "marketSize": 140953,
+            "forecast": 23539,
+            "demand": 61503,
+            "available": 23053,
+            "actual": 23053
+          }
+        },
+        "totalScore": {
+          "techbook": 24.729648861738408,
+          "zroid": 27.165841043263484,
+          "itab": 25.41851887601444
+        },
+        "marketShare": {
+          "techbook": 0.1415931886511205,
+          "zroid": 0.1399199313697455,
+          "itab": 0.16355097089100623
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 90219
+      }
+    ],
+    "3": [
+      {
+        "teamId": "team_1_test",
+        "teamName": "Team 1",
+        "revenueByProduct": {
+          "techbook": 69337052.3268335,
+          "zroid": 184879900,
+          "itab": 161397200
+        },
+        "totalRevenue": 415614152.3268335,
+        "cogsByProduct": {
+          "techbook": 39417909.67823012,
+          "zroid": 60433580.65116279,
+          "itab": 33403881.02325581
+        },
+        "totalCogs": 133255371.35264872,
+        "grossProfit": 282358780.97418475,
+        "gpMargin": 67.937720453788,
+        "opex": {
+          "marketing": 31000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 3241790,
+          "training": 870000,
+          "other": 9061227,
+          "total": 122752914
+        },
+        "ebitda": 159605866.97418475,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 154819901.97418475,
+        "taxation": 43349573,
+        "netProfit": 111470328.97418475,
+        "npMargin": 26.820628785163684,
+        "equity": 649161485.2512414,
+        "roe": 17.171432918735622,
+        "units": {
+          "techbook": {
+            "marketSize": 208790,
+            "forecast": 34868,
+            "demand": 20698,
+            "available": 23383,
+            "actual": 20698
+          },
+          "zroid": {
+            "marketSize": 300742,
+            "forecast": 50224,
+            "demand": 42188,
+            "available": 34883,
+            "actual": 34883
+          },
+          "itab": {
+            "marketSize": 155753,
+            "forecast": 26011,
+            "demand": 46141,
+            "available": 22732,
+            "actual": 22732
+          }
+        },
+        "totalScore": {
+          "techbook": 25.504367236962494,
+          "zroid": 29.9609061353077,
+          "itab": 29.1651134733866
+        },
+        "marketShare": {
+          "techbook": 0.09913310024426457,
+          "zroid": 0.11598978526444594,
+          "itab": 0.14594903468954049
+        },
+        "price": {
+          "techbook": 3350,
+          "zroid": 5300,
+          "itab": 7100
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 39998,
+        "unitsSold": 78313
+      },
+      {
+        "teamId": "team_2_test",
+        "teamName": "Team 2",
+        "revenueByProduct": {
+          "techbook": 55061211.64851775,
+          "zroid": 161000000,
+          "itab": 141750000
+        },
+        "totalRevenue": 357811211.6485177,
+        "cogsByProduct": {
+          "techbook": 36923855.33426215,
+          "zroid": 60872000,
+          "itab": 33214500
+        },
+        "totalCogs": 131010355.33426215,
+        "grossProfit": 226800856.3142556,
+        "gpMargin": 63.385620386050064,
+        "opex": {
+          "marketing": 22000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 2790927,
+          "training": 945000,
+          "other": 8313971,
+          "total": 112629795
+        },
+        "ebitda": 114171061.3142556,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 109385096.3142556,
+        "taxation": 30627827,
+        "netProfit": 78757269.3142556,
+        "npMargin": 22.010844476170245,
+        "equity": 562608726.3774556,
+        "roe": 13.998586517020561,
+        "units": {
+          "techbook": {
+            "marketSize": 208790,
+            "forecast": 34868,
+            "demand": 19320,
+            "available": 23500,
+            "actual": 19320
+          },
+          "zroid": {
+            "marketSize": 300742,
+            "forecast": 50224,
+            "demand": 35656,
+            "available": 35000,
+            "actual": 35000
+          },
+          "itab": {
+            "marketSize": 155753,
+            "forecast": 26011,
+            "demand": 42604,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 23.80646374588614,
+          "zroid": 25.32204061512891,
+          "itab": 26.92905849736034
+        },
+        "marketShare": {
+          "techbook": 0.09253316729728435,
+          "zroid": 0.11637882304433701,
+          "itab": 0.14445949676731748
+        },
+        "price": {
+          "techbook": 2850,
+          "zroid": 4600,
+          "itab": 6300
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 43,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 76820
+      },
+      {
+        "teamId": "team_3_test",
+        "teamName": "Team 3",
+        "revenueByProduct": {
+          "techbook": 67993796.38445504,
+          "zroid": 168000000,
+          "itab": 146250000
+        },
+        "totalRevenue": 382243796.384455,
+        "cogsByProduct": {
+          "techbook": 43851465.748214535,
+          "zroid": 61698000,
+          "itab": 33745500
+        },
+        "totalCogs": 139294965.74821454,
+        "grossProfit": 242948830.63624048,
+        "gpMargin": 63.558606557969156,
+        "opex": {
+          "marketing": 25000000,
+          "store": 97303870,
+          "payroll": 18612000,
+          "rd": 18000000,
+          "agents": 2981502,
+          "training": 870000,
+          "other": 12972560,
+          "total": 175739932
+        },
+        "ebitda": 67208898.63624048,
+        "depreciation": 1535965,
+        "financeCharges": 1950000,
+        "ebt": 63722933.63624048,
+        "taxation": 17842421,
+        "netProfit": 45880512.63624048,
+        "npMargin": 12.002944997462969,
+        "equity": 480605059.29224044,
+        "roe": 9.546406503461718,
+        "units": {
+          "techbook": {
+            "marketSize": 208790,
+            "forecast": 34868,
+            "demand": 22665,
+            "available": 23500,
+            "actual": 22665
+          },
+          "zroid": {
+            "marketSize": 300742,
+            "forecast": 50224,
+            "demand": 44273,
+            "available": 35000,
+            "actual": 35000
+          },
+          "itab": {
+            "marketSize": 155753,
+            "forecast": 26011,
+            "demand": 47362,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 27.928140520396727,
+          "zroid": 31.441409152255222,
+          "itab": 29.936444912125403
+        },
+        "marketShare": {
+          "techbook": 0.1085540495234446,
+          "zroid": 0.11637882304433701,
+          "itab": 0.14445949676731748
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 80165
+      },
+      {
+        "teamId": "team_4_test",
+        "teamName": "Team 4",
+        "revenueByProduct": {
+          "techbook": 59454150.77846405,
+          "zroid": 168000000,
+          "itab": 146250000
+        },
+        "totalRevenue": 373704150.7784641,
+        "cogsByProduct": {
+          "techbook": 38343963.64205741,
+          "zroid": 61698000,
+          "itab": 33745500
+        },
+        "totalCogs": 133787463.64205742,
+        "grossProfit": 239916687.13640666,
+        "gpMargin": 64.1996313491931,
+        "opex": {
+          "marketing": 25000000,
+          "store": 44912040,
+          "payroll": 18612000,
+          "rd": 15055857,
+          "agents": 2914892,
+          "training": 870000,
+          "other": 8556974,
+          "total": 115921763
+        },
+        "ebitda": 123994924.13640666,
+        "depreciation": 1535965,
+        "financeCharges": 3250000,
+        "ebt": 119208959.13640666,
+        "taxation": 33378509,
+        "netProfit": 85830450.13640666,
+        "npMargin": 22.967486434820973,
+        "equity": 585074474.2804067,
+        "roe": 14.670004231849463,
+        "units": {
+          "techbook": {
+            "marketSize": 208790,
+            "forecast": 34868,
+            "demand": 19818,
+            "available": 23500,
+            "actual": 19818
+          },
+          "zroid": {
+            "marketSize": 300742,
+            "forecast": 50224,
+            "demand": 37883,
+            "available": 35000,
+            "actual": 35000
+          },
+          "itab": {
+            "marketSize": 155753,
+            "forecast": 26011,
+            "demand": 43893,
+            "available": 22500,
+            "actual": 22500
+          }
+        },
+        "totalScore": {
+          "techbook": 24.420520190889274,
+          "zroid": 26.903523332513988,
+          "itab": 27.744182206183247
+        },
+        "marketShare": {
+          "techbook": 0.09491833900091,
+          "zroid": 0.11637882304433701,
+          "itab": 0.14445949676731748
+        },
+        "price": {
+          "techbook": 3000,
+          "zroid": 4800,
+          "itab": 6500
+        },
+        "staffCounts": {
+          "engineers": 22,
+          "technicians": 28,
+          "semiSkilled": 37,
+          "adminSales": 29,
+          "customerService": 58
+        },
+        "trainingLevels": {
+          "engineers": "Basic",
+          "technicians": "Basic",
+          "semiSkilled": "Basic",
+          "adminSales": "Basic",
+          "customerService": "Basic"
+        },
+        "unitsProduced": 40000,
+        "unitsSold": 77318
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { Plus, Users, Calendar, ArrowRight, Copy, Check, Search, KeyRound, Eye, MoreHorizontal, Trash2, Edit2, Save, X, Shield, Lock, Archive, RefreshCw } from 'lucide-react';
+import { EditionId } from '../../types';
 
 const FacilitatorClasses: React.FC = () => {
   const { classes, currentRole, currentClassId, currentUser, createClass, selectClass, deleteClass, archiveClass, restoreClass, updateClassFacilitatorCode, updateTeamCode, updateTeamCeoPin, restoreTeam } = useSimulation();
@@ -36,6 +37,7 @@ const FacilitatorClasses: React.FC = () => {
   
   const [newClassName, setNewClassName] = useState('');
   const [newClassTeams, setNewClassTeams] = useState(4);
+  const [newClassEdition, setNewClassEdition] = useState<EditionId>('standard');
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -68,9 +70,10 @@ const FacilitatorClasses: React.FC = () => {
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newClassName.trim()) {
-      createClass(newClassName, newClassTeams);
+      createClass(newClassName, newClassTeams, newClassEdition);
       setNewClassName('');
       setNewClassTeams(4);
+      setNewClassEdition('standard');
       setIsCreateModalOpen(false);
     }
   };
@@ -267,6 +270,11 @@ const FacilitatorClasses: React.FC = () => {
                                 <td className="px-6 py-4">
                                     <div className="font-bold text-slate-900 flex items-center gap-2">
                                         <span>{simClass.name}</span>
+                                        {simClass.editionId === 'global-markets' && (
+                                            <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-200">
+                                                Global Markets
+                                            </span>
+                                        )}
                                         {simClass.isArchived && (
                                             <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full uppercase font-bold border border-red-200">
                                                 Archived
@@ -388,6 +396,22 @@ const FacilitatorClasses: React.FC = () => {
                                   <option key={n} value={n}>{n} Teams</option>
                               ))}
                           </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Simulation Edition</label>
+                          <select 
+                              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                              value={newClassEdition}
+                              onChange={e => setNewClassEdition(e.target.value as EditionId)}
+                          >
+                              <option value="standard">Standard Edition</option>
+                              <option value="global-markets">Global Markets Edition</option>
+                          </select>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {newClassEdition === 'global-markets' 
+                              ? 'Includes multi-currency (USD, NGN, KES), treasury hedging, credit spreads, and covenants.' 
+                              : 'Standard single-currency South African market simulation.'}
+                          </p>
                       </div>
                       <div className="pt-4 flex justify-end space-x-3">
                           <button 

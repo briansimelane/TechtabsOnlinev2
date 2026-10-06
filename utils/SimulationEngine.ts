@@ -81,6 +81,9 @@ export const sCurve = (value: number, anchor: number, isHigherBetter: boolean): 
     return 1 / (1 + Math.exp(-K_SENSITIVITY * (ratio - 1)));
 };
 
+import { EditionConfig } from './editions/types';
+import { processTurnGlobalMarkets } from './editions/globalMarkets/engine';
+
 interface SimulationResult {
     newTeamState: Team;
     kpis: KPI;
@@ -90,8 +93,12 @@ interface SimulationResult {
 export const processTurn = (
     team: Team, 
     decisions: TurnDecisions, 
-    events: MarketEvent[] = []
+    events: MarketEvent[] = [],
+    edition?: EditionConfig | null
 ): SimulationResult => {
+    if (edition) {
+        return processTurnGlobalMarkets(team, decisions, events, edition);
+    }
     
     // 1. Process Events (Modifiers)
     let materialCostModifier = 1.0;
@@ -535,17 +542,17 @@ export const processTurn = (
     const weightedTrainingFactor = totalStaffCount > 0 ? (sumTrainingFactor / totalStaffCount) : 0;
     const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
-    // Reduced weights for ESAT (Max 2% positive ESAT effect if salaries increase by 50% or more)
-    const salaryEffect = weightedSalaryChange >= 0 ? 0.04 * weightedSalaryChange : 0.50 * weightedSalaryChange;
-    const utilizationEffect = weightedUtilization > 1.0 ? 0.30 * (weightedUtilization - 1.0) : 0.0;
+    // Calibrated weights for ESAT to make 74% achievable with training, fair salaries, and adequate staffing
+    const salaryEffect = weightedSalaryChange >= 0 ? 0.20 * weightedSalaryChange : 0.40 * weightedSalaryChange;
+    const utilizationEffect = weightedUtilization > 1.0 ? 0.25 * (weightedUtilization - 1.0) : 0.0;
     const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
 
-    const targetESAT = 0.70 + salaryEffect + (0.33 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
-    const calculatedESAT = prevESAT * 0.8 + targetESAT * 0.2;
+    const targetESAT = 0.72 + salaryEffect + (0.50 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
+    const calculatedESAT = prevESAT * 0.60 + targetESAT * 0.40;
 
-    // ESAT Change Constraint (max 5% change per year)
+    // ESAT Change Constraint (max 8% change per year)
     const esatChangeVal = calculatedESAT - prevESAT;
-    const limitedESAT = prevESAT + Math.max(-0.05, Math.min(0.05, esatChangeVal));
+    const limitedESAT = prevESAT + Math.max(-0.08, Math.min(0.08, esatChangeVal));
     const finalESAT = Math.min(0.95, Math.max(0.10, limitedESAT));
 
     // Customer Satisfaction (CSAT) based on Customer Buying Criteria scores weighted by sales volume
@@ -560,28 +567,28 @@ export const processTurn = (
     const weightedCustomerScore = totalSalesUnitsForCSAT > 0 ? (sumProductCSAT / totalSalesUnitsForCSAT) : 0.5;
     const prevCSAT = prevPeriodRecord?.kpis?.customerSatisfaction ?? 0.70;
     
-    // Average stockout penalty across products (under stock penalizes CSAT up to -15% per product)
+    // Average stockout penalty across products (under stock penalizes CSAT up to -12% per product)
     let totalSalesDemand = 0;
     let sumStockoutPenalty = 0;
     PRODUCTS.forEach(p => {
         const demand = productDemands[p.id] || 0;
         const available = productAvailable[p.id] || 0;
         const stockoutRatio = demand > 0 ? (available / demand) : 1.0;
-        const penalty = stockoutRatio < 1.0 ? 0.05 + 0.15 * (1.0 - stockoutRatio) : 0.0;
+        const penalty = stockoutRatio < 1.0 ? 0.02 + 0.10 * (1.0 - stockoutRatio) : 0.0;
         sumStockoutPenalty += penalty * demand;
         totalSalesDemand += demand;
     });
     const avgStockoutPenalty = totalSalesDemand > 0 ? (sumStockoutPenalty / totalSalesDemand) : 0.0;
 
     const csAgentRatio = requiredCS > 0 ? (staffCounts.customerService / requiredCS) : 1.0;
-    const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.04, 0.02 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
+    const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.06, 0.02 + 0.03 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
 
-    const targetCSAT = 0.50 + 0.40 * weightedCustomerScore + csAgentEffect;
-    const calculatedCSAT = prevCSAT * 0.8 + targetCSAT * 0.2;
+    const targetCSAT = 0.54 + 0.44 * weightedCustomerScore + csAgentEffect;
+    const calculatedCSAT = prevCSAT * 0.60 + targetCSAT * 0.40;
 
-    // CSAT Change Constraint (max 7% change per year)
+    // CSAT Change Constraint (max 9% change per year)
     const csatChangeVal = calculatedCSAT - prevCSAT;
-    const limitedCSAT = prevCSAT + Math.max(-0.07, Math.min(0.07, csatChangeVal));
+    const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
     const finalCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
 
     const newKPIs: KPI = {

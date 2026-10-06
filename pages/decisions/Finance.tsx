@@ -42,12 +42,25 @@ const Finance: React.FC = () => {
 
   // -- Handlers --
   const handleDebtorsDaysChange = (productId: ProductId, value: string) => {
+    const days = parseInt(value) || 0;
     updateDecisions('finance', {
       debtorsDays: {
         ...finance.debtorsDays,
-        [productId]: parseInt(value) || 0
+        [productId]: days
       }
     });
+    if (decisions.markets?.za) {
+      updateDecisions('markets' as any, {
+        ...decisions.markets,
+        za: {
+          ...decisions.markets.za,
+          debtorDays: {
+            ...(decisions.markets.za.debtorDays || {}),
+            [productId]: days
+          }
+        }
+      } as any);
+    }
   };
 
   const handleDebtInputChange = (value: string) => {

@@ -32,6 +32,7 @@ import { useDebriefData } from '../hooks/useDebriefData';
 import { compileDebriefSlides } from '../utils/debriefSlides';
 import { downloadDebriefDeckPdf } from '../utils/debriefPdfExport';
 import { DebriefScaler } from './debrief/DebriefScaler';
+import { mergeGlobalMarketsDecisions } from '../utils/editions/globalMarkets/defaults';
 
 const HR_ROLE_LABELS: Record<string, string> = {
   engineers: 'Engineers',
@@ -697,12 +698,76 @@ const MarketReports: React.FC = () => {
       }
     ];
 
+    const treasuryRows = currentClass?.editionId === 'global-markets' ? [
+      {
+        label: 'Nigeria: Expansion Status',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.markets?.ng?.active ? 'Active' : 'Inactive';
+        })
+      },
+      {
+        label: 'Nigeria: Channel',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.markets?.ng?.active 
+            ? (dec.markets?.ng?.channel === 'DISTRIBUTOR' ? 'Distributor' : 'Company Stores')
+            : '—';
+        })
+      },
+      {
+        label: 'Kenya: Expansion Status',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.markets?.ke?.active ? 'Active' : 'Inactive';
+        })
+      },
+      {
+        label: 'Kenya: Channel',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.markets?.ke?.active 
+            ? (dec.markets?.ke?.channel === 'DISTRIBUTOR' ? 'Distributor' : 'Company Stores')
+            : '—';
+        })
+      },
+      {
+        label: 'USD Hedge Cover %',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return `${dec.treasury?.hedges?.USD_COSTS?.coverPct ?? 0}%`;
+        })
+      },
+      {
+        label: 'Debt Currency',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.treasury?.fundingCurrency || 'ZAR';
+        })
+      },
+      {
+        label: 'Debt Interest Basis',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return dec.treasury?.rateBasis === 'FIXED' ? 'Fixed (+1.2%)' : 'Floating';
+        })
+      },
+      {
+        label: 'Target Net Profit',
+        values: realTeams.map(t => {
+          const dec = mergeGlobalMarketsDecisions(getTeamDec(t));
+          return formatCurrency(dec.treasury?.plannedNetProfit ?? 0, 0);
+        })
+      }
+    ] : [];
+
     return {
       marketing: marketingRows,
       operations: operationsRows,
       hr: hrRows,
       procurement: procurementRows,
-      finance: financeRows
+      finance: financeRows,
+      treasury: treasuryRows
     };
   }, [currentClass, realTeams]);
 
@@ -1421,6 +1486,14 @@ const MarketReports: React.FC = () => {
                               {/* Finance Section */}
                               <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Finance Decisions</td></tr>
                               {activeDecisionsData.finance.map((row) => renderMultiTeamRow(row.label, row.values))}
+
+                              {/* Treasury & Regional Markets Section */}
+                              {activeDecisionsData.treasury && activeDecisionsData.treasury.length > 0 && (
+                                <>
+                                  <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Treasury & Regional Markets Decisions</td></tr>
+                                  {activeDecisionsData.treasury.map((row) => renderMultiTeamRow(row.label, row.values))}
+                                </>
+                              )}
                           </tbody>
                       </table>
                   </div>
@@ -1468,6 +1541,16 @@ const MarketReports: React.FC = () => {
                                  {activeDecisionsData.finance.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
                              </div>
                          </div>
+
+                         {/* Treasury & Regional Markets Section */}
+                         {activeDecisionsData.treasury && activeDecisionsData.treasury.length > 0 && (
+                           <div className="space-y-2">
+                               <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Treasury & Regional Markets Decisions</h4>
+                               <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                                   {activeDecisionsData.treasury.map((row) => renderMobileMetricRow(row.label, row.values[selectedMobileTeam]))}
+                               </div>
+                           </div>
+                         )}
                      </div>
                  </div>
              </div>

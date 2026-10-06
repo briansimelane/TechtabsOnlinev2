@@ -172,6 +172,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <DollarSign size={iconSize} />
                 {!isCollapsed && <span>Finance</span>}
               </NavLink>
+              {currentClass?.editionId === 'global-markets' && (
+                <NavLink to="/decisions/treasury" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Treasury & Markets" : undefined}>
+                  <Globe size={iconSize} />
+                  {!isCollapsed && <span>Treasury & Markets</span>}
+                </NavLink>
+              )}
 
               {!isCollapsed && (
                 <div className="pt-4 pb-2 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">

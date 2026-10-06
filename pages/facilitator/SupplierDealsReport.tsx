@@ -4,12 +4,12 @@ import { SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS, PRO
 import { getDecisionsForTeamPeriod } from '../../utils/marketShareBackModel';
 import { formatCurrency, formatNumber } from '../../utils/numberFormat';
 import { exportSupplierDealsPDF, exportSupplierDealsCSV, SupplierDealRecord } from '../../utils/supplierDealsExport';
-import { 
-  FileText, 
-  FileSpreadsheet, 
-  Building, 
-  Handshake, 
-  Calendar, 
+import {
+  FileText,
+  FileSpreadsheet,
+  Building,
+  Handshake,
+  Calendar,
   SlidersHorizontal,
   Users
 } from 'lucide-react';
@@ -185,11 +185,11 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Top Banner & Control Bar */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          
+
           <div>
             <div className="flex items-center gap-2">
               <Handshake className="text-emerald-600" size={24} />
@@ -222,7 +222,7 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
 
         {/* Filter Controls Row */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100">
-          
+
           {/* Year Picker */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
@@ -234,11 +234,10 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
                 <button
                   key={yr}
                   onClick={() => setSelectedYear(yr)}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
-                    selectedYear === yr
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${selectedYear === yr
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
+                    }`}
                 >
                   Year {yr}
                 </button>
@@ -250,33 +249,30 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
             <button
               onClick={() => setViewMode('matrix')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'matrix'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'matrix'
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+                }`}
             >
               <SlidersHorizontal size={14} />
               <span>Overview Matrix</span>
             </button>
             <button
               onClick={() => setViewMode('byTeam')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'byTeam'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'byTeam'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+                }`}
             >
               <Building size={14} />
               <span>By Team</span>
             </button>
             <button
               onClick={() => setViewMode('bySupplier')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                viewMode === 'bySupplier'
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${viewMode === 'bySupplier'
                   ? 'bg-teal-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+                }`}
             >
               <Users size={14} />
               <span>By Supplier</span>
@@ -358,11 +354,10 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
               <button
                 key={t.id}
                 onClick={() => setSelectedTeamId(t.id)}
-                className={`px-4 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 ${
-                  selectedTeamId === t.id
+                className={`px-4 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-2 ${selectedTeamId === t.id
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <Building size={14} />
                 <span>{t.name}</span>
@@ -461,7 +456,7 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
                     <div className="space-y-1.5">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Procurement Orders (Comp & FG)</span>
                       <div className="grid grid-cols-3 gap-1.5 text-xs">
-                        
+
                         {/* TechBook Allocation Card */}
                         <div className="p-2 bg-indigo-50/60 rounded-xl border border-indigo-100/80 flex flex-col justify-between">
                           <div>
@@ -533,11 +528,10 @@ export const SupplierDealsReport: React.FC<Props> = ({ classId }) => {
               <button
                 key={s}
                 onClick={() => setSelectedSupplierId(s)}
-                className={`p-3.5 rounded-xl border text-left transition-all ${
-                  selectedSupplierId === s
+                className={`p-3.5 rounded-xl border text-left transition-all ${selectedSupplierId === s
                     ? 'bg-teal-600 text-white border-teal-600 shadow-md ring-2 ring-teal-500/20'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 <div className="font-bold text-sm">{s}</div>
                 <div className={`text-xs mt-0.5 ${selectedSupplierId === s ? 'text-teal-100' : 'text-slate-400'}`}>
