@@ -10,7 +10,8 @@ import { REGIONAL_DOSSIERS } from './regionalDossiers';
 import DecisionsSummary from '../../../components/DecisionsSummary';
 
 export const TreasuryMarketsDecision: React.FC = () => {
-  const { currentTeam, decisions, updateDecisions, classes, currentClassId } = useSimulation();
+  const { currentTeam, decisions, updateDecisions, classes, currentClassId, isReadOnly, currentRole } = useSimulation();
+  const disabled = isReadOnly && currentRole === 'STUDENT';
   const currentClass = classes.find(c => c.id === currentClassId);
   const edition = EDITIONS['global-markets'];
 
@@ -51,6 +52,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
   const prevBreached = (prevRec?.gm?.covenants?.breached?.length || 0) > 0;
 
   const handleUpdateMarket = (marketId: string, field: string, value: any) => {
+    if (disabled) return;
     const updatedMarkets = {
       ...(gmDecisions.markets || {}),
       [marketId]: {
@@ -62,6 +64,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
   };
 
   const handleUpdateMarketPrice = (marketId: string, prod: ProductId, price: number) => {
+    if (disabled) return;
     if (marketId === 'za') {
       updateDecisions('marketing', {
         prices: {
@@ -76,6 +79,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
   };
 
   const handleUpdateMarketTerms = (marketId: string, prod: ProductId, days: number) => {
+    if (disabled) return;
     if (marketId === 'za') {
       updateDecisions('finance', {
         debtorsDays: {
@@ -90,6 +94,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
   };
 
   const handleUpdateTreasury = (field: string, value: any) => {
+    if (disabled) return;
     const updatedTreasury = {
       ...(gmDecisions.treasury || {}),
       [field]: value
@@ -98,6 +103,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
   };
 
   const handleUpdateHedge = (exposureId: string, coverPct: number, tenorMonths: 6 | 12) => {
+    if (disabled) return;
     const currentHedges = gmDecisions.treasury?.hedges || {};
     const updatedHedges = {
       ...currentHedges,
@@ -234,11 +240,14 @@ export const TreasuryMarketsDecision: React.FC = () => {
                         ) : (
                           <button
                             type="button"
+                            disabled={disabled}
                             onClick={() => handleUpdateMarket(market.id, 'active', !isActive)}
-                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200'
-                                : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs'
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-all ${
+                              disabled
+                                ? 'opacity-50 cursor-not-allowed bg-slate-200 text-slate-500'
+                                : isActive
+                                  ? 'bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 cursor-pointer'
+                                  : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-xs cursor-pointer'
                             }`}
                           >
                             {isActive ? 'Exit Market' : 'Enter Market'}
@@ -308,8 +317,11 @@ export const TreasuryMarketsDecision: React.FC = () => {
                                   <button
                                     key={opt}
                                     type="button"
+                                    disabled={disabled}
                                     onClick={() => handleUpdateMarket(market.id, 'channel', opt)}
-                                    className={`p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between cursor-pointer ${
+                                    className={`p-2.5 rounded-lg border transition-all text-left flex flex-col justify-between ${
+                                      disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                                    } ${
                                       isSelected
                                         ? 'bg-blue-50 border-blue-600 text-blue-900 shadow-xs ring-1 ring-blue-500'
                                         : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -358,9 +370,10 @@ export const TreasuryMarketsDecision: React.FC = () => {
                                     <input
                                       type="text"
                                       inputMode="numeric"
+                                      disabled={disabled}
                                       value={formatNumber(currentVal)}
                                       onChange={e => handleUpdateMarketPrice(market.id, pid, parseNumber(e.target.value))}
-                                      className="w-full text-right text-xs pl-7 pr-2.5 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 font-mono font-bold rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                                      className="w-full text-right text-xs pl-7 pr-2.5 py-1.5 bg-blue-50 border border-blue-200 text-blue-800 font-mono font-bold rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                                     />
                                   </div>
                                 </div>
@@ -391,8 +404,9 @@ export const TreasuryMarketsDecision: React.FC = () => {
                                   <span className="text-xs font-medium text-slate-600 w-20">{pLabel}</span>
                                   <select
                                     value={currentDays}
+                                    disabled={disabled}
                                     onChange={e => handleUpdateMarketTerms(market.id, pid, Number(e.target.value))}
-                                    className="flex-1 text-xs py-1.5 px-2 bg-blue-50 border border-blue-200 text-blue-800 font-mono font-bold rounded text-center cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                                    className="flex-1 text-xs py-1.5 px-2 bg-blue-50 border border-blue-200 text-blue-800 font-mono font-bold rounded text-center outline-none focus:ring-2 focus:ring-blue-500 appearance-none disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                   >
                                     {market.isHome ? (
                                       <>
@@ -488,9 +502,10 @@ export const TreasuryMarketsDecision: React.FC = () => {
                   min="0"
                   max="120"
                   step="10"
+                  disabled={disabled}
                   value={gmDecisions.treasury?.hedges?.USD_COSTS?.coverPct ?? 0}
                   onChange={e => handleUpdateHedge('USD_COSTS', Number(e.target.value), gmDecisions.treasury?.hedges?.USD_COSTS?.tenorMonths || 12)}
-                  className="w-full accent-blue-600"
+                  className="w-full accent-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <div className="flex justify-between text-[10px] text-slate-400">
                   <span>0% (Uncovered)</span>
@@ -507,8 +522,11 @@ export const TreasuryMarketsDecision: React.FC = () => {
                     <button
                       key={tenor}
                       type="button"
+                      disabled={disabled}
                       onClick={() => handleUpdateHedge('USD_COSTS', gmDecisions.treasury?.hedges?.USD_COSTS?.coverPct ?? 0, tenor as 6 | 12)}
                       className={`text-xs py-2 rounded-lg font-bold border transition-all ${
+                        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      } ${
                         (gmDecisions.treasury?.hedges?.USD_COSTS?.tenorMonths ?? 12) === tenor
                           ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -564,9 +582,10 @@ export const TreasuryMarketsDecision: React.FC = () => {
                   min="0"
                   max="100"
                   step="10"
+                  disabled={disabled}
                   value={gmDecisions.treasury?.hedges?.NGN_REVENUE?.coverPct ?? 0}
                   onChange={e => handleUpdateHedge('NGN_REVENUE', Number(e.target.value), gmDecisions.treasury?.hedges?.NGN_REVENUE?.tenorMonths || 12)}
-                  className="w-full accent-blue-600"
+                  className="w-full accent-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -577,8 +596,11 @@ export const TreasuryMarketsDecision: React.FC = () => {
                     <button
                       key={tenor}
                       type="button"
+                      disabled={disabled}
                       onClick={() => handleUpdateHedge('NGN_REVENUE', gmDecisions.treasury?.hedges?.NGN_REVENUE?.coverPct ?? 0, tenor as 6 | 12)}
                       className={`text-xs py-2 rounded-lg font-bold border transition-all ${
+                        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      } ${
                         (gmDecisions.treasury?.hedges?.NGN_REVENUE?.tenorMonths ?? 12) === tenor
                           ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                           : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
@@ -634,9 +656,10 @@ export const TreasuryMarketsDecision: React.FC = () => {
                   min="0"
                   max="100"
                   step="10"
+                  disabled={disabled}
                   value={gmDecisions.treasury?.hedges?.KES_REVENUE?.coverPct ?? 0}
                   onChange={e => handleUpdateHedge('KES_REVENUE', Number(e.target.value), 6)}
-                  className="w-full accent-blue-600"
+                  className="w-full accent-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -670,8 +693,10 @@ export const TreasuryMarketsDecision: React.FC = () => {
                 ].map(curr => (
                   <div
                     key={curr.id}
-                    onClick={() => handleUpdateTreasury('fundingCurrency', curr.id)}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                    onClick={() => !disabled && handleUpdateTreasury('fundingCurrency', curr.id)}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                    } ${
                       (gmDecisions.treasury?.fundingCurrency || 'ZAR') === curr.id
                         ? 'border-blue-600 bg-blue-50/50 ring-1 ring-blue-200'
                         : 'border-slate-200 hover:border-slate-300 bg-white'
@@ -703,8 +728,11 @@ export const TreasuryMarketsDecision: React.FC = () => {
                     <button
                       key={basis.id}
                       type="button"
+                      disabled={disabled}
                       onClick={() => handleUpdateTreasury('rateBasis', basis.id)}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${
+                        disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                      } ${
                         (gmDecisions.treasury?.rateBasis || 'FIXED') === basis.id
                           ? 'border-blue-600 bg-blue-50/50'
                           : 'border-slate-200 bg-white hover:bg-slate-50'
@@ -740,10 +768,11 @@ export const TreasuryMarketsDecision: React.FC = () => {
                       <input
                         type="text"
                         inputMode="numeric"
+                        disabled={disabled}
                         value={formatNumber(gmDecisions.treasury?.plannedNetProfit || 0)}
                         onChange={e => handleUpdateTreasury('plannedNetProfit', parseNumber(e.target.value))}
                         placeholder="e.g. 35,000,000"
-                        className="w-full pl-8 pr-3 py-2 text-sm bg-blue-50 border border-blue-200 text-blue-800 font-bold font-mono rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right"
+                        className="w-full pl-8 pr-3 py-2 text-sm bg-blue-50 border border-blue-200 text-blue-800 font-bold font-mono rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-right disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1043,7 +1072,7 @@ export const TreasuryMarketsDecision: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!isMarketActive && selectedModalMarket !== 'za' && (
+                  {!isMarketActive && selectedModalMarket !== 'za' && !disabled && (
                     <button
                       type="button"
                       onClick={() => {

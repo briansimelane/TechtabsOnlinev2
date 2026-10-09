@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
-import { PRODUCTS, OPERATIONS_CONSTANTS, MARKET_SIZES, getMarketSize, SUPPLIERS, SUPPLIER_METRICS } from '../../constants';
+import { PRODUCTS, MARKET_SIZES, getMarketSize, SUPPLIERS, SUPPLIER_METRICS } from '../../constants';
+import { capacityExpansionCost } from '../../utils/capex';
 import { ProductId } from '../../types';
 import { Box, Layers, Zap, TrendingUp, AlertTriangle, Hammer, Link as LinkIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine } from 'recharts';
@@ -204,9 +205,7 @@ const Operations: React.FC = () => {
   const capacityUtilization = (totalProduction / currentTeam.factoryCapacity) * 100;
   const isOverCapacity = totalProduction > currentTeam.factoryCapacity;
   
-  const capexCost = operations.capacityChange > 0 
-    ? operations.capacityChange * OPERATIONS_CONSTANTS.capexUnitCost 
-    : 0;
+  const capexCost = capacityExpansionCost(operations.capacityChange);
 
   const totalRDSplit = (Object.values(operations.rdSplits) as number[]).reduce((a, b) => a + b, 0);
   

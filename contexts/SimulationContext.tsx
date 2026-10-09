@@ -377,7 +377,8 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const localPin = localStorage.getItem('techtabs_ceo_pin');
   const isReadOnly = !isDemoMode && state.currentRole === 'STUDENT' && (
-    (Boolean(state.currentTeam.ceoPin) && localPin !== state.currentTeam.ceoPin) || 
+    !state.currentTeam.ceoPin || 
+    localPin !== state.currentTeam.ceoPin || 
     state.currentTeam.status === 'Submitted'
   );
 
@@ -799,7 +800,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       }
                       
                       const localPin = localStorage.getItem('techtabs_ceo_pin');
-                      const canEdit = isDemoMode || !teamData.ceoPin || (localPin === teamData.ceoPin);
+                      const canEdit = isDemoMode || (Boolean(teamData.ceoPin) && localPin === teamData.ceoPin);
                       
                       const updatedDecisions = (!canEdit && teamData.draftDecisions) 
                         ? teamData.draftDecisions 
@@ -870,7 +871,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       if (matched) {
                           updatedCurrentTeam = matched;
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
-                          const canEdit = isDemoMode || !matched.ceoPin || (localPin === matched.ceoPin);
+                          const canEdit = isDemoMode || (Boolean(matched.ceoPin) && localPin === matched.ceoPin);
                           if (matched.draftDecisions) {
                               if (!canEdit) {
                                   updatedDecisions = matched.draftDecisions;
@@ -913,7 +914,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                           const kpis = teamInClass.history?.[lastPeriod]?.kpis || YEAR_0_RECORD.kpis;
                           
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
-                          const canEdit = isDemoMode || !teamInClass.ceoPin || (localPin === teamInClass.ceoPin);
+                          const canEdit = isDemoMode || (Boolean(teamInClass.ceoPin) && localPin === teamInClass.ceoPin);
                           let updatedDecisions = prev.decisions;
                           if (teamInClass.draftDecisions) {
                             if (!canEdit) {
@@ -960,22 +961,21 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       const localPin = localStorage.getItem('techtabs_ceo_pin');
       const canEdit = isDemoMode || 
                       prev.currentRole !== 'STUDENT' || 
-                      !prev.currentTeam.ceoPin || 
-                      (localPin === prev.currentTeam.ceoPin);
+                      (Boolean(prev.currentTeam.ceoPin) && localPin === prev.currentTeam.ceoPin);
 
       const updatedTeam = {
         ...prev.currentTeam,
         draftDecisions: updatedDecisions
       };
 
-      if (canEdit) {
+      if (canEdit && prev.currentTeam.status !== 'Submitted') {
          debouncedSaveDraft(prev.currentClassId, updatedTeam);
       }
 
       return {
         ...prev,
         currentTeam: canEdit ? updatedTeam : prev.currentTeam,
-        decisions: updatedDecisions,
+        decisions: canEdit ? updatedDecisions : prev.decisions,
       };
     });
   };

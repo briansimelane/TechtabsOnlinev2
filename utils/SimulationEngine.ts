@@ -2,7 +2,8 @@
 import { Team, TurnDecisions, ProductId, KPI, MarketEvent, HRRole, PeriodRecord } from '../types';
 import CONFIG from '../resources/config.json';
 import CALC_RULES from '../resources/calculation_rules.json';
-import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, OPERATIONS_CONSTANTS, getMarketSize, YEAR_0_RECORD, SUPPLIER_METRICS } from '../constants';
+import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, getMarketSize, YEAR_0_RECORD, SUPPLIER_METRICS } from '../constants';
+import { capacityExpansionCost } from './capex';
 
 // Helpers to map config json into usable structures
 const SUPPLIERS = Object.keys((CONFIG as any).suppliers || {});
@@ -367,9 +368,7 @@ export const processTurn = (
 
     // 6. Balance Sheet Updates
     // Cash Flow
-    const capeX = decisions.operations.capacityChange > 0 
-        ? decisions.operations.capacityChange * OPERATIONS_CONSTANTS.capexUnitCost 
-        : 0; // Negative capex (selling) not supported in logic yet
+    const capeX = capacityExpansionCost(decisions.operations.capacityChange);
     
     const debtChange = decisions.finance.debtChange;
     const equityChange = decisions.finance.equityChange;
@@ -415,7 +414,7 @@ export const processTurn = (
     const endCash = endEquity + endDebt + endCreditors - endDebtors - endInventoryValue - endPPE;
 
     const netCashFlow = endCash - startCash;
-    const investingCashFlow = -capeX;
+    const investingCashFlow = capeX === 0 ? 0 : -capeX;
     const financingCashFlow = debtChange + equityChange;
     const operatingCashFlow = netCashFlow - investingCashFlow - financingCashFlow;
     

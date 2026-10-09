@@ -269,7 +269,7 @@ export const STORE_COSTS = {
 };
 
 export const OPERATIONS_CONSTANTS = {
-    capexUnitCost: 1500, // Estimated cost to build 1 unit of capacity
+    capexUnitCost: 750, // R750 per unit of capacity, per case study (was 1500)
 };
 
 export const MARKET_SIZES: Record<string, number> = {

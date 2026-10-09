@@ -14,6 +14,7 @@ import { getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../uti
 import { getEdition } from '../utils/editions';
 import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
 import { ExposureReport, ValueCreationReport, CovenantsFundingReport, MarketDeskReport } from './editions/globalMarkets/GlobalMarketsReports';
+import { capacityExpansionCost as calculateCapacityExpansionCost } from '../utils/capex';
 
 // --- Types & Interfaces for Reports ---
 type ReportTab = 'summary' | 'income' | 'balance' | 'cashflow' | 'exposure' | 'valueCreation' | 'covenantsFunding' | 'marketDesk';
@@ -327,7 +328,7 @@ const FinancialReports: React.FC = () => {
 
     // Depreciation
     const currentFixedAssets = actuals.balanceSheet.fixedAssets;
-    const capacityExpansionCost = Math.max(0, decisions.operations.capacityChange) * 15000;
+    const capacityExpansionCost = calculateCapacityExpansionCost(decisions.operations.capacityChange);
     const storeOpeningCapEx = Math.max(0, decisions.marketing.openCloseStores) * STORE_COSTS.opening;
     const totalCapEx = capacityExpansionCost + storeOpeningCapEx;
     const newFixedAssetsBase = currentFixedAssets + totalCapEx;
@@ -385,7 +386,7 @@ const FinancialReports: React.FC = () => {
 
     // Cash Flow & Ending Cash
     const operatingCashFlow = netProfit + depreciation;
-    const investingCashFlow = -totalCapEx;
+    const investingCashFlow = totalCapEx === 0 ? 0 : -totalCapEx;
     const financingCashFlow = debtChange + equityChange;
     const netCashFlow = operatingCashFlow + investingCashFlow + financingCashFlow;
 
