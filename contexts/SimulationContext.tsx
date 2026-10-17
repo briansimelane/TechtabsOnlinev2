@@ -258,6 +258,17 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
     const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
     const result = processTurn(currentTeamState, decs, [], edition);
     
+    const carriedNegotiation = (decs.negotiation && decs.negotiation.status === 'AGREED')
+      ? {
+          ...decs.negotiation,
+          contractPeriods: decs.negotiation.contractPeriods && decs.negotiation.contractPeriods > 1
+            ? decs.negotiation.contractPeriods - 1
+            : decs.negotiation.contractPeriods
+        }
+      : {
+          ...INITIAL_DECISIONS.negotiation
+        };
+
     const carriedDecisions: TurnDecisions = {
       ...decs,
       operations: {
@@ -274,9 +285,7 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
         debtChange: 0,
         equityChange: 0
       },
-      negotiation: {
-        ...INITIAL_DECISIONS.negotiation
-      }
+      negotiation: carriedNegotiation
     };
 
     const periodRecordWithDecs = {
@@ -998,6 +1007,17 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
           }
       };
 
+      const carriedNegotiation = (state.decisions.negotiation && state.decisions.negotiation.status === 'AGREED')
+        ? {
+            ...state.decisions.negotiation,
+            contractPeriods: state.decisions.negotiation.contractPeriods && state.decisions.negotiation.contractPeriods > 1
+              ? state.decisions.negotiation.contractPeriods - 1
+              : state.decisions.negotiation.contractPeriods
+          }
+        : {
+            ...INITIAL_DECISIONS.negotiation
+          };
+
       if (state.currentClassId) {
           await persistTeam(state.currentClassId, updatedTeam);
 
@@ -1006,7 +1026,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               lastPeriodKPIs: result.periodRecord.kpis,
               decisions: {
                   ...prev.decisions,
-                  negotiation: { ...INITIAL_DECISIONS.negotiation }
+                  negotiation: carriedNegotiation
               }
           }));
       } else {
@@ -1016,7 +1036,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               lastPeriodKPIs: result.periodRecord.kpis,
               decisions: {
                   ...prev.decisions,
-                  negotiation: { ...INITIAL_DECISIONS.negotiation }
+                  negotiation: carriedNegotiation
               }
           }));
       }
@@ -2574,6 +2594,17 @@ BEHAVIOR RULES:
         fullIndustryReport: industryPerfList
       };
 
+      const carriedNegotiation = (decs.negotiation && decs.negotiation.status === 'AGREED')
+        ? {
+            ...decs.negotiation,
+            contractPeriods: decs.negotiation.contractPeriods && decs.negotiation.contractPeriods > 1
+              ? decs.negotiation.contractPeriods - 1
+              : decs.negotiation.contractPeriods
+          }
+        : {
+            ...INITIAL_DECISIONS.negotiation
+          };
+
       const carriedDecisions: TurnDecisions = {
         ...decs,
         operations: {
@@ -2590,9 +2621,7 @@ BEHAVIOR RULES:
           debtChange: 0,
           equityChange: 0
         },
-        negotiation: {
-          ...INITIAL_DECISIONS.negotiation
-        }
+        negotiation: carriedNegotiation
       };
 
       const newTeam: Team = {

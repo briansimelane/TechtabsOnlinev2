@@ -172,6 +172,17 @@ const updatedTeams = mockClass.teams.map(team => {
     fullIndustryReport: industryPerfList
   };
 
+  const carriedNegotiation = (decs.negotiation && decs.negotiation.status === 'AGREED')
+    ? {
+        ...decs.negotiation,
+        contractPeriods: decs.negotiation.contractPeriods && decs.negotiation.contractPeriods > 1
+          ? decs.negotiation.contractPeriods - 1
+          : decs.negotiation.contractPeriods
+      }
+    : {
+        ...INITIAL_DECISIONS.negotiation
+      };
+
   const carriedDecisions: TurnDecisions = {
     ...decs,
     operations: {
@@ -188,9 +199,7 @@ const updatedTeams = mockClass.teams.map(team => {
       debtChange: 0,
       equityChange: 0
     },
-    negotiation: {
-      ...INITIAL_DECISIONS.negotiation
-    }
+    negotiation: carriedNegotiation
   };
 
   const newTeam: Team = {

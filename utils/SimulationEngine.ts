@@ -272,14 +272,18 @@ export const processTurn = (
         let compUnits = 0;
         let fgUnits = 0;
 
+        const overrides = decisions.supplierOverrides;
         SUPPLIERS.forEach(s => {
             const alloc = productProc[s];
             if (!alloc) return;
-            const discountMultiplier = (isDealActive && negotiation.selectedSupplierId === s) ? (1 - negotiation.agreedDiscount) : 1;
+            const overrideDiscount = overrides?.discounts?.[s];
+            const discountMultiplier = overrideDiscount !== undefined ? (1 - overrideDiscount) : ((isDealActive && negotiation.selectedSupplierId === s) ? (1 - negotiation.agreedDiscount) : 1);
             const compVal = Number(alloc.components) || 0;
             const fgVal = Number(alloc.finishedGoods) || 0;
-            const compCost = (COMPONENT_COSTS[p.id]?.[s] || 0) * compVal * materialCostModifier * discountMultiplier;
-            const fgCost = (FINISHED_GOODS_COSTS[p.id]?.[s] || 0) * fgVal * materialCostModifier * discountMultiplier;
+            const baseCompCost = overrides?.componentCosts?.[p.id]?.[s] ?? COMPONENT_COSTS[p.id]?.[s] ?? 0;
+            const baseFGCost = overrides?.finishedGoodsCosts?.[p.id]?.[s] ?? FINISHED_GOODS_COSTS[p.id]?.[s] ?? 0;
+            const compCost = baseCompCost * compVal * materialCostModifier * discountMultiplier;
+            const fgCost = baseFGCost * fgVal * materialCostModifier * discountMultiplier;
             productComponentCost += compCost;
             compUnits += compVal;
             productFGCost += fgCost;
@@ -287,7 +291,7 @@ export const processTurn = (
 
             // Determine payment timing factor for this supplier
             const supplierDefaultTerms = (CONFIG as any).suppliers?.[s]?.performance_attributes?.payment_terms_days || 30;
-            const agreedTerms = (isDealActive && negotiation.selectedSupplierId === s && negotiation.agreedPaymentTerms) ? negotiation.agreedPaymentTerms : supplierDefaultTerms;
+            const agreedTerms = overrides?.paymentTerms?.[s] ?? ((isDealActive && negotiation.selectedSupplierId === s && negotiation.agreedPaymentTerms) ? negotiation.agreedPaymentTerms : supplierDefaultTerms);
             const termKey = `${agreedTerms}_days`;
             const paymentFactor = (CONFIG as any).supplier_payment_factors? termKey ? ((CONFIG as any).supplier_payment_factors[termKey] ?? 1.0) : 1.0 : 1.0;
             purchasesPaidThisPeriod += (compCost + fgCost) * paymentFactor;
