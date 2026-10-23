@@ -306,7 +306,7 @@ const Dashboard: React.FC = () => {
   }, [classes, currentClassId]);
 
   let pastInd = pastPeriodRecord?.industry;
-  if (!isGlobalMarkets && pastPeriod >= 1 && realTeams.length > 0) {
+  if (!pastInd && !isGlobalMarkets && pastPeriod >= 1 && realTeams.length > 0) {
     try {
       const perfList = computeIndustryPerformance(realTeams, pastPeriod);
       const livePastInd = perfList.find(p => p.teamId === currentTeam.id);
@@ -608,19 +608,23 @@ const Dashboard: React.FC = () => {
     const pastItems = sortedHistory.map(([periodStr, record]) => {
       const pNum = Number(periodStr);
       const rec = record as any;
-      let np = rec?.netProfit ?? rec?.industry?.netProfit ?? 0;
+      let pastRecInd = rec?.industry;
 
-      if (!isGlobalMarkets && pNum >= 1 && realTeams.length > 0) {
+      if (!pastRecInd && rec?.netProfit === undefined && !isGlobalMarkets && pNum >= 1 && realTeams.length > 0) {
         try {
           const perfList = computeIndustryPerformance(realTeams, pNum);
           const teamPerf = perfList.find(t => t.teamId === currentTeam.id);
           if (teamPerf) {
-            np = teamPerf.netProfit;
+            pastRecInd = teamPerf;
           }
         } catch (e) {
           console.warn(`Could not compute industry performance for trend period ${pNum}:`, e);
         }
       }
+
+      const np = isGlobalMarkets
+        ? (rec?.netProfit ?? 0)
+        : (pastRecInd?.netProfit ?? rec?.netProfit ?? 0);
 
       return {
         period: `Y${periodStr} (Actual)`,

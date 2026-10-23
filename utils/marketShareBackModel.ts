@@ -488,6 +488,19 @@ export function computeMarketShareBackModel(
     
     const availableByTeam = sortedTeams.map((t, idx) => {
       if (!activeByTeam[idx]) return 0;
+
+      // CLOSED period: t.inventory / staffing are now the *latest* state, not that period's
+      // opening state, so recomputing would drop the opening stock. Use what the engine
+      // recorded when the period was run (opening + production + purchases).
+      if (period < t.currentPeriod) {
+        const rec = t.history?.[period] || t.history?.[String(period)];
+        const stored = rec?.market?.availableUnits?.[p.id];
+        if (typeof stored === 'number' && Number.isFinite(stored)) return stored;
+        // Fallback for older records without market.availableUnits
+        const snap = rec?.industry?.units?.[p.id]?.available;
+        if (typeof snap === 'number' && Number.isFinite(snap)) return snap;
+      }
+
       const dec = getDecisionsForTeamPeriod(t, period);
       const scaledProd = getScaledProduction(t, dec)[p.id] || 0;
       const reqFG = Number(dec.operations?.reqFinishedGoods?.[p.id]) || 0;
