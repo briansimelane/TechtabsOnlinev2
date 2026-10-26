@@ -2583,7 +2583,8 @@ BEHAVIOR RULES:
         netProfit: np,
         npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
         equity: eq,
-        roe: eq > 0 ? (np / eq) * 100 : 0
+        roe: eq > 0 ? (np / eq) * 100 : 0,
+        staffCounts: result.periodRecord.staffCounts ?? rawTeamPerf.staffCounts
       } : undefined;
 
       const periodRecordWithIndustry = {

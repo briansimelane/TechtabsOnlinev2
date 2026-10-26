@@ -23,8 +23,13 @@ interface SlideProps {
 
 export const CustomerServiceSlide: React.FC<SlideProps> = ({ dataset, revealStep, currentSlide, totalSlides }) => {
   const chartData = dataset.teams.map(t => {
-    const actualCS = t.record.staffCounts?.customerService || 20;
-    const requiredCS = t.record.requiredCS || 20;
+    const perf = t.perf;
+    const actualUnitsFromRec = t.record.market?.actualUnits
+      ? (t.record.market.actualUnits.techbook || 0) + (t.record.market.actualUnits.zroid || 0) + (t.record.market.actualUnits.itab || 0)
+      : 0;
+    const unitsSold = actualUnitsFromRec > 0 ? actualUnitsFromRec : (perf?.unitsSold ?? 0);
+    const actualCS = t.record.staffCounts?.customerService || perf?.staffCounts?.customerService || 58;
+    const requiredCS = t.record.requiredCS || (unitsSold > 0 ? Math.ceil(unitsSold / 1300) : 20);
     const coverageRatio = Number((actualCS / (requiredCS || 1)).toFixed(2));
 
     return {
@@ -39,7 +44,7 @@ export const CustomerServiceSlide: React.FC<SlideProps> = ({ dataset, revealStep
     <SlideFrame
       title="Customer Service Headcount vs Requirement"
       eyebrow="Operations & Service Quality"
-      footer="Comparison of actual customer service staff against workload requirements (1 staff per 1,000 units sold)"
+      footer="Comparison of actual customer service staff against workload requirements (1 staff per 1,300 units sold)"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}

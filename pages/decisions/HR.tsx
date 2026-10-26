@@ -6,11 +6,13 @@ import { Users, GraduationCap, DollarSign, TrendingUp, AlertTriangle } from 'luc
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
 import { useFlashOnChange } from '../../utils/useFlashOnChange';
+import { getTeamOpeningStaffForPeriod } from '../../utils/marketShareBackModel';
 
 const HR: React.FC = () => {
   const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole } = useSimulation();
   const disabled = isReadOnly && currentRole === 'STUDENT';
   const { hr, operations, marketing } = decisions;
+  const openingStaffCounts = getTeamOpeningStaffForPeriod(currentTeam, currentTeam.currentPeriod);
 
   const flashHiring = {
       productionLine: useFlashOnChange(hr.hiring.productionLine),
@@ -61,8 +63,12 @@ const HR: React.FC = () => {
 
   // -- Calculations --
 
+  const getOpeningStaff = (role: HRRole) => {
+      return openingStaffCounts[role] || 0;
+  };
+
   const getEndingStaff = (role: HRRole) => {
-      return (currentTeam.staffCounts[role] || 0) + (hr.hiring[role] || 0);
+      return Math.max(0, getOpeningStaff(role) + (hr.hiring[role] || 0));
   };
 
   const getStaffCost = (role: HRRole) => {
@@ -105,11 +111,11 @@ const HR: React.FC = () => {
   };
 
   const baseProductivity: Record<HRRole, number> = {
-      engineers: 3420,
-      technicians: 2422.5,
-      semiSkilled: 1870,
-      adminSales: 1840,
-      customerService: 570
+      engineers: 1900,
+      technicians: 1500,
+      semiSkilled: 1150,
+      adminSales: 2600,
+      customerService: 1300
   };
 
   const calculateUtilization = (role: HRRole) => {
@@ -120,7 +126,7 @@ const HR: React.FC = () => {
 
       // 1. Calculate Production Workload
       const plannedTotalProduction = (Object.values(decisions.operations.production) as number[]).reduce((a, b) => a + (b || 0), 0);
-      const lastPeriodProduction = lastPeriodKPIs.revenue > 0 ? 36094 + 22486 + 11219 : 0;
+      const lastPeriodProduction = lastPeriodKPIs.revenue > 0 ? 40000 : 0;
       const productionWorkload = plannedTotalProduction > 0 ? plannedTotalProduction : lastPeriodProduction;
 
       // 2. Calculate Sales Workload
@@ -169,9 +175,8 @@ const HR: React.FC = () => {
 
   // Reusable Table Row Component
   const StaffRow: React.FC<{ role: HRRole; label: string }> = ({ role, label }) => {
-      const starting = currentTeam.staffCounts[role];
-      const recruit = hr.hiring[role];
-      const ending = starting + recruit;
+      const starting = getOpeningStaff(role);
+      const recruit = hr.hiring[role] || 0;
       const utilization = calculateUtilization(role);
       const salary = hr.salaries[role];
       const cost = getStaffCost(role);
@@ -189,7 +194,7 @@ const HR: React.FC = () => {
                     disabled={disabled}
                 />
             </td>
-            <td className="py-4 px-6 text-center">
+            <td className="py-4 px-4 text-center">
                 <span className={`text-sm font-semibold font-mono ${utilization > 100 ? 'text-red-600' : 'text-slate-600'}`}>
                     {formatPercent(utilization, 2, false)}
                 </span>
@@ -218,9 +223,8 @@ const HR: React.FC = () => {
       return (
           <div className="block lg:hidden space-y-4 p-4">
               {roles.map(({ id: role, label }) => {
-                  const starting = currentTeam.staffCounts[role];
-                  const recruit = hr.hiring[role];
-                  const ending = starting + recruit;
+                  const starting = getOpeningStaff(role);
+                  const recruit = hr.hiring[role] || 0;
                   const utilization = calculateUtilization(role);
                   const salary = hr.salaries[role];
                   const cost = getStaffCost(role);
@@ -237,14 +241,10 @@ const HR: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="grid grid-cols-2 gap-3 text-xs">
                               <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                                  <span className="text-slate-500 block mb-0.5 text-[10px]">Starting</span>
+                                  <span className="text-slate-500 block mb-0.5 text-[10px]">Opening Staff</span>
                                   <span className="font-bold text-slate-700 font-mono">{starting}</span>
-                              </div>
-                              <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
-                                  <span className="text-slate-500 block mb-0.5 text-[10px]">Ending</span>
-                                  <span className="font-bold text-slate-700 font-mono">{ending}</span>
                               </div>
                               <div className="bg-white p-2 rounded-lg border border-slate-200 text-center">
                                   <span className="text-slate-500 block mb-0.5 text-[10px]">Utilisation</span>
@@ -319,9 +319,9 @@ const HR: React.FC = () => {
                         <thead>
                             <tr className="text-xs font-semibold text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                                 <th className="py-3 pl-4">Role</th>
-                                <th className="py-3 text-center">Starting Staff</th>
+                                <th className="py-3 text-center">Opening Staff</th>
                                 <th className="py-3 px-4 w-32 text-center">Recruit / (Dismiss)</th>
-                                <th className="py-3 px-6 w-28 text-center">Utilisation</th>
+                                <th className="py-3 px-4 w-24 text-center">Utilisation</th>
                                 <th className="py-3 px-4 w-36 text-right">Salary / Month</th>
                                 <th className="py-3 pr-4 text-right whitespace-nowrap">Total Costs</th>
                             </tr>
@@ -345,9 +345,9 @@ const HR: React.FC = () => {
                         <thead>
                             <tr className="text-xs font-semibold text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                                 <th className="py-3 pl-4">Role</th>
-                                <th className="py-3 text-center">Starting Staff</th>
+                                <th className="py-3 text-center">Opening Staff</th>
                                 <th className="py-3 px-4 w-32 text-center">Recruit / (Dismiss)</th>
-                                <th className="py-3 px-6 w-28 text-center">Utilisation</th>
+                                <th className="py-3 px-4 w-24 text-center">Utilisation</th>
                                 <th className="py-3 px-4 w-36 text-right">Salary / Month</th>
                                 <th className="py-3 pr-4 text-right whitespace-nowrap">Total Costs</th>
                             </tr>

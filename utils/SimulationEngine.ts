@@ -119,9 +119,28 @@ export const processTurn = (
         customerService: 'Customer Service'
     };
 
+    const prevRecForStaff = team.currentPeriod > 1
+        ? (team.history?.[team.currentPeriod - 1] || (team.history as any)?.[String(team.currentPeriod - 1)])
+        : undefined;
+
+    const getRoleOpeningStaff = (r: HRRole, fallback = 0): number => {
+        if (prevRecForStaff) {
+            if (prevRecForStaff.closingStaffAfterAttrition?.[r] !== undefined) {
+                return prevRecForStaff.closingStaffAfterAttrition[r];
+            }
+            if (prevRecForStaff.staffCounts?.[r] !== undefined) {
+                const prevBefore = prevRecForStaff.staffCounts[r];
+                const prevEsat = prevRecForStaff.kpis?.employeeSatisfaction ?? 0.70;
+                const prevAttr = prevRecForStaff.staffAttrition?.[r] ?? Math.floor(prevBefore * Math.max(0, 1 - prevEsat));
+                return Math.max(0, prevBefore - prevAttr);
+            }
+        }
+        return team.staffCounts?.[r] ?? fallback;
+    };
+
     let staffBasedCapacity = 0;
     Object.keys(team.staffCounts).forEach((r: string) => {
-        const count = team.staffCounts[r as HRRole] || 0;
+        const count = Math.max(0, getRoleOpeningStaff(r as HRRole, 0) + (decisions.hr.hiring[r as HRRole] || 0));
         const configKey = staffToConfigKey[r] || r;
         const baseUnits = EMPLOYEE_PRODUCTIVITY[configKey]?.base_units_per_employee || 0;
         const trainingLevel = decisions.hr.trainingLevels[r as HRRole] || 'None';
@@ -149,6 +168,7 @@ export const processTurn = (
     const unitsSold: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
     const revenueByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
     const productScores: Record<ProductId, number> = { techbook: 0.5, zroid: 0.5, itab: 0.5 };
+    const csatProductScores: Record<ProductId, number> = { techbook: 0.5, zroid: 0.5, itab: 0.5 };
     const productDemands: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
     const productAvailable: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
 
@@ -168,6 +188,8 @@ export const processTurn = (
         const innovBase = (CONFIG as any).costs?.innovation?.base_cost_per_feature || 2000000;
         const estimatedInnovScore = Math.min(10, (productRD / innovBase) * 2);
         const sInnov = sCurve(estimatedInnovScore, MARKET_ANCHORS.innovation, true);
+        const csatInnovScore = Math.min(10, (productRD / innovBase) * 2 + (team.features?.[p.id] || 0) * 0.5);
+        const sInnovCsat = sCurve(csatInnovScore, MARKET_ANCHORS.innovation, true);
 
         // Advertising: include general ad split if provided
         const productAd = decisions.marketing.advertisingBudget * (decisions.marketing.adSplits[p.id] || 0) + (decisions.marketing.generalAdSplit ? decisions.marketing.advertisingBudget * decisions.marketing.generalAdSplit * 0.5 : 0);
@@ -190,7 +212,17 @@ export const processTurn = (
             (sAgents * (w.agents || 1))
         ) / Math.max(1, totalWeight);
 
+        const csatRawScore = (
+            (sPrice * (w.price || 1)) + 
+            (sTerms * (w.terms || 1)) + 
+            (sInnovCsat * (w.innov || 1)) + 
+            (sAd * (w.ad || 1)) + 
+            (sStores * (w.stores || 1)) +
+            (sAgents * (w.agents || 1))
+        ) / Math.max(1, totalWeight);
+
         productScores[p.id] = rawScore;
+        csatProductScores[p.id] = csatRawScore;
 
         // Market Share Calculation - map score into a sensible share
         let share = 0.16 * (rawScore / 0.5) * demandModifier;
@@ -225,12 +257,11 @@ export const processTurn = (
     let opexPayroll = 0;
     let opexTraining = 0;
     const staffCounts: Record<HRRole, number> = {
-        engineers: 50,
-        technicians: 150,
-        semiSkilled: 200,
-        adminSales: 40,
-        customerService: 20,
-        ...(team.staffCounts || {})
+        engineers: getRoleOpeningStaff('engineers', 22),
+        technicians: getRoleOpeningStaff('technicians', 28),
+        semiSkilled: getRoleOpeningStaff('semiSkilled', 37),
+        adminSales: getRoleOpeningStaff('adminSales', 29),
+        customerService: getRoleOpeningStaff('customerService', 58),
     };
 
     (Object.keys(staffCounts) as HRRole[]).forEach(r => {
@@ -480,41 +511,63 @@ export const processTurn = (
     const prevPeriodRecord = team.history?.[team.currentPeriod - 1];
     const prevESAT = prevPeriodRecord?.kpis?.employeeSatisfaction ?? 0.70;
 
-    const DEFAULT_SALARIES: Record<HRRole, number> = {
-        engineers: 45000,
-        technicians: 20000,
-        semiSkilled: 15000,
-        adminSales: 15000,
-        customerService: 10000
+    const MARKET_BASE_SALARIES: Record<HRRole, number> = {
+        engineers: 55000,
+        technicians: 38000,
+        semiSkilled: 30000,
+        adminSales: 20000,
+        customerService: 9250
     };
-    const oldSalaries = prevPeriodRecord?.salaries ?? DEFAULT_SALARIES;
+    const prevSalaries = (team.currentPeriod > 1 && prevPeriodRecord?.salaries) ? prevPeriodRecord.salaries : MARKET_BASE_SALARIES;
 
-    // 1. Calculate Weighted Salary Change
+    // 1. Calculate Weighted Salary Change, Training, and Role-Based Workload Utilization
     let totalStaffCount = 0;
     let sumSalaryChange = 0;
     let sumTrainingFactor = 0;
     let sumUtilization = 0;
 
-    // Workload/utilization drivers per role
-    const prodWorkload = staffBasedCapacity > 0 ? (plannedTotalProduction / staffBasedCapacity) : (plannedTotalProduction > 0 ? 2.0 : 1.0);
-    
-    const requiredEngineers = Math.ceil(decisions.operations.rdBudget / 200000 + Math.abs(decisions.operations.capacityChange) / 1000) || 1;
-    const requiredAdmin = Math.ceil(totalRevenue / 10000000) || 10;
-    
     const totalSalesUnits = Object.values(unitsSold).reduce((a, b) => a + b, 0);
-    const requiredCS = Math.ceil(totalSalesUnits / 1000) || 20;
+    const requiredCS = Math.ceil(totalSalesUnits / 1300) || 20;
+
+    const roleBaseUnits: Record<HRRole, number> = {
+        engineers: 1900,
+        technicians: 1500,
+        semiSkilled: 1150,
+        adminSales: 2600,
+        customerService: 1300
+    };
+    const roleTrainingProductivity: Record<string, number> = {
+        'None': 0.0,
+        'Basic': 0.03,
+        'Moderate': 0.055,
+        'Advanced': 0.10
+    };
+
+    const getRoleCap = (r: HRRole) => {
+        const count = staffCounts[r] || 0;
+        const trainLevel = decisions.hr.trainingLevels[r] || 'None';
+        const prodEff = TRAINING_PROGRAMS[trainLevel]?.productivity_effect ?? roleTrainingProductivity[trainLevel] ?? 0;
+        const baseU = EMPLOYEE_PRODUCTIVITY[staffToConfigKey[r]]?.base_units_per_employee ?? roleBaseUnits[r];
+        return count * baseU * (1 + prodEff);
+    };
+
+    const engCap = getRoleCap('engineers');
+    const techCap = getRoleCap('technicians');
+    const semiCap = getRoleCap('semiSkilled');
+    const adminCap = getRoleCap('adminSales');
+    const csCap = getRoleCap('customerService');
 
     const utilizationByRole: Record<HRRole, number> = {
-        engineers: staffCounts.engineers > 0 ? (requiredEngineers / staffCounts.engineers) : 1.0,
-        technicians: prodWorkload,
-        semiSkilled: prodWorkload,
-        adminSales: staffCounts.adminSales > 0 ? (requiredAdmin / staffCounts.adminSales) : 1.0,
-        customerService: staffCounts.customerService > 0 ? (requiredCS / staffCounts.customerService) : 1.0
+        engineers: engCap > 0 ? (plannedTotalProduction / engCap) : 1.0,
+        technicians: techCap > 0 ? (plannedTotalProduction / techCap) : 1.0,
+        semiSkilled: semiCap > 0 ? (plannedTotalProduction / semiCap) : 1.0,
+        adminSales: adminCap > 0 ? (totalSalesUnits / adminCap) : 1.0,
+        customerService: csCap > 0 ? (totalSalesUnits / csCap) : 1.0
     };
 
     const trainingFactorByLevel: Record<string, number> = {
         'None': 0.0,
-        'Basic': 0.05,
+        'Basic': 0.04,
         'Moderate': 0.10,
         'Advanced': 0.15
     };
@@ -525,10 +578,13 @@ export const processTurn = (
 
         totalStaffCount += count;
 
-        // Salary change
-        const oldSal = oldSalaries[r] ?? DEFAULT_SALARIES[r];
-        const newSal = decisions.hr.salaries[r] ?? oldSal;
-        const change = oldSal > 0 ? (newSal - oldSal) / oldSal : 0;
+        // Salary change: blend cumulative standing vs market base (65%) and period-over-period raise (35%)
+        const baseSal = MARKET_BASE_SALARIES[r];
+        const prevSal = prevSalaries[r] ?? baseSal;
+        const newSal = decisions.hr.salaries[r] ?? prevSal;
+        const vsBase = baseSal > 0 ? (newSal - baseSal) / baseSal : 0;
+        const vsPrev = prevSal > 0 ? (newSal - prevSal) / prevSal : 0;
+        const change = vsPrev < 0 ? vsPrev : (0.65 * vsBase + 0.35 * vsPrev);
         sumSalaryChange += change * count;
 
         // Training factor
@@ -545,54 +601,74 @@ export const processTurn = (
     const weightedTrainingFactor = totalStaffCount > 0 ? (sumTrainingFactor / totalStaffCount) : 0;
     const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
-    // Calibrated weights for ESAT to make 74% achievable with training, fair salaries, and adequate staffing
-    const salaryEffect = weightedSalaryChange >= 0 ? 0.20 * weightedSalaryChange : 0.40 * weightedSalaryChange;
+    // Calibrated weights for ESAT: 75% achievable with active HR management, 80% hard (soft taper above 78%)
+    const salaryEffect = weightedSalaryChange >= 0 ? 0.28 * weightedSalaryChange : 0.45 * weightedSalaryChange;
     const utilizationEffect = weightedUtilization > 1.0 ? 0.25 * (weightedUtilization - 1.0) : 0.0;
-    const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
+    const utilizationBonus = weightedUtilization < 1.0 ? 0.12 * (1.0 - weightedUtilization) : 0.0;
 
-    const targetESAT = 0.72 + salaryEffect + (0.50 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
-    const calculatedESAT = prevESAT * 0.60 + targetESAT * 0.40;
+    const rawTargetESAT = 0.715 + salaryEffect + (0.55 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
+    const targetESAT = rawTargetESAT > 0.78 ? 0.78 + 0.45 * (rawTargetESAT - 0.78) : rawTargetESAT;
+    const calculatedESAT = prevESAT * 0.55 + targetESAT * 0.45;
 
     // ESAT Change Constraint (max 8% change per year)
     const esatChangeVal = calculatedESAT - prevESAT;
     const limitedESAT = prevESAT + Math.max(-0.08, Math.min(0.08, esatChangeVal));
     const finalESAT = Math.min(0.95, Math.max(0.10, limitedESAT));
 
+    // Staff Attrition: Opening Staff (next period) = Closing Staff (before attrition) - Floor(Closing Staff * (1 - Closing ESAT))
+    const staffAttrition: Record<HRRole, number> = {
+        engineers: 0,
+        technicians: 0,
+        semiSkilled: 0,
+        adminSales: 0,
+        customerService: 0
+    };
+    const nextOpeningStaffCounts: Record<HRRole, number> = { ...staffCounts };
+    (Object.keys(staffCounts) as HRRole[]).forEach(r => {
+        const closingBeforeAttrition = staffCounts[r] || 0;
+        const attrition = Math.floor(closingBeforeAttrition * Math.max(0, 1 - finalESAT));
+        staffAttrition[r] = attrition;
+        nextOpeningStaffCounts[r] = Math.max(0, closingBeforeAttrition - attrition);
+    });
+    newTeamState.staffCounts = nextOpeningStaffCounts;
+
     // Customer Satisfaction (CSAT) based on Customer Buying Criteria scores weighted by sales volume
     let totalSalesUnitsForCSAT = 0;
     let sumProductCSAT = 0;
     PRODUCTS.forEach(p => {
         const sold = unitsSold[p.id] || 0;
-        const score = productScores[p.id] ?? 0.5;
+        const score = csatProductScores[p.id] ?? productScores[p.id] ?? 0.5;
         sumProductCSAT += score * sold;
         totalSalesUnitsForCSAT += sold;
     });
     const weightedCustomerScore = totalSalesUnitsForCSAT > 0 ? (sumProductCSAT / totalSalesUnitsForCSAT) : 0.5;
     const prevCSAT = prevPeriodRecord?.kpis?.customerSatisfaction ?? 0.70;
     
-    // Average stockout penalty across products (under stock penalizes CSAT up to -12% per product)
+    // Average stockout penalty across products (10% fulfillment buffer, linear penalty below 90% fulfillment)
     let totalSalesDemand = 0;
     let sumStockoutPenalty = 0;
     PRODUCTS.forEach(p => {
         const demand = productDemands[p.id] || 0;
         const available = productAvailable[p.id] || 0;
         const stockoutRatio = demand > 0 ? (available / demand) : 1.0;
-        const penalty = stockoutRatio < 1.0 ? 0.02 + 0.10 * (1.0 - stockoutRatio) : 0.0;
+        const effectiveRatio = Math.min(1.0, stockoutRatio / 0.90);
+        const penalty = effectiveRatio < 1.0 ? 0.08 * (1.0 - effectiveRatio) : 0.0;
         sumStockoutPenalty += penalty * demand;
         totalSalesDemand += demand;
     });
     const avgStockoutPenalty = totalSalesDemand > 0 ? (sumStockoutPenalty / totalSalesDemand) : 0.0;
 
     const csAgentRatio = requiredCS > 0 ? (staffCounts.customerService / requiredCS) : 1.0;
-    const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.06, 0.02 + 0.03 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
+    const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.045, 0.015 + 0.03 * (csAgentRatio - 1.0)) : -0.08 * (1.0 - csAgentRatio);
 
-    const targetCSAT = 0.54 + 0.44 * weightedCustomerScore + csAgentEffect;
-    const calculatedCSAT = prevCSAT * 0.60 + targetCSAT * 0.40;
+    const rawTargetCSAT = 0.555 + 0.42 * weightedCustomerScore + csAgentEffect - avgStockoutPenalty;
+    const targetCSAT = rawTargetCSAT > 0.78 ? 0.78 + 0.45 * (rawTargetCSAT - 0.78) : rawTargetCSAT;
+    const calculatedCSAT = prevCSAT * 0.55 + targetCSAT * 0.45;
 
     // CSAT Change Constraint (max 9% change per year)
     const csatChangeVal = calculatedCSAT - prevCSAT;
     const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
-    const finalCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
+    const finalCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT));
 
     const newKPIs: KPI = {
         revenue: totalRevenue,
@@ -661,6 +737,8 @@ export const processTurn = (
         salaries: decisions.hr.salaries,
         features: newFeatures,
         staffCounts: { ...staffCounts },
+        staffAttrition: { ...staffAttrition },
+        closingStaffAfterAttrition: { ...nextOpeningStaffCounts },
         requiredCS: requiredCS,
         market: {
             marketSize: {

@@ -160,6 +160,75 @@ export function getCriterionRating(criterionId: number, productId: ProductId, pe
   }
 }
 
+export const BASE_OPENING_STAFF: Record<HRRole, number> = {
+  engineers: 22,
+  technicians: 28,
+  semiSkilled: 37,
+  adminSales: 29,
+  customerService: 58,
+};
+
+export interface RoleHeadcountBreakdown {
+  opening: number;
+  hire: number;
+  closingBeforeAttrition: number;
+  closingEsat: number;
+  attrition: number;
+  nextOpening: number;
+}
+
+export function getTeamRoleHeadcountForPeriod(team: Team, role: HRRole, targetPeriod: number): RoleHeadcountBreakdown {
+  let opening = team.history?.[0]?.staffCounts?.[role] ?? BASE_OPENING_STAFF[role];
+  if (targetPeriod <= 1 && !team.history?.[1] && !(team.history as any)?.['1']) {
+    opening = team.staffCounts?.[role] ?? BASE_OPENING_STAFF[role];
+  }
+
+  let hire = 0;
+  let closingBeforeAttrition = opening;
+  let closingEsat = 0.70;
+  let attrition = 0;
+  let nextOpening = opening;
+
+  const maxP = Math.max(1, targetPeriod);
+  for (let p = 1; p <= maxP; p++) {
+    if (p > 1) {
+      const prevRec = team.history?.[p - 1] || (team.history as any)?.[String(p - 1)];
+      if (prevRec) {
+        opening = nextOpening;
+      } else if (p === team.currentPeriod) {
+        opening = team.staffCounts?.[role] ?? BASE_OPENING_STAFF[role];
+      } else {
+        opening = nextOpening;
+      }
+    }
+
+    const dec = getDecisionsForTeamPeriod(team, p);
+    const rec = team.history?.[p] || (team.history as any)?.[String(p)];
+    if (!rec?.decisions && !rec?.draftDecisions && p === 1 && rec?.staffCounts?.[role] !== undefined) {
+      closingBeforeAttrition = rec.staffCounts[role];
+      hire = closingBeforeAttrition - opening;
+    } else {
+      hire = dec.hr?.hiring?.[role] ?? 0;
+      closingBeforeAttrition = Math.max(0, opening + hire);
+    }
+    closingEsat = rec?.kpis?.employeeSatisfaction ?? 0.70;
+    attrition = rec?.staffAttrition?.[role] ?? Math.floor(closingBeforeAttrition * Math.max(0, 1 - closingEsat));
+    nextOpening = rec?.closingStaffAfterAttrition?.[role] ?? Math.max(0, closingBeforeAttrition - attrition);
+  }
+
+  return { opening, hire, closingBeforeAttrition, closingEsat, attrition, nextOpening };
+}
+
+export function getTeamOpeningStaffForPeriod(team: Team, targetPeriod = team.currentPeriod): Record<HRRole, number> {
+  return {
+    engineers: getTeamRoleHeadcountForPeriod(team, 'engineers', targetPeriod).opening,
+    technicians: getTeamRoleHeadcountForPeriod(team, 'technicians', targetPeriod).opening,
+    semiSkilled: getTeamRoleHeadcountForPeriod(team, 'semiSkilled', targetPeriod).opening,
+    adminSales: getTeamRoleHeadcountForPeriod(team, 'adminSales', targetPeriod).opening,
+    customerService: getTeamRoleHeadcountForPeriod(team, 'customerService', targetPeriod).opening,
+  };
+}
+
 // Calculate scaled production for capacity checks
 export function getScaledProduction(team: Team, decisions: TurnDecisions): Record<ProductId, number> {
   const staffToConfigKey: Record<string, string> = {
@@ -170,9 +239,10 @@ export function getScaledProduction(team: Team, decisions: TurnDecisions): Recor
     customerService: 'Customer Service'
   };
 
+  const openingStaff = getTeamOpeningStaffForPeriod(team, team.currentPeriod);
   let staffBasedCapacity = 0;
-  Object.keys(team.staffCounts || {}).forEach((r: string) => {
-    const count = team.staffCounts[r as HRRole] || 0;
+  Object.keys(openingStaff).forEach((r: string) => {
+    const count = openingStaff[r as HRRole] || 0;
     const configKey = staffToConfigKey[r] || r;
     const baseUnits = EMPLOYEE_PRODUCTIVITY[configKey]?.base_units_per_employee || 0;
     const trainingLevel = decisions.hr?.trainingLevels?.[r as HRRole] || 'None';
@@ -246,28 +316,9 @@ export function getTeamStoreCountForPeriod(team: Team, targetPeriod: number): nu
   return Math.max(0, baseStores + cumulativeChanges);
 }
 
-// Helper: Calculate baseline starting CS headcount before simulation period 1
-function getTeamBaseCSHeadcount(team: Team): number {
-  if (team.history?.[0]?.staffCounts?.customerService) return team.history[0].staffCounts.customerService;
-  let executedChanges = 0;
-  for (let p = 1; p < team.currentPeriod; p++) {
-    const rec = team.history?.[p] || team.history?.[String(p)];
-    if (rec?.decisions?.hr?.hiring?.customerService) {
-      executedChanges += rec.decisions.hr.hiring.customerService;
-    }
-  }
-  return Math.max(0, (team.staffCounts?.customerService || 3) - executedChanges);
-}
-
 // Helper: Get total CS headcount for a specific period P
 export function getTeamCSHeadcountForPeriod(team: Team, targetPeriod: number): number {
-  const baseCS = getTeamBaseCSHeadcount(team);
-  let cumulativeChanges = 0;
-  for (let p = 1; p <= targetPeriod; p++) {
-    const dec = getDecisionsForTeamPeriod(team, p);
-    cumulativeChanges += dec.hr?.hiring?.customerService ?? 0;
-  }
-  return Math.max(0, baseCS + cumulativeChanges);
+  return getTeamRoleHeadcountForPeriod(team, 'customerService', targetPeriod).closingBeforeAttrition;
 }
 
 // Helper: Get total closing features for product up to a specific period P

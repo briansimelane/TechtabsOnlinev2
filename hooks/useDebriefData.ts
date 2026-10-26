@@ -190,10 +190,10 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
             totalScore: basePerf?.totalScore || { techbook: 0, zroid: 0, itab: 0 },
             marketShare: basePerf?.marketShare || effectiveRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
             price: basePerf?.price || effectiveRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
-            staffCounts: basePerf?.staffCounts || { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
-            trainingLevels: basePerf?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
-            unitsProduced: basePerf?.unitsProduced || (effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0),
-            unitsSold: basePerf?.unitsSold || (effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0)
+            staffCounts: effectiveRec.staffCounts || basePerf?.staffCounts || { engineers: 22, technicians: 28, semiSkilled: 37, adminSales: 29, customerService: 58 },
+            trainingLevels: effectiveRec.decisions?.hr?.trainingLevels || basePerf?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+            unitsProduced: basePerf?.unitsProduced ?? ((effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0)),
+            unitsSold: ((effectiveRec.market?.actualUnits?.techbook || 0) + (effectiveRec.market?.actualUnits?.zroid || 0) + (effectiveRec.market?.actualUnits?.itab || 0)) || basePerf?.unitsSold || 0
           } as TeamIndustryPerformance;
         } else {
           perf = basePerf;

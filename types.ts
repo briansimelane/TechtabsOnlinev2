@@ -71,6 +71,8 @@ export interface PeriodRecord {
   features?: Record<ProductId, number>;
   market?: PeriodMarketRecord;
   staffCounts?: Record<HRRole, number>;
+  staffAttrition?: Record<HRRole, number>;
+  closingStaffAfterAttrition?: Record<HRRole, number>;
   requiredCS?: number;
   industry?: any;
   gm?: GlobalMarketsRecord;

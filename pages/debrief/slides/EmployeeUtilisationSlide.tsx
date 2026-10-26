@@ -51,38 +51,41 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
 }) => {
   const chartData = dataset.teams.map(t => {
     const perf = t.perf;
-    const staff = perf?.staffCounts || { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
-    const train = perf?.trainingLevels || { engineers: 'None', technicians: 'None', semiSkilled: 'None', adminSales: 'None', customerService: 'None' };
+    const staff = t.record.staffCounts || perf?.staffCounts || { engineers: 22, technicians: 28, semiSkilled: 37, adminSales: 29, customerService: 58 };
+    const train = t.record.decisions?.hr?.trainingLevels || perf?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' };
 
+    const engCap = getRoleCapacity('engineers', staff.engineers, train.engineers);
     const techCap = getRoleCapacity('technicians', staff.technicians, train.technicians);
     const semiCap = getRoleCapacity('semiSkilled', staff.semiSkilled, train.semiSkilled);
-    const engCap = getRoleCapacity('engineers', staff.engineers, train.engineers);
     const adminCap = getRoleCapacity('adminSales', staff.adminSales, train.adminSales);
     const csCap = getRoleCapacity('customerService', staff.customerService, train.customerService);
 
     const unitsProd = perf?.unitsProduced ?? 0;
-    const unitsSold = perf?.unitsSold ?? 0;
+    const actualUnitsFromRec = t.record.market?.actualUnits
+      ? (t.record.market.actualUnits.techbook || 0) + (t.record.market.actualUnits.zroid || 0) + (t.record.market.actualUnits.itab || 0)
+      : 0;
+    const unitsSold = actualUnitsFromRec > 0 ? actualUnitsFromRec : (perf?.unitsSold ?? 0);
 
+    const engUtil = engCap > 0 ? (unitsProd / engCap) * 100 : 0;
     const techUtil = techCap > 0 ? (unitsProd / techCap) * 100 : 0;
     const semiUtil = semiCap > 0 ? (unitsProd / semiCap) * 100 : 0;
-    const engUtil = engCap > 0 ? (unitsSold / engCap) * 100 : 0;
     const adminUtil = adminCap > 0 ? (unitsSold / adminCap) * 100 : 0;
     const csUtil = csCap > 0 ? (unitsSold / csCap) * 100 : 0;
 
     return {
       name: t.name,
+      'Engineers (Prod)': Number(engUtil.toFixed(1)),
       'Technicians (Prod)': Number(techUtil.toFixed(1)),
       'Semi-Skilled (Prod)': Number(semiUtil.toFixed(1)),
-      Engineers: Number(engUtil.toFixed(1)),
       'Admin & Sales': Number(adminUtil.toFixed(1)),
       'Customer Service': Number(csUtil.toFixed(1))
     };
   });
 
-  const seriesKeys: ('Technicians (Prod)' | 'Semi-Skilled (Prod)' | 'Engineers' | 'Admin & Sales' | 'Customer Service')[] = [
+  const seriesKeys: ('Engineers (Prod)' | 'Technicians (Prod)' | 'Semi-Skilled (Prod)' | 'Admin & Sales' | 'Customer Service')[] = [
+    'Engineers (Prod)',
     'Technicians (Prod)',
     'Semi-Skilled (Prod)',
-    'Engineers',
     'Admin & Sales',
     'Customer Service'
   ];
@@ -91,7 +94,7 @@ export const EmployeeUtilisationSlide: React.FC<SlideProps> = ({
     <SlideFrame
       title="Employee Capacity & Utilisation (%)"
       eyebrow="Human Resources & Productivity"
-      footer="Technicians & Semi-Skilled measured against units produced · Engineers, Admin & CS against units sold"
+      footer="Production Staff (Engineers, Technicians & Semi-Skilled) measured against units produced · Admin & Sales and Customer Service against units sold"
       currentSlide={currentSlide}
       totalSlides={totalSlides}
       teams={dataset.teams}

@@ -14,7 +14,7 @@ const DEFAULT_STATE: DebriefState = {
   slideIndex: 0,
   revealStep: 0,
   period: 1,
-  isLive: true,
+  isLive: false,
   updatedAt: new Date().toISOString()
 };
 

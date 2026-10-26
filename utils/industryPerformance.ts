@@ -195,15 +195,18 @@ export function computeIndustryPerformance(
     let opexPayroll = 0;
     let opexTraining = 0;
     const hrRoles: HRRole[] = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'];
-    const baseStaffCounts: Record<HRRole, number> = { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
+    const baseStaffCounts: Record<HRRole, number> = { engineers: 22, technicians: 28, semiSkilled: 37, adminSales: 29, customerService: 58 };
     const baseSalaries: Record<HRRole, number> = { engineers: 55000, technicians: 38000, semiSkilled: 30000, adminSales: 20000, customerService: 9250 };
     const trainingCosts: Record<string, number> = { None: 0, Basic: 5000, Advanced: 15000, Specialized: 30000 };
 
     const staffCountsMap: Record<HRRole, number> = { engineers: 0, technicians: 0, semiSkilled: 0, adminSales: 0, customerService: 0 };
     const trainingLevelsMap: Record<HRRole, TrainingLevel> = { engineers: 'None', technicians: 'None', semiSkilled: 'None', adminSales: 'None', customerService: 'None' };
+    const closedPeriodStaff = period < (t.currentPeriod || 1) ? t.history?.[period]?.staffCounts : undefined;
 
     hrRoles.forEach(r => {
-      const count = (t.staffCounts?.[r] ?? baseStaffCounts[r] ?? 0) + (dec.hr?.hiring?.[r] ?? 0);
+      const count = (typeof closedPeriodStaff?.[r] === 'number' && Number.isFinite(closedPeriodStaff[r]))
+        ? closedPeriodStaff[r]
+        : (t.staffCounts?.[r] ?? baseStaffCounts[r] ?? 0) + (dec.hr?.hiring?.[r] ?? 0);
       const monthlySalary = dec.hr?.salaries?.[r] ?? baseSalaries[r] ?? 0;
       const trainingLevel = dec.hr?.trainingLevels?.[r] ?? 'None';
       const trCostPer = trainingCosts[trainingLevel] || 0;

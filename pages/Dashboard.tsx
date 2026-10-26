@@ -29,6 +29,7 @@ import { formatNumber, formatPercent } from '../utils/numberFormat';
 import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
 import { useFlashOnChange } from '../utils/useFlashOnChange';
 import { computeIndustryPerformance } from '../utils/industryPerformance';
+import { getTeamOpeningStaffForPeriod } from '../utils/marketShareBackModel';
 import { getEdition } from '../utils/editions';
 import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
 import { mergeGlobalMarketsDecisions } from '../utils/editions/globalMarkets/defaults';
@@ -170,17 +171,17 @@ const Dashboard: React.FC = () => {
   let staffBasedCapacity = 0;
 
   const baseProductivities: Record<HRRole, number> = {
-    engineers: 0,
-    technicians: 1000,
-    semiSkilled: 500,
-    adminSales: 0,
-    customerService: 0
+    engineers: 1900,
+    technicians: 1500,
+    semiSkilled: 1150,
+    adminSales: 2600,
+    customerService: 1300
   };
   const trainingEffects: Record<string, number> = {
     None: 0,
-    Basic: 0.05,
-    Moderate: 0.10,
-    Advanced: 0.15
+    Basic: 0.03,
+    Moderate: 0.055,
+    Advanced: 0.10
   };
 
   const staffCountsForecast: Record<HRRole, number> = {
@@ -191,9 +192,10 @@ const Dashboard: React.FC = () => {
     customerService: 0
   };
   
+  const openingStaffCounts = getTeamOpeningStaffForPeriod(currentTeam, currentPeriod);
   const hrRoles = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const;
   hrRoles.forEach(r => {
-    const count = Math.max(0, (currentTeam.staffCounts[r] || 0) + (decisions.hr.hiring[r] || 0));
+    const count = Math.max(0, (openingStaffCounts[r] || 0) + (decisions.hr.hiring[r] || 0));
     staffCountsForecast[r] = count;
     const monthlySalary = decisions.hr.salaries[r] || 0;
     const trainingLevel = decisions.hr.trainingLevels[r] || 'None';
@@ -347,20 +349,15 @@ const Dashboard: React.FC = () => {
   let sumTrainingFactor = 0;
   let sumUtilization = 0;
 
-  const DEFAULT_SALARIES: Record<HRRole, number> = {
-    engineers: 45000,
-    technicians: 20000,
-    semiSkilled: 15000,
-    adminSales: 15000,
-    customerService: 10000
+  const MARKET_BASE_SALARIES: Record<HRRole, number> = {
+    engineers: 55000,
+    technicians: 38000,
+    semiSkilled: 30000,
+    adminSales: 20000,
+    customerService: 9250
   };
-  const oldSalaries = pastPeriodRecord?.salaries ?? DEFAULT_SALARIES;
+  const prevSalaries = (currentPeriod > 1 && pastPeriodRecord?.salaries) ? pastPeriodRecord.salaries : MARKET_BASE_SALARIES;
 
-  const prodWorkload = staffBasedCapacity > 0 ? (totalProductionUnits / staffBasedCapacity) : (totalProductionUnits > 0 ? 2.0 : 1.0);
-
-  const requiredEngineers = Math.ceil(decisions.operations.rdBudget / 200000 + Math.abs(decisions.operations.capacityChange) / 1000) || 1;
-  const requiredAdmin = Math.ceil(forecastedRevenue / 10000000) || 10;
-  
   let totalSalesUnits = 0;
   PRODUCTS.forEach(p => {
     const share = decisions.marketing.forecastedMarketShare[p.id] || 0;
@@ -369,19 +366,32 @@ const Dashboard: React.FC = () => {
     const unitsSold = Math.min(demand, available);
     totalSalesUnits += unitsSold;
   });
-  const requiredCS = Math.ceil(totalSalesUnits / 1000) || 20;
+  const requiredCS = Math.ceil(totalSalesUnits / 1300) || 20;
+
+  const getRoleCap = (r: HRRole) => {
+    const count = staffCountsForecast[r] || 0;
+    const trainLevel = decisions.hr.trainingLevels[r] || 'None';
+    const prodEff = trainingEffects[trainLevel] ?? 0;
+    return count * (baseProductivities[r] || 0) * (1 + prodEff);
+  };
+
+  const engCap = getRoleCap('engineers');
+  const techCap = getRoleCap('technicians');
+  const semiCap = getRoleCap('semiSkilled');
+  const adminCap = getRoleCap('adminSales');
+  const csCap = getRoleCap('customerService');
 
   const utilizationByRole: Record<HRRole, number> = {
-    engineers: staffCountsForecast.engineers > 0 ? (requiredEngineers / staffCountsForecast.engineers) : 1.0,
-    technicians: prodWorkload,
-    semiSkilled: prodWorkload,
-    adminSales: staffCountsForecast.adminSales > 0 ? (requiredAdmin / staffCountsForecast.adminSales) : 1.0,
-    customerService: staffCountsForecast.customerService > 0 ? (requiredCS / staffCountsForecast.customerService) : 1.0
+    engineers: engCap > 0 ? (totalProductionUnits / engCap) : 1.0,
+    technicians: techCap > 0 ? (totalProductionUnits / techCap) : 1.0,
+    semiSkilled: semiCap > 0 ? (totalProductionUnits / semiCap) : 1.0,
+    adminSales: adminCap > 0 ? (totalSalesUnits / adminCap) : 1.0,
+    customerService: csCap > 0 ? (totalSalesUnits / csCap) : 1.0
   };
 
   const trainingFactorByLevel: Record<string, number> = {
     'None': 0.0,
-    'Basic': 0.05,
+    'Basic': 0.04,
     'Moderate': 0.10,
     'Advanced': 0.15
   };
@@ -392,9 +402,12 @@ const Dashboard: React.FC = () => {
 
     totalStaffCount += count;
 
-    const oldSal = oldSalaries[r] ?? DEFAULT_SALARIES[r];
-    const newSal = decisions.hr.salaries[r] ?? oldSal;
-    const change = oldSal > 0 ? (newSal - oldSal) / oldSal : 0;
+    const baseSal = MARKET_BASE_SALARIES[r];
+    const prevSal = prevSalaries[r] ?? baseSal;
+    const newSal = decisions.hr.salaries[r] ?? prevSal;
+    const vsBase = baseSal > 0 ? (newSal - baseSal) / baseSal : 0;
+    const vsPrev = prevSal > 0 ? (newSal - prevSal) / prevSal : 0;
+    const change = vsPrev < 0 ? vsPrev : (0.65 * vsBase + 0.35 * vsPrev);
     sumSalaryChange += change * count;
 
     const trainLevel = decisions.hr.trainingLevels[r] || 'None';
@@ -410,12 +423,13 @@ const Dashboard: React.FC = () => {
   const weightedUtilization = totalStaffCount > 0 ? (sumUtilization / totalStaffCount) : 1.0;
 
   // Calibrated weights for ESAT
-  const salaryEffect = weightedSalaryChange >= 0 ? 0.20 * weightedSalaryChange : 0.40 * weightedSalaryChange;
+  const salaryEffect = weightedSalaryChange >= 0 ? 0.28 * weightedSalaryChange : 0.45 * weightedSalaryChange;
   const utilizationEffect = weightedUtilization > 1.0 ? 0.25 * (weightedUtilization - 1.0) : 0.0;
-  const utilizationBonus = weightedUtilization < 1.0 ? 0.15 * (1.0 - weightedUtilization) : 0.0;
+  const utilizationBonus = weightedUtilization < 1.0 ? 0.12 * (1.0 - weightedUtilization) : 0.0;
 
-  const targetESAT = 0.72 + salaryEffect + (0.50 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
-  const calculatedESAT = prevESAT * 0.60 + targetESAT * 0.40;
+  const rawTargetESAT = 0.715 + salaryEffect + (0.55 * weightedTrainingFactor) - utilizationEffect + utilizationBonus;
+  const targetESAT = rawTargetESAT > 0.78 ? 0.78 + 0.45 * (rawTargetESAT - 0.78) : rawTargetESAT;
+  const calculatedESAT = prevESAT * 0.55 + targetESAT * 0.45;
 
   const esatChangeVal = calculatedESAT - prevESAT;
   const limitedESAT = prevESAT + Math.max(-0.08, Math.min(0.08, esatChangeVal));
@@ -435,7 +449,7 @@ const Dashboard: React.FC = () => {
     const productRDSplit = decisions.operations.rdSplits[p.id] || 0;
     const productRD = decisions.operations.rdBudget * productRDSplit;
     const innovBase = 2000000;
-    const estimatedInnovScore = Math.min(10, (productRD / innovBase) * 2);
+    const estimatedInnovScore = Math.min(10, (productRD / innovBase) * 2 + (currentTeam.features?.[p.id] || 0) * 0.5);
     const sInnov = sCurve(estimatedInnovScore, MARKET_ANCHORS.innovation, true);
 
     const productAd = decisions.marketing.advertisingBudget * (decisions.marketing.adSplits[p.id] || 0) + (decisions.marketing.generalAdSplit ? decisions.marketing.advertisingBudget * decisions.marketing.generalAdSplit * 0.5 : 0);
@@ -474,21 +488,23 @@ const Dashboard: React.FC = () => {
     const demand = Math.round((getMarketSize(p.id, currentPeriod) * share) / 100);
     const available = getAvailableInventory(p.id);
     const stockoutRatio = demand > 0 ? (available / demand) : 1.0;
-    const penalty = stockoutRatio < 1.0 ? 0.02 + 0.10 * (1.0 - stockoutRatio) : 0.0;
+    const effectiveRatio = Math.min(1.0, stockoutRatio / 0.90);
+    const penalty = effectiveRatio < 1.0 ? 0.08 * (1.0 - effectiveRatio) : 0.0;
     sumStockoutPenalty += penalty * demand;
     totalSalesDemand += demand;
   });
   const avgStockoutPenalty = totalSalesDemand > 0 ? (sumStockoutPenalty / totalSalesDemand) : 0.0;
   
   const csAgentRatio = requiredCS > 0 ? (staffCountsForecast.customerService / requiredCS) : 1.0;
-  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.06, 0.02 + 0.03 * (csAgentRatio - 1.0)) : -0.10 * (1.0 - csAgentRatio);
+  const csAgentEffect = csAgentRatio >= 1.0 ? Math.min(0.045, 0.015 + 0.03 * (csAgentRatio - 1.0)) : -0.08 * (1.0 - csAgentRatio);
 
-  const targetCSAT = 0.54 + 0.44 * weightedCustomerScore + csAgentEffect;
-  const calculatedCSAT = prevCSAT * 0.60 + targetCSAT * 0.40;
+  const rawTargetCSAT = 0.555 + 0.42 * weightedCustomerScore + csAgentEffect - avgStockoutPenalty;
+  const targetCSAT = rawTargetCSAT > 0.78 ? 0.78 + 0.45 * (rawTargetCSAT - 0.78) : rawTargetCSAT;
+  const calculatedCSAT = prevCSAT * 0.55 + targetCSAT * 0.45;
 
   const csatChangeVal = calculatedCSAT - prevCSAT;
   const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
-  const forecastedCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
+  const forecastedCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT));
 
   const csatDiffPercent = (forecastedCSAT - lastPeriodKPIs.customerSatisfaction) * 100;
   const esatDiffPercent = (forecastedESAT - lastPeriodKPIs.employeeSatisfaction) * 100;

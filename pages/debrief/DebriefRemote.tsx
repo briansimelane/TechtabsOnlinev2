@@ -83,14 +83,22 @@ export const DebriefRemote: React.FC<DebriefRemoteProps> = ({ classId, currentPe
           >
             <ExternalLink size={14} /> Pop-out Presenter
           </button>
-          <button
-            onClick={() => updateState({ isLive: !state.isLive })}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
-              state.isLive ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+          <label
+            className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg border cursor-pointer select-none transition-colors ${
+              state.isLive
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
             }`}
+            title="When ticked, participants can view the debrief slides on their side"
           >
-            {state.isLive ? 'End Session' : 'Resume Live'}
-          </button>
+            <input
+              type="checkbox"
+              checked={Boolean(state.isLive)}
+              onChange={(e) => updateState({ isLive: e.target.checked })}
+              className="w-3.5 h-3.5 rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 bg-slate-900 cursor-pointer accent-emerald-500"
+            />
+            <span>Show slides to participants</span>
+          </label>
         </div>
       </div>
 

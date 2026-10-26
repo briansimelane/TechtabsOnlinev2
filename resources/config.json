@@ -167,23 +167,23 @@
   },
   "employee_productivity": {
     "Engineers": {
-      "base_units_per_employee": 3420,
+      "base_units_per_employee": 1900,
       "description": "Highly skilled technical staff"
     },
     "Technicians": {
-      "base_units_per_employee": 2422.5,
+      "base_units_per_employee": 1500,
       "description": "Skilled technical support staff"
     },
     "Semi-Skilled": {
-      "base_units_per_employee": 1870,
+      "base_units_per_employee": 1150,
       "description": "Production line workers"
     },
     "Admin & Sales": {
-      "base_units_per_employee": 1840,
+      "base_units_per_employee": 2600,
       "description": "Administrative and sales personnel"
     },
     "Customer Service": {
-      "base_units_per_employee": 570,
+      "base_units_per_employee": 1300,
       "description": "Customer support staff"
     }
   },

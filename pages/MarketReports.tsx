@@ -23,12 +23,14 @@ import {
   getTeamCapacityForPeriod,
   getTeamStoreCountForPeriod,
   getTeamCSHeadcountForPeriod,
-  getTeamFeaturesForPeriod
+  getTeamFeaturesForPeriod,
+  getTeamRoleHeadcountForPeriod
 } from '../utils/marketShareBackModel';
 import { processTurn } from '../utils/SimulationEngine';
 import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
 import { exportReportCSV, exportReportPDF } from '../utils/reportExportHelpers';
 import { useDebriefData } from '../hooks/useDebriefData';
+import { useDebriefState } from '../hooks/useDebriefState';
 import { compileDebriefSlides } from '../utils/debriefSlides';
 import { downloadDebriefDeckPdf } from '../utils/debriefPdfExport';
 import { DebriefScaler } from './debrief/DebriefScaler';
@@ -172,6 +174,14 @@ const MarketReports: React.FC = () => {
   const showReportsSetting = currentClass?.showMarketReportsYear1 ?? false;
   const isStudent = currentRole === 'STUDENT';
   const currentPeriod = isStudent ? currentTeam.currentPeriod : (currentClass?.currentPeriod || 1);
+  const { state: debriefState } = useDebriefState(currentClassId);
+  const canViewDebriefSlides = !isStudent || Boolean(debriefState.isLive);
+
+  React.useEffect(() => {
+    if (!canViewDebriefSlides && activeTab === 'debriefSlides') {
+      setActiveTab('decisions');
+    }
+  }, [canViewDebriefSlides, activeTab]);
 
   const maxAvailablePeriod = currentPeriod > 1 ? currentPeriod - 1 : 1;
   const reportPeriod = (selectedYear && selectedYear <= maxAvailablePeriod) ? selectedYear : maxAvailablePeriod;
@@ -579,18 +589,57 @@ const MarketReports: React.FC = () => {
       }
     ];
 
-    const hrRows: { label: string; values: string[] }[] = [];
-    HR_ROLES.forEach(role => {
-      hrRows.push({
-        label: `${HR_ROLE_LABELS[role] || role} : Recruit/(Dismiss)`,
+    const getRoleHeadcountBreakdown = (t: Team, role: HRRole) =>
+      getTeamRoleHeadcountForPeriod(t, role, reportPeriod);
+
+    const hrRows: { label: string; values: string[] }[] = [
+      {
+        label: 'Closing Employee Satisfaction',
         values: realTeams.map(t => {
-          const dec = getTeamDec(t);
-          const val = dec.hr?.hiring?.[role] ?? 0;
+          const rec = t.history?.[reportPeriod] || (t.history as any)?.[String(reportPeriod)];
+          const esat = (rec?.kpis?.employeeSatisfaction ?? 0.70) * 100;
+          return `${esat.toFixed(1)}%`;
+        })
+      },
+      {
+        label: 'Staff Attrition Rate (1 - Closing ESAT)',
+        values: realTeams.map(t => {
+          const rec = t.history?.[reportPeriod] || (t.history as any)?.[String(reportPeriod)];
+          const attrRate = Math.max(0, 1 - (rec?.kpis?.employeeSatisfaction ?? 0.70)) * 100;
+          return `${attrRate.toFixed(1)}%`;
+        })
+      }
+    ];
+    HR_ROLES.forEach(role => {
+      const roleLabel = HR_ROLE_LABELS[role] || role;
+      hrRows.push({
+        label: `${roleLabel} : Opening Staff`,
+        values: realTeams.map(t => formatNumber(getRoleHeadcountBreakdown(t, role).opening, 0))
+      });
+      hrRows.push({
+        label: `${roleLabel} : Recruit/(Dismiss)`,
+        values: realTeams.map(t => {
+          const val = getRoleHeadcountBreakdown(t, role).hire;
           return val > 0 ? `+${val}` : `${val}`;
         })
       });
       hrRows.push({
-        label: `${HR_ROLE_LABELS[role] || role} : Salary`,
+        label: `${roleLabel} : Closing Staff (Before Attrition)`,
+        values: realTeams.map(t => formatNumber(getRoleHeadcountBreakdown(t, role).closingBeforeAttrition, 0))
+      });
+      hrRows.push({
+        label: `${roleLabel} : Less Attrition`,
+        values: realTeams.map(t => {
+          const attr = getRoleHeadcountBreakdown(t, role).attrition;
+          return attr > 0 ? `-${attr}` : '0';
+        })
+      });
+      hrRows.push({
+        label: `${roleLabel} : Opening Staff (Next Period)`,
+        values: realTeams.map(t => formatNumber(getRoleHeadcountBreakdown(t, role).nextOpening, 0))
+      });
+      hrRows.push({
+        label: `${roleLabel} : Salary`,
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           const val = dec.hr?.salaries?.[role] ?? 0;
@@ -598,7 +647,7 @@ const MarketReports: React.FC = () => {
         })
       });
       hrRows.push({
-        label: `${HR_ROLE_LABELS[role] || role} : Training`,
+        label: `${roleLabel} : Training`,
         values: realTeams.map(t => {
           const dec = getTeamDec(t);
           return dec.hr?.trainingLevels?.[role] ?? 'Basic';
@@ -769,7 +818,7 @@ const MarketReports: React.FC = () => {
       finance: financeRows,
       treasury: treasuryRows
     };
-  }, [currentClass, realTeams]);
+  }, [currentClass, realTeams, reportPeriod]);
 
   // Dynamic Industry Performance Data mapping (Revenue & COS based on Actual Units Sold = Min(Demand Earned, Available Stock))
   const dynamicPerformanceData = React.useMemo(() => {
@@ -838,8 +887,8 @@ const MarketReports: React.FC = () => {
           totalScore: { techbook: 0, zroid: 0, itab: 0 },
           marketShare: rawRec.market?.marketShare || { techbook: 0, zroid: 0, itab: 0 },
           price: rawRec.marketing?.prices || { techbook: 0, zroid: 0, itab: 0 },
-          staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
-          trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
+          staffCounts: rawRec.staffCounts || { engineers: 22, technicians: 28, semiSkilled: 37, adminSales: 29, customerService: 58 },
+          trainingLevels: rawRec.decisions?.hr?.trainingLevels || { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
           unitsProduced: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0),
           unitsSold: (rawRec.market?.actualUnits?.techbook || 0) + (rawRec.market?.actualUnits?.zroid || 0) + (rawRec.market?.actualUnits?.itab || 0)
         };
@@ -872,7 +921,7 @@ const MarketReports: React.FC = () => {
         totalScore: { techbook: 0, zroid: 0, itab: 0 },
         marketShare: { techbook: 0, zroid: 0, itab: 0 },
         price: { techbook: 0, zroid: 0, itab: 0 },
-        staffCounts: { engineers: 0, technicians: 150, semiSkilled: 200, adminSales: 20, customerService: 15 },
+        staffCounts: { engineers: 22, technicians: 28, semiSkilled: 37, adminSales: 29, customerService: 58 },
         trainingLevels: { engineers: 'Basic', technicians: 'Basic', semiSkilled: 'Basic', adminSales: 'Basic', customerService: 'Basic' },
         unitsProduced: 0,
         unitsSold: 0
@@ -998,7 +1047,7 @@ const MarketReports: React.FC = () => {
       balance: balanceRows,
       kpis: kpiRows
     };
-  }, [currentClass, realTeams]);
+  }, [currentClass, realTeams, reportPeriod]);
 
 
 
@@ -1399,7 +1448,7 @@ const MarketReports: React.FC = () => {
                     { id: 'decisions', label: 'Industry Decisions', icon: Layers },
                     { id: 'performance', label: 'Industry Performance', icon: TrendingUp },
                     { id: 'marketData', label: 'Market Data', icon: Table },
-                    { id: 'debriefSlides', label: 'Debrief Slides', icon: Presentation },
+                    ...(canViewDebriefSlides ? [{ id: 'debriefSlides', label: 'Debrief Slides', icon: Presentation }] : []),
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -1435,7 +1484,7 @@ const MarketReports: React.FC = () => {
         ) : (
           <>
             {/* --- TAB 4: DEBRIEF PRESENTATION SLIDES --- */}
-            {activeTab === 'debriefSlides' && (
+            {activeTab === 'debriefSlides' && canViewDebriefSlides && (
               <DebriefSlidesViewer classId={currentClassId || ''} period={reportPeriod} />
             )}
 
