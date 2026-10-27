@@ -48,7 +48,7 @@ const FinancialReports: React.FC = () => {
       }
     }
 
-    const bs = computeTeamPeriodBalanceSheet(currentTeam, prevPeriod);
+    const bs = computeTeamPeriodBalanceSheet(currentTeam, prevPeriod, realTeams);
 
     const prevRevenue = ind?.totalRevenue ?? rawRec?.revenue?.total ?? YEAR_0_RECORD.revenue.total;
     const prevCogs = ind?.totalCogs ?? rawRec?.cogs?.total ?? YEAR_0_RECORD.cogs.total;
@@ -58,6 +58,7 @@ const FinancialReports: React.FC = () => {
     const prevInterest = ind?.financeCharges ?? ind?.interest ?? rawRec?.interest ?? YEAR_0_RECORD.interest;
     const prevEbt = ind?.ebt ?? rawRec?.ebt ?? YEAR_0_RECORD.ebt;
     const prevTax = ind?.taxation ?? rawRec?.tax ?? YEAR_0_RECORD.tax;
+    const prevOtherIncome = ind?.otherIncome ?? rawRec?.otherIncome ?? 0;
     const prevNetProfit = ind?.netProfit ?? bs.netProfit;
 
     const prevOpex = {
@@ -90,6 +91,7 @@ const FinancialReports: React.FC = () => {
       interest: prevInterest,
       ebt: prevEbt,
       tax: prevTax,
+      otherIncome: prevOtherIncome,
       netProfit: prevNetProfit,
       opex: prevOpex,
       balanceSheet: {
@@ -1005,6 +1007,14 @@ const FinancialReports: React.FC = () => {
                                        <td className="py-1 px-4 text-right text-slate-400">{formatCurrency(actuals.tax)}</td>
                                        <td className={`py-1 px-4 text-right ${getVarColor(forecast.tax, actuals.tax, true)}`}>{calculateVar(forecast.tax, actuals.tax)}</td>
                                    </tr>
+                                   {(Boolean(currentClass?.isActionLearningProject) || (actuals.otherIncome ?? 0) !== 0) && (
+                                     <tr className="font-semibold bg-indigo-50/40 text-indigo-900">
+                                       <td className="py-1.5 px-4">Add: Other Income (Regional Opportunities)</td>
+                                       <td className="py-1.5 px-4 text-right text-xs text-indigo-600 italic">Allocated on submission</td>
+                                       <td className="py-1.5 px-4 text-right">{formatCurrency(actuals.otherIncome ?? 0)}</td>
+                                       <td className="py-1.5 px-4 text-right text-slate-400">—</td>
+                                     </tr>
+                                   )}
 
                                    {/* Net Profit */}
                                    <tr className="font-black text-base bg-emerald-50 text-emerald-950 border-t-2 border-b-2 border-emerald-300">

@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useSimulation } from '../../contexts/SimulationContext';
 import { PRODUCTS, STORE_COSTS, MARKET_SIZES, LAST_YEAR_DATA, getMarketSize } from '../../constants';
 import { ProductId } from '../../types';
-import { Info, AlertCircle, DollarSign, Target, Store, PieChart as PieChartIcon, Tag } from 'lucide-react';
+import { Info, AlertCircle, DollarSign, Target, Store, PieChart as PieChartIcon, Tag, Globe, CheckCircle2, Lock } from 'lucide-react';
 import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
 import { useFlashOnChange } from '../../utils/useFlashOnChange';
-import { computeIndustryPerformance } from '../../utils/industryPerformance';
+import { computeIndustryPerformance, didTeamEnterBotswanaInPeriod } from '../../utils/industryPerformance';
 
 const Marketing: React.FC = () => {
   const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole, classes, currentClassId } = useSimulation();
@@ -637,6 +637,167 @@ const Marketing: React.FC = () => {
 
                 </div>
             </div>
+
+            {/* ALP Regional Market Opportunities (Year 2 & Year 3) */}
+            {Boolean(currentClass?.isActionLearningProject) && (currentTeam.currentPeriod === 2 || currentTeam.currentPeriod === 3) && (() => {
+              const isYear2 = currentTeam.currentPeriod === 2;
+              const enteredBotswanaY2 = didTeamEnterBotswanaInPeriod(currentTeam, 2);
+              const botswanaSelected = Boolean(marketing.alpOpportunities?.botswana);
+              const mozambiqueSelected = isYear2 ? Boolean(marketing.alpOpportunities?.mozambique) : false;
+
+              const handleToggleOpportunity = (market: 'botswana' | 'mozambique', value: boolean) => {
+                if (disabled) return;
+                updateDecisions('marketing', {
+                  alpOpportunities: {
+                    ...(marketing.alpOpportunities || {}),
+                    [market]: value
+                  }
+                });
+              };
+
+              return (
+                <div className="bg-white rounded-xl border border-indigo-200 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-2 bg-indigo-50/60">
+                    <div>
+                      <h3 className="font-bold text-slate-900 flex items-center">
+                        <Globe className="w-5 h-5 mr-2 text-indigo-600" />
+                        Regional Market Opportunities — Year {currentTeam.currentPeriod} (Action Learning Project)
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Indicate whether your team will enter the neighbouring country opportunities upon submission. Volume is divided equally among all entering teams using your South African pricing and product Gross Profit %. You do not need to forecast additional production units.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                      Equal Volume Split • Other Income
+                    </span>
+                  </div>
+
+                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Botswana Card */}
+                    <div className={`rounded-xl border-2 p-5 transition-all ${botswanaSelected ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-200 bg-white'}`}>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-base font-bold text-slate-900">Botswana</h4>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                              Entry Mode: Alliance
+                            </span>
+                          </div>
+                          {!isYear2 && (
+                            <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md ${enteredBotswanaY2 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              {enteredBotswanaY2
+                                ? 'Entered Botswana in Year 2: Reduced Operating Agreement (R50m) applies'
+                                : 'Did not enter Botswana in Year 2: Standard Operating Agreement (R95m) applies'}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => handleToggleOpportunity('botswana', !botswanaSelected)}
+                          className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            botswanaSelected
+                              ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                          }`}
+                        >
+                          {botswanaSelected ? '✓ Entering Botswana' : 'Enter Botswana'}
+                        </button>
+                      </div>
+
+                      <div className="space-y-2 text-xs border-t border-slate-200/80 pt-3">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">TechBook Market Demand</span>
+                          <span className="font-mono font-semibold text-slate-800">{isYear2 ? '50,000' : '20,000'} units</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Zroid Market Demand</span>
+                          <span className="font-mono font-semibold text-slate-800">{isYear2 ? '80,000' : '50,000'} units</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">iTab Market Demand</span>
+                          <span className="font-mono font-semibold text-slate-800">{isYear2 ? '60,000' : '70,000'} units</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-slate-200/60">
+                          <span className="text-slate-600 font-medium">Entry Cost & Tax</span>
+                          <span className="font-semibold text-slate-900 text-right">
+                            {isYear2
+                              ? 'Operating Agreement: R 90,000,000'
+                              : `Operating Agreement: R ${enteredBotswanaY2 ? '50,000,000' : '95,000,000'} + 50% tax on profits`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Mozambique Card */}
+                    {isYear2 ? (
+                      <div className={`rounded-xl border-2 p-5 transition-all ${mozambiqueSelected ? 'border-indigo-600 bg-indigo-50/30' : 'border-slate-200 bg-white'}`}>
+                        <div className="flex items-start justify-between gap-4 mb-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base font-bold text-slate-900">Mozambique</h4>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                Entry Mode: Agent
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => handleToggleOpportunity('mozambique', !mozambiqueSelected)}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                              mozambiqueSelected
+                                ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                            }`}
+                          >
+                            {mozambiqueSelected ? '✓ Entering Mozambique' : 'Enter Mozambique'}
+                          </button>
+                        </div>
+
+                        <div className="space-y-2 text-xs border-t border-slate-200/80 pt-3">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">TechBook Market Demand</span>
+                            <span className="font-mono font-semibold text-slate-800">20,000 units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Zroid Market Demand</span>
+                            <span className="font-mono font-semibold text-slate-800">45,000 units</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">iTab Market Demand</span>
+                            <span className="font-mono font-semibold text-slate-800">40,000 units</span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t border-slate-200/60">
+                            <span className="text-slate-600 font-medium">Entry Cost</span>
+                            <span className="font-semibold text-slate-900 text-right">
+                              Agent Commission: 4.5% of Sales
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-5 opacity-80">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-base font-bold text-slate-700">Mozambique</h4>
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded bg-rose-100 text-rose-800">
+                                <Lock className="w-3 h-3" /> Restricted in Year 3
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          The Mozambican government has decided to restrict imports of technological products in favour of local producers and suppliers. Therefore, teams are not able to sell in Mozambique in Year 3.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
       </div>
     </div>

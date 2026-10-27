@@ -24,6 +24,26 @@ export interface PeriodMarketRecord {
   valueScoreExPrice: Record<ProductId, number>;
 }
 
+export interface ALPOpportunityMarketResult {
+  entered: boolean;
+  enteringTeamsCount: number;
+  enteredInPreviousYear?: boolean;
+  allocatedUnits: Record<ProductId, number>;
+  productContribution: Record<ProductId, number>; // Revenue (Price x Allocated Volume) * Product GP%
+  totalRevenue: number;
+  totalGrossProfit: number;
+  operatingCost: number;
+  tax: number;
+  totalCost: number;
+  netOfOpportunity: number;
+}
+
+export interface PeriodALPOpportunities {
+  botswana?: ALPOpportunityMarketResult;
+  mozambique?: ALPOpportunityMarketResult;
+  totalNetOtherIncome: number;
+}
+
 export interface PeriodRecord {
   period: number;
   revenue: { total: number; byProduct: Record<ProductId, number> };
@@ -44,6 +64,7 @@ export interface PeriodRecord {
   interest: number;
   ebt: number;
   tax: number;
+  otherIncome?: number;
   netProfit: number;
   balanceSheet: {
     cash: number;
@@ -74,6 +95,7 @@ export interface PeriodRecord {
   staffAttrition?: Record<HRRole, number>;
   closingStaffAfterAttrition?: Record<HRRole, number>;
   requiredCS?: number;
+  alpOpportunities?: PeriodALPOpportunities;
   industry?: any;
   gm?: GlobalMarketsRecord;
 }
@@ -240,6 +262,10 @@ export interface MarketingDecisions {
   generalAdSplit: number; // Percentage 0-1
   openCloseStores: number; // +/- integer
   agentCommission: number; // Percentage 0-1
+  alpOpportunities?: {
+    botswana?: boolean;
+    mozambique?: boolean;
+  };
 }
 
 export interface OperationsDecisions {

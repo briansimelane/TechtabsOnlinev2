@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode, useRe
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride, EditionId } from '../types';
-import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
+import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS, setActiveClassIsALP } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
 import { getEdition } from '../utils/editions';
@@ -79,6 +79,7 @@ interface SimulationContextType extends SimulationState {
   requestReopenTeamDecisions: (classId: string, teamId: string) => Promise<void>;
   updateTeamNegotiationByFacilitator: (classId: string, teamId: string, negotiationData: Partial<NegotiationDecision>) => Promise<void>;
   updateTeamSupplierOverridesByFacilitator: (classId: string, teamId: string, overrides: TeamSupplierOverride) => Promise<void>;
+  updateTeamALPOpportunityByFacilitator: (classId: string, teamId: string, market: 'botswana' | 'mozambique', entered: boolean) => Promise<void>;
   updateClassIsALP: (isALP: boolean) => void;
   addClassEvent: (event: Omit<ClassEvent, 'id' | 'createdAt'>) => void;
   updateClassEvent: (event: ClassEvent) => void;
@@ -252,11 +253,20 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
 
   let currentTeamState: Team = { ...team };
   const edition = getEdition(cls);
+  setActiveClassIsALP(Boolean(cls?.isActionLearningProject));
 
   while (currentTeamState.currentPeriod < targetPeriod) {
     const p = currentTeamState.currentPeriod;
     const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
     const result = processTurn(currentTeamState, decs, [], edition);
+    const peerTeams = cls?.teams && cls.teams.length > 0
+      ? cls.teams.map(tm => tm.id === currentTeamState.id ? currentTeamState : tm)
+      : [currentTeamState];
+    const perfList = cls?.isActionLearningProject ? computeIndustryPerformance(peerTeams, p) : [];
+    const rawTeamPerf = perfList.find(item => item.teamId === currentTeamState.id);
+    const otherIncome = rawTeamPerf?.otherIncome ?? 0;
+    const np = (result.periodRecord.netProfit ?? 0) + otherIncome;
+    const eq = (result.periodRecord.balanceSheet?.equity ?? 0) + otherIncome;
     
     const carriedNegotiation = (decs.negotiation && decs.negotiation.status === 'AGREED')
       ? {
@@ -271,6 +281,12 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
 
     const carriedDecisions: TurnDecisions = {
       ...decs,
+      marketing: {
+        ...decs.marketing,
+        ...(decs.marketing?.alpOpportunities ? {
+          alpOpportunities: { botswana: false, mozambique: false }
+        } : {})
+      },
       operations: {
         ...decs.operations,
         capacityChange: 0,
@@ -290,12 +306,35 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
 
     const periodRecordWithDecs = {
       ...result.periodRecord,
+      ...(rawTeamPerf?.alpOpportunities ? {
+        otherIncome,
+        alpOpportunities: rawTeamPerf.alpOpportunities,
+      } : {}),
+      netProfit: np,
+      balanceSheet: {
+        ...result.periodRecord.balanceSheet,
+        cash: (result.periodRecord.balanceSheet?.cash ?? 0) + otherIncome,
+        totalAssets: (result.periodRecord.balanceSheet?.totalAssets ?? 0) + otherIncome,
+        equity: eq,
+        totalLiabilitiesAndEquity: (result.periodRecord.balanceSheet?.totalLiabilitiesAndEquity ?? 0) + otherIncome,
+      },
+      cashFlow: {
+        ...result.periodRecord.cashFlow,
+        operating: (result.periodRecord.cashFlow?.operating ?? 0) + otherIncome,
+        net: (result.periodRecord.cashFlow?.net ?? 0) + otherIncome,
+      },
+      kpis: {
+        ...result.periodRecord.kpis,
+        netProfit: np,
+      },
       decisions: decs,
       draftDecisions: decs
     };
 
     currentTeamState = {
       ...result.newTeamState,
+      cashBalance: (result.newTeamState.cashBalance ?? 0) + otherIncome,
+      shareholdersEquity: (result.newTeamState.shareholdersEquity ?? 0) + otherIncome,
       status: 'Saved',
       draftDecisions: carriedDecisions,
       history: {
@@ -1611,6 +1650,7 @@ BEHAVIOR RULES:
       return;
     }
 
+    setActiveClassIsALP(isALP);
     setState(prev => {
       const updatedClasses = prev.classes.map(c => {
         if (c.id === prev.currentClassId) {
@@ -2554,6 +2594,7 @@ BEHAVIOR RULES:
       return;
     }
 
+    setActiveClassIsALP(Boolean(cls.isActionLearningProject));
     const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
     const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod);
     const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
@@ -2566,11 +2607,14 @@ BEHAVIOR RULES:
       const edition = getEdition(cls);
       const result = processTurn(team, decs, activeEvents, edition);
       const rawTeamPerf = perfMap.get(team.id);
+      const otherIncome = rawTeamPerf?.otherIncome ?? 0;
       const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
       const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
       const gp = result.periodRecord.grossProfit?.total ?? (totRev - totCogs);
-      const np = result.periodRecord.netProfit ?? rawTeamPerf?.netProfit ?? 0;
-      const eq = result.periodRecord.balanceSheet?.equity ?? rawTeamPerf?.equity ?? 0;
+      const baseNp = result.periodRecord.netProfit ?? (rawTeamPerf ? rawTeamPerf.netProfit - otherIncome : 0);
+      const np = baseNp + otherIncome;
+      const baseEq = result.periodRecord.balanceSheet?.equity ?? (rawTeamPerf ? rawTeamPerf.equity - otherIncome : 0);
+      const eq = baseEq + otherIncome;
 
       const teamPerf = rawTeamPerf ? {
         ...rawTeamPerf,
@@ -2589,6 +2633,27 @@ BEHAVIOR RULES:
 
       const periodRecordWithIndustry = {
         ...result.periodRecord,
+        ...(rawTeamPerf?.alpOpportunities ? {
+          otherIncome,
+          alpOpportunities: rawTeamPerf.alpOpportunities,
+        } : {}),
+        netProfit: np,
+        balanceSheet: {
+          ...result.periodRecord.balanceSheet,
+          cash: (result.periodRecord.balanceSheet?.cash ?? 0) + otherIncome,
+          totalAssets: (result.periodRecord.balanceSheet?.totalAssets ?? 0) + otherIncome,
+          equity: eq,
+          totalLiabilitiesAndEquity: (result.periodRecord.balanceSheet?.totalLiabilitiesAndEquity ?? 0) + otherIncome,
+        },
+        cashFlow: {
+          ...result.periodRecord.cashFlow,
+          operating: (result.periodRecord.cashFlow?.operating ?? 0) + otherIncome,
+          net: (result.periodRecord.cashFlow?.net ?? 0) + otherIncome,
+        },
+        kpis: {
+          ...result.periodRecord.kpis,
+          netProfit: np,
+        },
         decisions: decs,
         draftDecisions: decs,
         industry: teamPerf,
@@ -2608,6 +2673,12 @@ BEHAVIOR RULES:
 
       const carriedDecisions: TurnDecisions = {
         ...decs,
+        marketing: {
+          ...decs.marketing,
+          ...(decs.marketing?.alpOpportunities ? {
+            alpOpportunities: { botswana: false, mozambique: false }
+          } : {})
+        },
         operations: {
           ...decs.operations,
           capacityChange: 0,
@@ -2627,6 +2698,8 @@ BEHAVIOR RULES:
 
       const newTeam: Team = {
         ...result.newTeamState,
+        cashBalance: (result.newTeamState.cashBalance ?? 0) + otherIncome,
+        shareholdersEquity: (result.newTeamState.shareholdersEquity ?? 0) + otherIncome,
         currentPeriod: team.currentPeriod + 1,
         status: 'Saved',
         draftDecisions: carriedDecisions,
@@ -2947,6 +3020,82 @@ BEHAVIOR RULES:
     });
   };
 
+  const updateTeamALPOpportunityByFacilitator = async (
+    classId: string,
+    teamId: string,
+    market: 'botswana' | 'mozambique',
+    entered: boolean
+  ) => {
+    setState(prev => {
+      const cls = prev.classes.find(c => c.id === classId);
+      if (!cls) return prev;
+
+      let updatedTeamObj: Team | null = null;
+
+      const updatedTeams = cls.teams.map(team => {
+        if (team.id === teamId) {
+          const currentDraft = team.draftDecisions || INITIAL_DECISIONS;
+          const updatedDraft: TurnDecisions = {
+            ...currentDraft,
+            marketing: {
+              ...currentDraft.marketing,
+              alpOpportunities: {
+                ...(currentDraft.marketing?.alpOpportunities || {}),
+                [market]: entered
+              }
+            }
+          };
+
+          const updatedTeam: Team = {
+            ...team,
+            draftDecisions: updatedDraft
+          };
+
+          updatedTeamObj = updatedTeam;
+
+          void saveTeamState(classId, updatedTeam).catch(err =>
+            console.error(`Failed to save team ${updatedTeam.id} in updateTeamALPOpportunityByFacilitator`, err)
+          );
+
+          return updatedTeam;
+        }
+        return team;
+      });
+
+      const updatedClass: SimulationClass = { ...cls, teams: updatedTeams };
+      const updatedClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
+
+      try {
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+      } catch (e) {
+        console.warn('Could not write updated classes to localStorage', e);
+      }
+
+      if (!isDemoMode) {
+        void saveClass(updatedClass).catch(err =>
+          console.error(`Failed to save class ${classId} in updateTeamALPOpportunityByFacilitator`, err)
+        );
+      }
+
+      let updatedCurrentTeam = prev.currentTeam;
+      let updatedDecisions = prev.decisions;
+
+      if (prev.currentClassId === classId && prev.currentTeam?.id === teamId) {
+        if (updatedTeamObj) {
+          updatedCurrentTeam = updatedTeamObj;
+          updatedDecisions = (updatedTeamObj as Team).draftDecisions || prev.decisions;
+        }
+      }
+
+      return {
+        ...prev,
+        classes: updatedClasses,
+        currentTeam: updatedCurrentTeam,
+        decisions: updatedDecisions
+      };
+    });
+  };
+
   const updateClassFacilitatorCode = async (classId: string, newCode: string) => {
     const targetClass = state.classes.find(c => c.id === classId);
     if (!targetClass) return;
@@ -3116,6 +3265,9 @@ BEHAVIOR RULES:
     }
   };
 
+  const activeClassObj = state.classes.find(c => c.id === state.currentClassId);
+  setActiveClassIsALP(Boolean(activeClassObj?.isActionLearningProject));
+
   return (
     <SimulationContext.Provider value={{ 
         ...state, 
@@ -3163,6 +3315,7 @@ BEHAVIOR RULES:
         requestReopenTeamDecisions,
         updateTeamNegotiationByFacilitator,
         updateTeamSupplierOverridesByFacilitator,
+        updateTeamALPOpportunityByFacilitator,
         updateClassIsALP,
         addClassEvent,
         updateClassEvent,

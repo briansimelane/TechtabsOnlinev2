@@ -12,7 +12,7 @@ import {
   Presentation
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
-import { Team } from '../types';
+import { Team, HRRole } from '../types';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../utils/numberFormat';
 import { INITIAL_DECISIONS, PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, STORE_COSTS, FINANCE_CONSTANTS, HR_ROLES, getMarketSize } from '../constants';
 import { 
@@ -515,7 +515,30 @@ const MarketReports: React.FC = () => {
           const dec = getTeamDec(t);
           return `${((dec.marketing?.agentCommission ?? 0) * 100).toFixed(1)}%`;
         })
-      }
+      },
+      ...(currentClass?.isActionLearningProject && (reportPeriod === 2 || reportPeriod === 3) ? [
+        {
+          label: 'Botswana Opportunity (Alliance)',
+          values: realTeams.map(t => {
+            const dec = getTeamDec(t);
+            return dec.marketing?.alpOpportunities?.botswana ? 'Yes' : 'No';
+          })
+        },
+        ...(reportPeriod === 2 ? [
+          {
+            label: 'Mozambique Opportunity (Agent)',
+            values: realTeams.map(t => {
+              const dec = getTeamDec(t);
+              return dec.marketing?.alpOpportunities?.mozambique ? 'Yes' : 'No';
+            })
+          }
+        ] : [
+          {
+            label: 'Mozambique Opportunity (Agent)',
+            values: realTeams.map(() => 'Restricted')
+          }
+        ])
+      ] : [])
     ];
 
     const operationsRows = [
@@ -831,6 +854,7 @@ const MarketReports: React.FC = () => {
     const perfMap = new Map(perfList.map(p => [p.teamId, p]));
 
     const getPerf = (t: typeof realTeams[0]): TeamIndustryPerformance => {
+      const livePerf = perfMap.get(t.id);
       const rawRec = t.history?.[reportPeriod] || t.history?.[String(reportPeriod)];
       if (rawRec?.industry) {
         return {
@@ -840,6 +864,8 @@ const MarketReports: React.FC = () => {
           totalCogs: rawRec.cogs?.total ?? rawRec.industry.totalCogs,
           cogsByProduct: rawRec.cogs?.byProduct ?? rawRec.industry.cogsByProduct,
           grossProfit: rawRec.grossProfit?.total ?? rawRec.industry.grossProfit,
+          otherIncome: rawRec.otherIncome ?? rawRec.industry.otherIncome ?? livePerf?.otherIncome,
+          alpOpportunities: rawRec.alpOpportunities ?? rawRec.industry.alpOpportunities ?? livePerf?.alpOpportunities,
           netProfit: rawRec.netProfit ?? rawRec.industry.netProfit,
           equity: rawRec.balanceSheet?.equity ?? rawRec.industry.equity
         };
@@ -875,6 +901,8 @@ const MarketReports: React.FC = () => {
           financeCharges: rawRec.interestExpense || 0,
           ebt: rawRec.ebt || (gp - (rawRec.opex?.total || 0) - (rawRec.interestExpense || 0)),
           taxation: rawRec.taxExpense || 0,
+          otherIncome: rawRec.otherIncome ?? livePerf?.otherIncome,
+          alpOpportunities: rawRec.alpOpportunities ?? livePerf?.alpOpportunities,
           netProfit: np,
           npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
           equity: eq,
@@ -894,7 +922,7 @@ const MarketReports: React.FC = () => {
         };
       }
 
-      return perfMap.get(t.id) || {
+      return livePerf || {
         teamId: t.id,
         teamName: t.name,
         revenueByProduct: { techbook: 0, zroid: 0, itab: 0 },
@@ -928,6 +956,8 @@ const MarketReports: React.FC = () => {
       };
     };
 
+    const isALPOpportunityPeriod = Boolean(currentClass?.isActionLearningProject) && (reportPeriod === 2 || reportPeriod === 3);
+
     const incomeRows = [
       { label: 'Total Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.totalRevenue ?? 0, 0)), bold: true },
       { label: '   - TechBook Revenue', values: realTeams.map(t => formatCurrency(getPerf(t)?.revenueByProduct.techbook ?? 0, 0)) },
@@ -952,11 +982,38 @@ const MarketReports: React.FC = () => {
       { label: '   - Finance Charges', values: realTeams.map(t => formatCurrency(getPerf(t)?.financeCharges ?? 0, 0)) },
       { label: 'EBT', values: realTeams.map(t => formatCurrency(getPerf(t)?.ebt ?? 0, 0)), bold: true },
       { label: '   - Taxation', values: realTeams.map(t => formatCurrency(getPerf(t)?.taxation ?? 0, 0)) },
+      ...(isALPOpportunityPeriod ? [
+        { label: '   + Other Income (Regional Opportunities)', values: realTeams.map(t => formatCurrency(getPerf(t)?.otherIncome ?? 0, 0)), bold: true }
+      ] : []),
       { label: 'Net Profit for the period', values: realTeams.map(t => formatCurrency(getPerf(t)?.netProfit ?? 0, 0)), bold: true, bg: 'bg-emerald-50' }
     ];
 
+    const alpOpportunitiesRows = isALPOpportunityPeriod ? [
+      { label: 'Botswana : Entered?', values: realTeams.map(t => getPerf(t)?.alpOpportunities?.botswana?.entered ? 'Yes' : 'No'), bold: true },
+      ...(reportPeriod === 3 ? [
+        { label: 'Botswana : Entered in Year 2?', values: realTeams.map(t => getPerf(t)?.alpOpportunities?.botswana?.enteredInPreviousYear ? 'Yes (R50m Agreement)' : 'No (R95m Agreement)') }
+      ] : []),
+      { label: 'Botswana : TechBook GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.productContribution?.techbook ?? 0, 0)) },
+      { label: 'Botswana : Zroid GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.productContribution?.zroid ?? 0, 0)) },
+      { label: 'Botswana : iTab GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.productContribution?.itab ?? 0, 0)) },
+      { label: 'Botswana : Operating Agreement Cost', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.operatingCost ?? 0, 0)) },
+      ...(reportPeriod === 3 ? [
+        { label: 'Botswana : 50% Profit Tax', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.tax ?? 0, 0)) }
+      ] : []),
+      { label: 'Botswana : NET of Opportunity', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.botswana?.netOfOpportunity ?? 0, 0)), bold: true, bg: 'bg-blue-50/60' },
+      ...(reportPeriod === 2 ? [
+        { label: 'Mozambique : Entered?', values: realTeams.map(t => getPerf(t)?.alpOpportunities?.mozambique?.entered ? 'Yes' : 'No'), bold: true },
+        { label: 'Mozambique : TechBook GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.productContribution?.techbook ?? 0, 0)) },
+        { label: 'Mozambique : Zroid GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.productContribution?.zroid ?? 0, 0)) },
+        { label: 'Mozambique : iTab GP Contribution', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.productContribution?.itab ?? 0, 0)) },
+        { label: 'Mozambique : Agent Commission (4.5% of Sales)', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.operatingCost ?? 0, 0)) },
+        { label: 'Mozambique : NET of Opportunity', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.netOfOpportunity ?? 0, 0)), bold: true, bg: 'bg-blue-50/60' }
+      ] : []),
+      { label: 'Total Other Income (Regional Opportunities)', values: realTeams.map(t => formatCurrency(getPerf(t)?.otherIncome ?? 0, 0)), bold: true, bg: 'bg-emerald-50' }
+    ] : [];
+
     const getTeamBalance = (t: typeof realTeams[0]) => {
-      const bs = computeTeamPeriodBalanceSheet(t, reportPeriod);
+      const bs = computeTeamPeriodBalanceSheet(t, reportPeriod, realTeams);
 
       const nonCurrAssets = bs.fixedAssets;
       const cashVal = bs.cash;
@@ -1044,6 +1101,7 @@ const MarketReports: React.FC = () => {
 
     return {
       income: incomeRows,
+      alpOpportunities: alpOpportunitiesRows,
       balance: balanceRows,
       kpis: kpiRows
     };
@@ -1054,7 +1112,7 @@ const MarketReports: React.FC = () => {
 
 
   const activeDecisionsData = dynamicDecisionsData || { marketing: [], operations: [], hr: [], procurement: [], finance: [] };
-  const activePerformanceData = dynamicPerformanceData || { income: [], balance: [], kpis: [] };
+  const activePerformanceData = dynamicPerformanceData || { income: [], alpOpportunities: [], balance: [], kpis: [] };
   const activeMarketData = dynamicMarketData || [];
 
   const formatCellValue = (value: string) => {
@@ -1636,6 +1694,13 @@ const MarketReports: React.FC = () => {
                              <tr className="bg-emerald-500 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Income Statement</td></tr>
                              {activePerformanceData.income.map((row) => renderMultiTeamRow(row.label, row.values, row.bold, row.bg))}
 
+                             {activePerformanceData.alpOpportunities && activePerformanceData.alpOpportunities.length > 0 && (
+                               <>
+                                 <tr className="bg-indigo-600 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Regional Market Opportunities Breakdown (ALP Year {reportPeriod})</td></tr>
+                                 {activePerformanceData.alpOpportunities.map((row: any) => renderMultiTeamRow(row.label, row.values, row.bold, row.bg))}
+                               </>
+                             )}
+
                              <tr className="bg-emerald-500 text-white"><td colSpan={activeTeams.length + 1} className="py-2 px-4 font-bold">Balance Sheet</td></tr>
                              {activePerformanceData.balance.map((row) => renderMultiTeamRow(row.label, row.values, row.bold, row.bg))}
 
@@ -1661,6 +1726,21 @@ const MarketReports: React.FC = () => {
                                  ))}
                              </div>
                          </div>
+
+                         {/* Regional Market Opportunities */}
+                         {activePerformanceData.alpOpportunities && activePerformanceData.alpOpportunities.length > 0 && (
+                           <div className="space-y-2">
+                             <h4 className="bg-indigo-600 text-white py-1.5 px-3 rounded font-bold text-sm">Regional Market Opportunities (ALP Year {reportPeriod})</h4>
+                             <div className="divide-y divide-slate-100 bg-slate-50 border border-slate-200 rounded-lg p-2">
+                               {activePerformanceData.alpOpportunities.map((row: any) => (
+                                 <div key={row.label} className={`flex justify-between items-center py-2 px-2 text-xs rounded ${row.bg || ''} ${row.bold ? 'font-bold bg-slate-100/50' : ''}`}>
+                                   <span className={`${row.bold ? 'text-slate-800' : 'text-slate-500'} font-medium`}>{row.label}</span>
+                                   <span className="font-mono text-slate-800">{formatCellValue(row.values[selectedMobileTeam])}</span>
+                                 </div>
+                               ))}
+                             </div>
+                           </div>
+                         )}
 
                          {/* Balance Sheet */}
                          <div className="space-y-2">

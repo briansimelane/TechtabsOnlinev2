@@ -4,6 +4,7 @@ import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS } from '../../constant
 import { formatNumber, formatCurrency, formatPercent } from '../../utils/numberFormat';
 import { Team, TurnDecisions } from '../../types';
 import { mergeGlobalMarketsDecisions } from '../../utils/editions/globalMarkets/defaults';
+import { didTeamEnterBotswanaInPeriod } from '../../utils/industryPerformance';
 import { 
   Download, 
   FileSpreadsheet, 
@@ -38,7 +39,7 @@ interface SectionDef {
 }
 
 export default function DecisionTable() {
-  const { currentClassId, classes, selectClass } = useSimulation();
+  const { currentClassId, classes, selectClass, updateTeamALPOpportunityByFacilitator } = useSimulation();
   const currentClass = classes.find(c => c.id === currentClassId);
 
   // If no class is selected, show class selection empty state
@@ -478,6 +479,68 @@ export default function DecisionTable() {
             },
             format: (v: any) => formatCurrency(v, 0),
             formatRaw: (v: any) => v
+          }
+        ]
+      }
+    ] : []),
+    ...(currentClass.isActionLearningProject && (currentClass.currentPeriod === 2 || currentClass.currentPeriod === 3) ? [
+      {
+        title: `Regional Market Opportunities (ALP Year ${currentClass.currentPeriod})`,
+        rows: [
+          {
+            label: 'Botswana Opportunity (Alliance)',
+            getValue: (t: Team, d: TurnDecisions) => Boolean(d.marketing?.alpOpportunities?.botswana),
+            format: (v: any, _d: TurnDecisions, t: Team) => (
+              <button
+                type="button"
+                onClick={() => updateTeamALPOpportunityByFacilitator(currentClass.id, t.id, 'botswana', !v)}
+                className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                  v
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
+                }`}
+                title="Click to toggle Botswana market entry for this team"
+              >
+                {v ? 'Yes — Entering' : 'No'}
+              </button>
+            ),
+            formatRaw: (v: any) => (v ? 'Yes' : 'No')
+          },
+          ...(currentClass.currentPeriod === 3 ? [
+            {
+              label: 'Botswana: Entered in Year 2?',
+              getValue: (t: Team) => didTeamEnterBotswanaInPeriod(t, 2),
+              format: (v: any) => (
+                <span className={`px-2 py-0.5 rounded text-xs font-semibold ${v ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                  {v ? 'Yes (R50m Operating Agreement)' : 'No (R95m Operating Agreement)'}
+                </span>
+              ),
+              formatRaw: (v: any) => (v ? 'Yes (R50m)' : 'No (R95m)')
+            }
+          ] : []),
+          {
+            label: 'Mozambique Opportunity (Agent)',
+            getValue: (t: Team, d: TurnDecisions) => currentClass.currentPeriod === 2 ? Boolean(d.marketing?.alpOpportunities?.mozambique) : 'Restricted',
+            format: (v: any, _d: TurnDecisions, t: Team) => {
+              if (currentClass.currentPeriod === 3) {
+                return <span className="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">Restricted (Import Ban)</span>;
+              }
+              return (
+                <button
+                  type="button"
+                  onClick={() => updateTeamALPOpportunityByFacilitator(currentClass.id, t.id, 'mozambique', !v)}
+                  className={`px-2.5 py-1 rounded text-xs font-bold transition-colors ${
+                    v
+                      ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-300'
+                  }`}
+                  title="Click to toggle Mozambique market entry for this team"
+                >
+                  {v ? 'Yes — Entering' : 'No'}
+                </button>
+              );
+            },
+            formatRaw: (v: any) => (v === 'Restricted' ? 'Restricted' : v ? 'Yes' : 'No')
           }
         ]
       }

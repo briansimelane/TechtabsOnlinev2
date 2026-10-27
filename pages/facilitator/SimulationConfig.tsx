@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Settings, TrendingUp, DollarSign, Users, Package, ChevronDown, ChevronRight, Eye, Save, RotateCcw, Edit3 } from 'lucide-react';
 import CONFIG from '../../resources/config.json';
 import CALC_RULES from '../../resources/calculation_rules.json';
+import { getMarketSize } from '../../constants';
+import { ProductId } from '../../types';
 import { formatPercent, formatNumber, parseNumber } from '../../utils/numberFormat';
 
 interface NumberInputProps {
@@ -247,12 +249,13 @@ export const SimulationConfig: React.FC = () => {
               Manually configure or adjust the product market demand (units) per year (Year 0 through Year 4). Custom edits will directly drive simulation period processing.
             </p>
             {Object.entries(config.market_demand || {}).map(([product, data]: [string, any]) => {
+              const pId: ProductId = product === 'TechBook' ? 'techbook' : product === 'Zroid' ? 'zroid' : 'itab';
               const defaultYearlyDemand: Record<number, number> = {
-                0: product === 'TechBook' ? 288750 : product === 'Zroid' ? 179888 : 89750,
-                1: product === 'TechBook' ? 187588 : product === 'Zroid' ? 260242 : 127559,
-                2: product === 'TechBook' ? 197905 : product === 'Zroid' ? 279760 : 140953,
-                3: product === 'TechBook' ? 208790 : product === 'Zroid' ? 300742 : 155753,
-                4: product === 'TechBook' ? 220274 : product === 'Zroid' ? 323298 : 172107
+                0: getMarketSize(pId, 0),
+                1: getMarketSize(pId, 1),
+                2: getMarketSize(pId, 2),
+                3: getMarketSize(pId, 3),
+                4: getMarketSize(pId, 4)
               };
               const yearlyDemand = data.yearly_units || defaultYearlyDemand;
 

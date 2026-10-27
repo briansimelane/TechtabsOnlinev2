@@ -1,6 +1,31 @@
-import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions } from '../types';
-import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
+import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions, ALPOpportunityMarketResult, PeriodALPOpportunities } from '../types';
+import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
 import { computeMarketShareBackModel, getScaledProduction, getDecisionsForTeamPeriod } from './marketShareBackModel';
+
+export function didTeamEnterBotswanaInPeriod(team: Team, period: number): boolean {
+  const rec = team.history?.[period] || (team.history as any)?.[String(period)];
+  if (rec?.alpOpportunities?.botswana?.entered !== undefined) {
+    return Boolean(rec.alpOpportunities.botswana.entered);
+  }
+  if (rec?.industry?.alpOpportunities?.botswana?.entered !== undefined) {
+    return Boolean(rec.industry.alpOpportunities.botswana.entered);
+  }
+  const dec = getDecisionsForTeamPeriod(team, period);
+  return Boolean(dec?.marketing?.alpOpportunities?.botswana);
+}
+
+export function didTeamEnterMozambiqueInPeriod(team: Team, period: number): boolean {
+  if (period !== 2) return false;
+  const rec = team.history?.[period] || (team.history as any)?.[String(period)];
+  if (rec?.alpOpportunities?.mozambique?.entered !== undefined) {
+    return Boolean(rec.alpOpportunities.mozambique.entered);
+  }
+  if (rec?.industry?.alpOpportunities?.mozambique?.entered !== undefined) {
+    return Boolean(rec.industry.alpOpportunities.mozambique.entered);
+  }
+  const dec = getDecisionsForTeamPeriod(team, period);
+  return Boolean(dec?.marketing?.alpOpportunities?.mozambique);
+}
 
 export function getSupplierComponentCost(productId: ProductId, supplier: string, dec?: TurnDecisions): number {
   const overrides = dec?.supplierOverrides;
@@ -80,6 +105,8 @@ export interface TeamIndustryPerformance {
   financeCharges: number;
   ebt: number;
   taxation: number;
+  otherIncome?: number;
+  alpOpportunities?: PeriodALPOpportunities;
   netProfit: number;
   npMargin: number;                    // %
   equity: number;                      // from getTeamBalance
@@ -119,6 +146,12 @@ export function computeIndustryPerformance(
   }
 
   const backModelResults = computeMarketShareBackModel(activeTeams, period);
+  const rawBotswanaEnteringCount = (period === 2 || period === 3)
+    ? activeTeams.filter(tm => didTeamEnterBotswanaInPeriod(tm, period)).length
+    : 0;
+  const rawMozambiqueEnteringCount = period === 2
+    ? activeTeams.filter(tm => didTeamEnterMozambiqueInPeriod(tm, 2)).length
+    : 0;
 
   return activeTeams.map((t, tIdx) => {
     const dec = getDecisionsForTeamPeriod(t, period);
@@ -126,6 +159,7 @@ export function computeIndustryPerformance(
     // Calculate Revenue & COGS based on backModel simulation results
     let techbookRev = 0, zroidRev = 0, itabRev = 0;
     let techbookCogsVal = 0, zroidCogsVal = 0, itabCogsVal = 0;
+    const unitCogsByProduct: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
 
     // Direct Labor Cost per unit calculation
     const totalProdUnits = (dec.operations?.production?.techbook || 0) + (dec.operations?.production?.zroid || 0) + (dec.operations?.production?.itab || 0);
@@ -162,6 +196,7 @@ export function computeIndustryPerformance(
       }
 
       const unitCogs = componentCost + laborCostPerUnit;
+      unitCogsByProduct[pId] = unitCogs;
       const cogs = unitsSold * unitCogs;
 
       if (pId === 'techbook') { techbookRev = rev; techbookCogsVal = cogs; }
@@ -239,7 +274,121 @@ export function computeIndustryPerformance(
     const finCharges = debtInterest + overdraftInterest;
     const ebt = ebitda - depr - finCharges;
     const taxation = ebt > 0 ? Math.round(ebt * (FINANCE_CONSTANTS?.taxRate || 0.28)) : 0;
-    const netProfit = ebt - taxation;
+
+    // 7. ALP Regional Market Opportunities (Botswana & Mozambique in Year 2; Botswana in Year 3)
+    const isALPActive = getActiveClassIsALP() || rawBotswanaEnteringCount > 0 || rawMozambiqueEnteringCount > 0 || Boolean(t.history?.[period]?.alpOpportunities);
+    let alpOpportunities: PeriodALPOpportunities | undefined;
+    let otherIncome = 0;
+
+    if (isALPActive && (period === 2 || period === 3)) {
+      const enteredBotswana = didTeamEnterBotswanaInPeriod(t, period);
+      const enteredBotswanaPrevYear = period === 3 ? didTeamEnterBotswanaInPeriod(t, 2) : false;
+      const botswanaCount = activeTeams.length > 1
+        ? rawBotswanaEnteringCount
+        : (t.history?.[period]?.alpOpportunities?.botswana?.enteringTeamsCount ?? rawBotswanaEnteringCount);
+
+      const botswanaDemand: Record<ProductId, number> = period === 2
+        ? { techbook: 50000, zroid: 80000, itab: 60000 }
+        : { techbook: 20000, zroid: 50000, itab: 70000 };
+
+      const bwAllocatedUnits: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
+      const bwProductContribution: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
+      let bwRevenue = 0;
+      let bwGrossProfit = 0;
+
+      if (enteredBotswana && botswanaCount > 0) {
+        pKeys.forEach(pId => {
+          const allocUnits = botswanaDemand[pId] / botswanaCount;
+          bwAllocatedUnits[pId] = allocUnits;
+          const price = dec.marketing?.prices?.[pId] ?? 0;
+          const prodRev = price * allocUnits;
+          const prodGpMargin = price > 0 ? (price - unitCogsByProduct[pId]) / price : 0;
+          const contrib = Math.round(prodRev * prodGpMargin);
+          bwProductContribution[pId] = contrib;
+          bwRevenue += Math.round(prodRev);
+          bwGrossProfit += contrib;
+        });
+      }
+
+      const bwOperatingCost = (enteredBotswana && botswanaCount > 0)
+        ? (period === 2 ? 90000000 : (enteredBotswanaPrevYear ? 50000000 : 95000000))
+        : 0;
+      const bwPreTaxProfit = bwGrossProfit - bwOperatingCost;
+      const bwTax = (period === 3 && enteredBotswana && botswanaCount > 0 && bwPreTaxProfit > 0)
+        ? Math.round(bwPreTaxProfit * 0.50)
+        : 0;
+      const bwTotalCost = bwOperatingCost + bwTax;
+      const bwNet = (enteredBotswana && botswanaCount > 0) ? (bwGrossProfit - bwTotalCost) : 0;
+
+      const botswanaResult: ALPOpportunityMarketResult = {
+        entered: enteredBotswana,
+        enteringTeamsCount: botswanaCount,
+        enteredInPreviousYear: period === 3 ? enteredBotswanaPrevYear : undefined,
+        allocatedUnits: bwAllocatedUnits,
+        productContribution: bwProductContribution,
+        totalRevenue: bwRevenue,
+        totalGrossProfit: bwGrossProfit,
+        operatingCost: bwOperatingCost,
+        tax: bwTax,
+        totalCost: bwTotalCost,
+        netOfOpportunity: bwNet,
+      };
+
+      let mozambiqueResult: ALPOpportunityMarketResult | undefined;
+      if (period === 2) {
+        const enteredMozambique = didTeamEnterMozambiqueInPeriod(t, 2);
+        const mozambiqueCount = activeTeams.length > 1
+          ? rawMozambiqueEnteringCount
+          : (t.history?.[2]?.alpOpportunities?.mozambique?.enteringTeamsCount ?? rawMozambiqueEnteringCount);
+        const mozambiqueDemand: Record<ProductId, number> = { techbook: 20000, zroid: 45000, itab: 40000 };
+        const mzAllocatedUnits: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
+        const mzProductContribution: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
+        let mzRevenue = 0;
+        let mzGrossProfit = 0;
+
+        if (enteredMozambique && mozambiqueCount > 0) {
+          pKeys.forEach(pId => {
+            const allocUnits = mozambiqueDemand[pId] / mozambiqueCount;
+            mzAllocatedUnits[pId] = allocUnits;
+            const price = dec.marketing?.prices?.[pId] ?? 0;
+            const prodRev = price * allocUnits;
+            const prodGpMargin = price > 0 ? (price - unitCogsByProduct[pId]) / price : 0;
+            const contrib = Math.round(prodRev * prodGpMargin);
+            mzProductContribution[pId] = contrib;
+            mzRevenue += Math.round(prodRev);
+            mzGrossProfit += contrib;
+          });
+        }
+
+        const mzOperatingCost = (enteredMozambique && mozambiqueCount > 0)
+          ? Math.round(mzRevenue * 0.045)
+          : 0;
+        const mzTotalCost = mzOperatingCost;
+        const mzNet = (enteredMozambique && mozambiqueCount > 0) ? (mzGrossProfit - mzTotalCost) : 0;
+
+        mozambiqueResult = {
+          entered: enteredMozambique,
+          enteringTeamsCount: mozambiqueCount,
+          allocatedUnits: mzAllocatedUnits,
+          productContribution: mzProductContribution,
+          totalRevenue: mzRevenue,
+          totalGrossProfit: mzGrossProfit,
+          operatingCost: mzOperatingCost,
+          tax: 0,
+          totalCost: mzTotalCost,
+          netOfOpportunity: mzNet,
+        };
+      }
+
+      otherIncome = botswanaResult.netOfOpportunity + (mozambiqueResult?.netOfOpportunity ?? 0);
+      alpOpportunities = {
+        botswana: botswanaResult,
+        ...(mozambiqueResult ? { mozambique: mozambiqueResult } : {}),
+        totalNetOtherIncome: otherIncome,
+      };
+    }
+
+    const netProfit = ebt - taxation + otherIncome;
     const npMargin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
 
     // Balance Sheet Equity & ROE
@@ -319,6 +468,7 @@ export function computeIndustryPerformance(
       financeCharges: finCharges,
       ebt,
       taxation,
+      ...(alpOpportunities ? { otherIncome, alpOpportunities } : {}),
       netProfit,
       npMargin,
       equity,

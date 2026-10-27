@@ -582,7 +582,7 @@ export function computeMarketShareBackModel(
   });
 }
 
-export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number): PeriodRecord['balanceSheet'] & { openingEquity: number; netProfit: number } {
+export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number, allTeams?: Team[]): PeriodRecord['balanceSheet'] & { openingEquity: number; netProfit: number } {
   if (targetPeriod <= 0) {
     return {
       ...YEAR_0_RECORD.balanceSheet,
@@ -611,13 +611,15 @@ export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number):
     const decs = getDecisionsForTeamPeriod(team, p);
     const result = processTurn(currentTeamState, decs, []);
     lastOpeningEquity = currentTeamState.shareholdersEquity;
+    let periodOtherIncome = 0;
     
     // Ensure Net Profit matches computeIndustryPerformance single source of truth exactly
     try {
-      const perfList = computeIndustryPerformance([team], p);
+      const perfList = computeIndustryPerformance(allTeams && allTeams.length > 0 ? allTeams : [team], p);
       const teamPerf = perfList.find(item => item.teamId === team.id);
       if (teamPerf) {
         lastNetProfit = teamPerf.netProfit;
+        periodOtherIncome = teamPerf.otherIncome ?? 0;
         // Re-reconcile equity and cash balance with official industry net profit
         const netProfitDiff = lastNetProfit - result.periodRecord.netProfit;
         const adjustedEquity = result.periodRecord.balanceSheet.equity + netProfitDiff;
@@ -638,7 +640,13 @@ export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number):
       lastNetProfit = result.periodRecord.netProfit;
     }
 
-    currentTeamState = result.newTeamState;
+    currentTeamState = periodOtherIncome !== 0
+      ? {
+          ...result.newTeamState,
+          cashBalance: (result.newTeamState.cashBalance ?? 0) + periodOtherIncome,
+          shareholdersEquity: (result.newTeamState.shareholdersEquity ?? 0) + periodOtherIncome,
+        }
+      : result.newTeamState;
   }
 
   return {

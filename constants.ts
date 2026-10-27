@@ -302,6 +302,38 @@ export const PRODUCT_DEMAND_SCHEDULE: Record<ProductId, Record<number, number>> 
   }
 };
 
+export const ALP_PRODUCT_DEMAND_SCHEDULE: Record<ProductId, Record<number, number>> = {
+  techbook: {
+    0: 288750, // Year 0
+    1: 187588, // Year 1
+    2: 240800, // Year 2 (from ALP Scenario)
+    3: 82500,  // Year 3 (from ALP Scenario)
+    4: 87038   // Year 4
+  },
+  zroid: {
+    0: 179888, // Year 0
+    1: 260242, // Year 1
+    2: 287930, // Year 2 (from ALP Scenario)
+    3: 160000, // Year 3 (from ALP Scenario)
+    4: 172000  // Year 4
+  },
+  itab: {
+    0: 89750,  // Year 0
+    1: 127559, // Year 1
+    2: 251407, // Year 2 (from ALP Year 2 Scenario: 196,907 + 54,500 Product X)
+    3: 180000, // Year 3 (from ALP Year 3 Scenario)
+    4: 198900  // Year 4
+  }
+};
+
+let _activeClassIsALP = false;
+
+export const setActiveClassIsALP = (isALP: boolean): void => {
+  _activeClassIsALP = Boolean(isALP);
+};
+
+export const getActiveClassIsALP = (): boolean => _activeClassIsALP;
+
 export function getOverriddenValue(path: string[], period: number, fallback: number): number {
   try {
     const raw = typeof window !== 'undefined' ? localStorage.getItem('simulation_config_overrides') : null;
@@ -322,7 +354,7 @@ export function getOverriddenValue(path: string[], period: number, fallback: num
   return fallback;
 }
 
-export const getMarketSize = (productId: ProductId, period: number): number => {
+export const getMarketSize = (productId: ProductId, period: number, isALP?: boolean): number => {
   const pName = productId === 'techbook' ? 'TechBook' : (productId === 'zroid' ? 'Zroid' : 'iTab');
 
   // Check custom facilitator configuration overrides first
@@ -337,7 +369,8 @@ export const getMarketSize = (productId: ProductId, period: number): number => {
     }
   } catch (e) {}
 
-  const schedule = PRODUCT_DEMAND_SCHEDULE[productId];
+  const useALP = isALP !== undefined ? isALP : _activeClassIsALP;
+  const schedule = useALP ? ALP_PRODUCT_DEMAND_SCHEDULE[productId] : PRODUCT_DEMAND_SCHEDULE[productId];
   if (schedule && schedule[period] !== undefined) {
     return schedule[period];
   }
@@ -450,13 +483,7 @@ Based on in-depth customer analysis, a leading consulting company has advised th
 
 Based on the ending employee satisfaction levels, the following number of staff members have been lost by the different teams:
 
-| | Team 1 | Team 2 | Team 3 | Team 4 | Team 5 |
-| --- | --- | --- | --- | --- | --- |
-| Engineers | 7 | 7 | 10 | 9 | 11 |
-| Technicians | 10 | 10 | 11 | 12 | 14 |
-| Semi-skilled | 14 | 13 | 14 | 15 | 19 |
-| Admin & Sales | 17 | 18 | 24 | 17 | 18 |
-| Customer Service | 54 | 57 | 63 | 50 | 47 |
+{{STAFF_ATTRITION_TABLE}}
 
 ## Supplier Negotiations
 
@@ -511,9 +538,13 @@ The Botswana government has received considerable pressure from civil society to
 
 Please remember: All teams will have equal opportunity to enter this market and just need to indicate upon submission of the simulation if they will enter Botswana. You are not bound by your decision in Year 2. You do not need to forecast additional units for the opportunities – they will be acquired via your cheapest supplier. Your pricing in South Africa will be used and the opportunities will be divided equally between all teams that choose to enter the market.
 
+{{REGIONAL_OPPORTUNITIES_YEAR2_TABLE}}
+
 ## Staff Attrition
 
-Based on the ending employee satisfaction levels your staff attrition would have been adjusted.
+Based on the ending employee satisfaction levels, the following number of staff members have been lost by the different teams:
+
+{{STAFF_ATTRITION_TABLE}}
 
 ## Supplier Negotiations
 
@@ -622,13 +653,7 @@ _(Unit rows above are the opportunity revenue contribution per team as captured 
 
 Based on the ending employee satisfaction levels, the following number of staff members have been lost by the different teams:
 
-| | Team 1 | Team 2 | Team 3 | Team 4 | Team 5 |
-| --- | --- | --- | --- | --- | --- |
-| Engineers | 10 | 9 | 13 | 17 | 15 |
-| Technicians | 13 | 13 | 18 | 22 | 21 |
-| Semi-skilled | 18 | 17 | 21 | 30 | 27 |
-| Admin & Sales | 27 | 28 | 29 | 33 | 32 |
-| Customer Service | 91 | 96 | 91 | 104 | 101 |
+{{STAFF_ATTRITION_TABLE}}
 
 It also appears the shareholder, Mrs Smith, was correct in her worry about the salaries of engineers and the information she received has proved to have been reliable. Additional attrition due to companies not paying what was considered to be a fair wage by the engineers in the industry (i.e. a minimum of R60,000):
 
