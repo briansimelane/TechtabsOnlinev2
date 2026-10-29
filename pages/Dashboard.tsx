@@ -26,7 +26,7 @@ import { PRODUCTS, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, getMarketSize, 
 import { ProductId, HRRole, PeriodRecord } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { formatNumber, formatPercent } from '../utils/numberFormat';
-import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
+import { sCurve, WEIGHTS, MARKET_ANCHORS, getProductBuyingWeights } from '../utils/SimulationEngine';
 import { useFlashOnChange } from '../utils/useFlashOnChange';
 import { computeIndustryPerformance } from '../utils/industryPerformance';
 import { getTeamOpeningStaffForPeriod } from '../utils/marketShareBackModel';
@@ -439,7 +439,7 @@ const Dashboard: React.FC = () => {
   let sumProductCSAT = 0;
   
   PRODUCTS.forEach(p => {
-    const w = WEIGHTS[p.name.toLowerCase()] || WEIGHTS[p.id] || { price: 1, terms: 1, innov: 1, ad: 1, stores: 1, agents: 1, staff: 1 };
+    const w = getProductBuyingWeights(p.id, currentPeriod, Boolean(currentClass?.isActionLearningProject));
     
     const sPrice = sCurve(decisions.marketing.prices[p.id], MARKET_ANCHORS.price[p.name.toLowerCase()] || MARKET_ANCHORS.price[p.id], false);
     

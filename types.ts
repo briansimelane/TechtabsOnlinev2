@@ -38,9 +38,32 @@ export interface ALPOpportunityMarketResult {
   netOfOpportunity: number;
 }
 
+export interface ZenBuyerBreakdown {
+  teamId: string;
+  teamName: string;
+  units: number;
+  revenue: number;
+  transferCost: number;
+  profit: number;
+}
+
+export interface ZenOpportunityResult {
+  isOwner: boolean;
+  ownershipPct: number; // 0 to 100
+  winningBidAmount: number;
+  purchasePriceShare: number;
+  totalExternalUnitsSold: number;
+  totalExternalSalesRevenue: number;
+  totalExternalTransferCost: number;
+  totalZenB2BProfit: number;
+  netOfOpportunity: number; // totalZenB2BProfit * (ownershipPct / 100)
+  buyerBreakdown?: Record<string, ZenBuyerBreakdown>;
+}
+
 export interface PeriodALPOpportunities {
   botswana?: ALPOpportunityMarketResult;
   mozambique?: ALPOpportunityMarketResult;
+  zen?: ZenOpportunityResult;
   totalNetOtherIncome: number;
 }
 
@@ -207,6 +230,33 @@ export interface ClassScenarioOverride {
   updatedAt?: string;        // ISO
 }
 
+export interface ZenAuctionBid {
+  id: string;
+  teamId: string;
+  teamName: string;
+  amount: number;
+  incrementUsed: number;
+  timestamp: string;     // ISO
+  displayTime: string;   // HH:MM:SS
+}
+
+export interface ZenAuctionState {
+  startTime: string;     // e.g. '14:45'
+  endTime: string;       // e.g. '15:00' (inclusive through '15:00:59')
+  reservePrice: number;  // default 190_000_000
+  transferCosts?: Record<ProductId, { components: number; finishedGoods: number }>;
+  manualStatus?: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
+  bids: ZenAuctionBid[];
+  isAwarded: boolean;
+  winningBidId?: string;
+  winningTeamId?: string;
+  winningTeamName?: string;
+  winningAmount?: number;
+  jvSplits: Record<string, number>; // teamId -> ownership % (sum = 100)
+  jvConfirmed: boolean;
+  updatedAt?: string;
+}
+
 export interface SimulationClass {
   id: string;
   name: string;
@@ -231,6 +281,7 @@ export interface SimulationClass {
   editionId?: EditionId;
   classEvents?: ClassEvent[];
   scenarioOverrides?: Record<number, ClassScenarioOverride>;
+  zenAuction?: ZenAuctionState;
 }
 
 

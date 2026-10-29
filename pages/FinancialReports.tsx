@@ -8,7 +8,7 @@ import {
   ComposedChart, Line, Cell
 } from 'recharts';
 import { formatCurrency, formatNumber, formatPercent } from '../utils/numberFormat';
-import { computeIndustryPerformance } from '../utils/industryPerformance';
+import { computeIndustryPerformance, getSupplierComponentCost } from '../utils/industryPerformance';
 import { processTurn } from '../utils/SimulationEngine';
 import { getDecisionsForTeamPeriod, computeTeamPeriodBalanceSheet } from '../utils/marketShareBackModel';
 import { getEdition } from '../utils/editions';
@@ -41,14 +41,14 @@ const FinancialReports: React.FC = () => {
     let ind = rawRec?.industry;
     if (!ind && prevPeriod >= 1 && realTeams.length > 0) {
       try {
-        const perfList = computeIndustryPerformance(realTeams, prevPeriod);
+        const perfList = computeIndustryPerformance(realTeams, prevPeriod, currentClass?.zenAuction);
         ind = perfList.find(p => p.teamId === currentTeam.id);
       } catch (e) {
         console.warn("Could not compute prior industry performance fallback:", e);
       }
     }
 
-    const bs = computeTeamPeriodBalanceSheet(currentTeam, prevPeriod, realTeams);
+    const bs = computeTeamPeriodBalanceSheet(currentTeam, prevPeriod, realTeams, currentClass?.zenAuction);
 
     const prevRevenue = ind?.totalRevenue ?? rawRec?.revenue?.total ?? YEAR_0_RECORD.revenue.total;
     const prevCogs = ind?.totalCogs ?? rawRec?.cogs?.total ?? YEAR_0_RECORD.cogs.total;
@@ -59,6 +59,7 @@ const FinancialReports: React.FC = () => {
     const prevEbt = ind?.ebt ?? rawRec?.ebt ?? YEAR_0_RECORD.ebt;
     const prevTax = ind?.taxation ?? rawRec?.tax ?? YEAR_0_RECORD.tax;
     const prevOtherIncome = ind?.otherIncome ?? rawRec?.otherIncome ?? 0;
+    const prevAlpOpportunities = ind?.alpOpportunities ?? rawRec?.alpOpportunities;
     const prevNetProfit = ind?.netProfit ?? bs.netProfit;
 
     const prevOpex = {
@@ -92,6 +93,7 @@ const FinancialReports: React.FC = () => {
       ebt: prevEbt,
       tax: prevTax,
       otherIncome: prevOtherIncome,
+      alpOpportunities: prevAlpOpportunities,
       netProfit: prevNetProfit,
       opex: prevOpex,
       balanceSheet: {
@@ -252,8 +254,7 @@ const FinancialReports: React.FC = () => {
 
       Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
         if (val && val.components > 0) {
-          const supMetric = (SUPPLIERS as any)[supId];
-          const supPrice = supMetric?.unitPrices?.[p.id] ?? componentCost;
+          const supPrice = getSupplierComponentCost(p.id, supId, decisions);
           totalAllocCost += supPrice * val.components;
           totalAllocComponents += val.components;
         }
@@ -534,6 +535,30 @@ const FinancialReports: React.FC = () => {
                                  <span className="font-mono">R {decisions.marketing.advertisingBudget.toLocaleString()}</span>
                              </div>
                          </div>
+                         {Boolean(currentClass?.isActionLearningProject) && (currentTeam.currentPeriod === 2 || currentTeam.currentPeriod === 3) && (
+                           <div>
+                             <p className="font-bold text-slate-800 mb-1 border-b border-slate-100">Regional Market Opportunities</p>
+                             <div className="flex justify-between items-center py-1">
+                               <span className="text-slate-600">Botswana (Alliance)</span>
+                               <span className={`font-bold text-xs px-2 py-0.5 rounded ${decisions.marketing.alpOpportunities?.botswana ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                 {decisions.marketing.alpOpportunities?.botswana ? 'Entering Market' : 'Not Entering'}
+                               </span>
+                             </div>
+                             {currentTeam.currentPeriod === 2 ? (
+                               <div className="flex justify-between items-center py-1">
+                                 <span className="text-slate-600">Mozambique (Agent)</span>
+                                 <span className={`font-bold text-xs px-2 py-0.5 rounded ${decisions.marketing.alpOpportunities?.mozambique ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                                   {decisions.marketing.alpOpportunities?.mozambique ? 'Entering Market' : 'Not Entering'}
+                                 </span>
+                               </div>
+                             ) : (
+                               <div className="flex justify-between items-center py-1">
+                                 <span className="text-slate-600">Mozambique</span>
+                                 <span className="text-xs text-amber-700 font-semibold">Closed (Import Restrictions)</span>
+                               </div>
+                             )}
+                           </div>
+                         )}
                      </div>
                  </div>
 
@@ -1028,6 +1053,137 @@ const FinancialReports: React.FC = () => {
                            </div>
                       </div>
                   </div>
+
+                  {actuals.alpOpportunities && (
+                    <div className="mt-6 bg-white rounded-lg border border-indigo-200 shadow-sm overflow-hidden">
+                      <div className="bg-indigo-600 px-4 sm:px-6 py-3 text-white flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm sm:text-base font-bold">
+                            Regional Market Opportunities Results — Actual Year {actuals.period} (Added to Other Income)
+                          </h3>
+                          <p className="text-xs text-indigo-100">
+                            Net contribution from Botswana &amp; Mozambique regional market opportunities after running Year {actuals.period}
+                          </p>
+                        </div>
+                        <span className="font-mono font-bold text-sm sm:text-base bg-indigo-700/80 px-3 py-1 rounded">
+                          Other Income: {formatCurrency(actuals.alpOpportunities.totalNetOtherIncome)}
+                        </span>
+                      </div>
+                      <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs sm:text-sm">
+                        {/* Botswana */}
+                        {actuals.alpOpportunities.botswana && (
+                          <div className="border border-slate-200 rounded-lg p-4 space-y-2.5 bg-slate-50/40">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                              <span className="font-bold text-slate-900">Botswana Opportunity (Alliance)</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${actuals.alpOpportunities.botswana.entered ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                                {actuals.alpOpportunities.botswana.entered ? 'Entered Market' : 'Did Not Enter'}
+                              </span>
+                            </div>
+                            {actuals.period === 3 && (
+                              <div className="flex justify-between text-slate-600">
+                                <span>Year 2 Botswana Status:</span>
+                                <span className="font-semibold">
+                                  {actuals.alpOpportunities.botswana.enteredInPreviousYear ? 'Entered in Year 2 (R50m Agreement)' : 'Not in Year 2 (R95m Agreement)'}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-slate-600">
+                              <span>Allocated Units (TB / ZR / IT):</span>
+                              <span className="font-mono">
+                                {formatNumber(actuals.alpOpportunities.botswana.allocatedUnits.techbook, 0)} / {formatNumber(actuals.alpOpportunities.botswana.allocatedUnits.zroid, 0)} / {formatNumber(actuals.alpOpportunities.botswana.allocatedUnits.itab, 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Product GP Contribution (Rev × GP%):</span>
+                              <span className="font-mono">{formatCurrency(actuals.alpOpportunities.botswana.totalGrossProfit)}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Less: Operating Agreement Cost:</span>
+                              <span className="font-mono text-red-600">-{formatCurrency(actuals.alpOpportunities.botswana.operatingCost)}</span>
+                            </div>
+                            {actuals.period === 3 && (
+                              <div className="flex justify-between text-slate-600">
+                                <span>Less: 50% Tax on Profits:</span>
+                                <span className="font-mono text-red-600">-{formatCurrency(actuals.alpOpportunities.botswana.tax || 0)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold pt-2 border-t border-slate-200 text-slate-900">
+                              <span>Botswana Net Contribution:</span>
+                              <span className={`font-mono ${actuals.alpOpportunities.botswana.netOfOpportunity >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                                {formatCurrency(actuals.alpOpportunities.botswana.netOfOpportunity)}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Mozambique */}
+                        {actuals.alpOpportunities.mozambique ? (
+                          <div className="border border-slate-200 rounded-lg p-4 space-y-2.5 bg-slate-50/40">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                              <span className="font-bold text-slate-900">Mozambique Opportunity (Agent)</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${actuals.alpOpportunities.mozambique.entered ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                                {actuals.alpOpportunities.mozambique.entered ? 'Entered Market' : 'Did Not Enter'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Allocated Units (TB / ZR / IT):</span>
+                              <span className="font-mono">
+                                {formatNumber(actuals.alpOpportunities.mozambique.allocatedUnits.techbook, 0)} / {formatNumber(actuals.alpOpportunities.mozambique.allocatedUnits.zroid, 0)} / {formatNumber(actuals.alpOpportunities.mozambique.allocatedUnits.itab, 0)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Product GP Contribution (Rev × GP%):</span>
+                              <span className="font-mono">{formatCurrency(actuals.alpOpportunities.mozambique.totalGrossProfit)}</span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Less: 4.5% Agent Commission:</span>
+                              <span className="font-mono text-red-600">-{formatCurrency(actuals.alpOpportunities.mozambique.operatingCost)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold pt-2 border-t border-slate-200 text-slate-900">
+                              <span>Mozambique Net Contribution:</span>
+                              <span className={`font-mono ${actuals.alpOpportunities.mozambique.netOfOpportunity >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                                {formatCurrency(actuals.alpOpportunities.mozambique.netOfOpportunity)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : actuals.alpOpportunities.zen ? (
+                          <div className="border border-slate-200 rounded-lg p-4 space-y-2.5 bg-slate-50/40">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                              <span className="font-bold text-slate-900">Zen Open-Bid Acquisition & B2B Sales</span>
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${actuals.alpOpportunities.zen.isOwner ? 'bg-indigo-100 text-indigo-800' : 'bg-slate-200 text-slate-600'}`}>
+                                {actuals.alpOpportunities.zen.isOwner ? `JV Owner (${actuals.alpOpportunities.zen.ownershipPct}%)` : 'External Buyer'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Winning Bid / Purchase Share:</span>
+                              <span className="font-mono">
+                                {formatCurrency(actuals.alpOpportunities.zen.winningBidAmount)} ({formatCurrency(actuals.alpOpportunities.zen.purchasePriceShare)} share)
+                              </span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Third-Party Units Sold by Zen:</span>
+                              <span className="font-mono">{formatNumber(actuals.alpOpportunities.zen.totalExternalUnitsSold, 0)} units</span>
+                            </div>
+                            <div className="flex justify-between text-slate-600">
+                              <span>Total Zen B2B Sales Profit Pool:</span>
+                              <span className="font-mono">{formatCurrency(actuals.alpOpportunities.zen.totalZenB2BProfit)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold pt-2 border-t border-slate-200 text-slate-900">
+                              <span>Zen B2B Profit Credited (Other Income):</span>
+                              <span className="font-mono text-emerald-700">
+                                +{formatCurrency(actuals.alpOpportunities.zen.netOfOpportunity)}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border border-slate-200 rounded-lg p-4 flex flex-col justify-center items-center text-center bg-slate-50/40 text-slate-500">
+                            <span className="font-bold text-slate-700 mb-1">Mozambique Market Closed in Year 3</span>
+                            <span className="text-xs">Restricted by Mozambican government import regulations in favour of local producers.</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
               </div>
           )}

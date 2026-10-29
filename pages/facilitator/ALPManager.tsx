@@ -3,6 +3,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { SCENARIO_TEMPLATES } from '../../constants';
 import { resolveScenario } from '../../utils/scenarioResolver';
 import { MarkdownViewer } from '../../components/common/MarkdownViewer';
+import { ZenAuctionAndB2BPanel } from '../../components/alp/ZenAuctionAndB2BPanel';
 import { ClassEvent } from '../../types';
 import { 
   BookOpen, 
@@ -237,6 +238,11 @@ export default function ALPManager() {
           </div>
         )}
       </div>
+
+      {/* Year 3 Zen Live Open-Bid Auction, JV Split & B2B Negotiations (ALP Only) */}
+      {isALP && selectedPeriod === 3 && (
+        <ZenAuctionAndB2BPanel />
+      )}
 
       {/* SECTION 1: SCENARIO MANAGER */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">

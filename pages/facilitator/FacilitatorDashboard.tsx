@@ -35,6 +35,7 @@ import { formatNumber, formatPercent, formatCurrency } from '../../utils/numberF
 import { Team, HRRole } from '../../types';
 import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS, INITIAL_DECISIONS, STORE_COSTS } from '../../constants';
 import { computeMarketShareBackModel } from '../../utils/marketShareBackModel';
+import { computeIndustryPerformance } from '../../utils/industryPerformance';
 
 const FacilitatorDashboard: React.FC = () => {
   const { currentClassId, classes, runClassSimulation, selectClass, reopenTeamDecisions, submitTeamDecisionsByFacilitator, archiveTeam, restoreTeam, updateTeamName } = useSimulation();
@@ -102,115 +103,21 @@ const FacilitatorDashboard: React.FC = () => {
   const realTeams = (currentClass.teams || []).filter(t => !t.isArchived);
   const period = currentClass.currentPeriod;
   const backModelResults = computeMarketShareBackModel(realTeams, period);
+  const livePerfList = computeIndustryPerformance(realTeams, period, currentClass.zenAuction);
+  const livePerfMap = new Map(livePerfList.map(p => [p.teamId, p]));
 
-  const teamsPerformance = realTeams.map((t, tIdx) => {
-    const dec = t.draftDecisions || INITIAL_DECISIONS;
-
-    let totalRev = 0;
-    let totalCogs = 0;
-
-    const totalProdUnits = (dec.operations?.production?.techbook || 0) + (dec.operations?.production?.zroid || 0) + (dec.operations?.production?.itab || 0);
-    const techCount = (t.staffCounts?.technicians || 150) + (dec.hr?.hiring?.technicians || 0);
-    const semiCount = (t.staffCounts?.semiSkilled || 200) + (dec.hr?.hiring?.semiSkilled || 0);
-    const techSalary = dec.hr?.salaries?.technicians || 38000;
-    const semiSalary = dec.hr?.salaries?.semiSkilled || 30000;
-    const totalProdStaffCost = (techCount * techSalary + semiCount * semiSalary) * 8;
-    const laborCostPerUnit = totalProdUnits > 0 ? (totalProdStaffCost / totalProdUnits) : 350;
-
-    const pKeys: ('techbook' | 'zroid' | 'itab')[] = ['techbook', 'zroid', 'itab'];
-    pKeys.forEach(pId => {
-      const res = backModelResults.find(r => r.productId === pId);
-      const unitsSold = res ? (res.unitsSoldByTeam[tIdx] || 0) : 0;
-      const price = dec.marketing?.prices?.[pId] ?? 0;
-      const rev = unitsSold * price;
-
-      let componentCost = pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000);
-      const alloc = dec.procurement?.supplierAllocation?.[pId];
-      if (alloc) {
-        let compSum = 0;
-        let compCount = 0;
-        Object.entries(alloc).forEach(([supId, val]: [string, any]) => {
-          if (val && val.components > 0) {
-            const supMetric = (SUPPLIER_METRICS as any)[supId];
-            const supPrice = supMetric?.unitPrices?.[pId] ?? (pId === 'techbook' ? 1200 : (pId === 'zroid' ? 1400 : 1000));
-            compSum += supPrice * val.components;
-            compCount += val.components;
-          }
-        });
-        if (compCount > 0) {
-          componentCost = compSum / compCount;
-        }
-      }
-
-      const unitCogs = componentCost + laborCostPerUnit;
-      const cogs = unitsSold * unitCogs;
-
-      totalRev += rev;
-      totalCogs += cogs;
-    });
-
-    const grossProfit = totalRev - totalCogs;
-
-    const adMkt = dec.marketing?.advertisingBudget ?? 12500000;
-    const openCloseStores = dec.marketing?.openCloseStores ?? 0;
-    const finalStoreCount = Math.max(0, (t.storeCount || 5) + openCloseStores);
-    const storeRunCost = finalStoreCount * (STORE_COSTS.running || 5614005);
-    const storeTransCost = openCloseStores > 0 ? openCloseStores * (STORE_COSTS.opening || 9353900) : (openCloseStores < 0 ? Math.abs(openCloseStores) * (STORE_COSTS.closing || 2438320) : 0);
-    const storeCost = storeRunCost + storeTransCost;
-
-    const agentComm = Math.round(totalRev * 0.52 * (dec.marketing?.agentCommission ?? 0));
-
-    let opexPayroll = 0;
-    let opexTraining = 0;
-    const hrRoles = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'] as const;
-    const baseStaffCounts: Record<string, number> = { engineers: 50, technicians: 150, semiSkilled: 200, adminSales: 40, customerService: 20 };
-    const baseSalaries: Record<string, number> = { engineers: 55000, technicians: 38000, semiSkilled: 30000, adminSales: 20000, customerService: 9250 };
-    const trainingCosts: Record<string, number> = { None: 0, Basic: 5000, Advanced: 15000, Specialized: 30000 };
-
-    hrRoles.forEach(r => {
-      const count = (t.staffCounts?.[r] ?? baseStaffCounts[r] ?? 0) + (dec.hr?.hiring?.[r] ?? 0);
-      const monthlySalary = dec.hr?.salaries?.[r] ?? baseSalaries[r] ?? 0;
-      const trainingLevel = dec.hr?.trainingLevels?.[r] ?? 'None';
-      const trCostPer = trainingCosts[trainingLevel] || 0;
-
-      opexTraining += count * trCostPer;
-      if (r !== 'technicians' && r !== 'semiSkilled') {
-        opexPayroll += count * monthlySalary * 8;
-      }
-    });
-
-    const rdCost = dec.operations?.innovationBudget ?? dec.operations?.rdBudget ?? 4000000;
-    const sumOtherExpenses = adMkt + storeCost + agentComm + opexPayroll + opexTraining + rdCost;
-    const otherOpex = Math.round(sumOtherExpenses * 0.0797);
-    const totalOpEx = sumOtherExpenses + otherOpex;
-
-    const ebitda = grossProfit - totalOpEx;
-    const depr = 1535965;
-    const longTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
-    const finCharges = longTermDebt > 0 ? Math.round(longTermDebt * 0.08) : 0;
-    const ebt = ebitda - depr - finCharges;
-    const taxation = ebt > 0 ? Math.round(ebt * 0.28) : 0;
-    const netProfit = ebt - taxation;
-
-    const openEq = t.shareholdersEquity || 286564937;
-    const equityChange = dec.finance?.equityChange || 0;
-    const dividends = dec.finance?.dividends || 0;
-    const equity = openEq + equityChange - dividends + netProfit;
-
-    const gpMargin = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0;
-    const npMargin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0;
-    const roe = equity > 0 ? (netProfit / equity) * 100 : 0;
-
+  const teamsPerformance = realTeams.map((t) => {
+    const perf = livePerfMap.get(t.id);
     return {
       id: t.id,
       name: t.name,
-      revenue: totalRev,
-      grossProfit,
-      netProfit,
-      equity,
-      gpMargin,
-      npMargin,
-      roe,
+      revenue: perf?.totalRevenue ?? 0,
+      grossProfit: perf?.grossProfit ?? 0,
+      netProfit: perf?.netProfit ?? 0,
+      equity: perf?.equity ?? 0,
+      gpMargin: perf?.gpMargin ?? 0,
+      npMargin: perf?.npMargin ?? 0,
+      roe: perf?.roe ?? 0,
       status: t.status || 'InProgress'
     };
   });

@@ -650,6 +650,22 @@ const MarketReports: React.FC = () => {
         label: `${roleLabel} : Closing Staff (Before Attrition)`,
         values: realTeams.map(t => formatNumber(getRoleHeadcountBreakdown(t, role).closingBeforeAttrition, 0))
       });
+      if (Boolean(currentClass?.isActionLearningProject) && reportPeriod === 2 && role === 'engineers') {
+        hrRows.push({
+          label: `${roleLabel} : Less ESAT Attrition`,
+          values: realTeams.map(t => {
+            const baseAttr = getRoleHeadcountBreakdown(t, role).baseAttrition;
+            return baseAttr > 0 ? `-${baseAttr}` : '0';
+          })
+        });
+        hrRows.push({
+          label: `${roleLabel} : Additional Attrition (Salary < R60,000)`,
+          values: realTeams.map(t => {
+            const addAttr = getRoleHeadcountBreakdown(t, role).additionalAttrition;
+            return addAttr > 0 ? `-${addAttr}` : '0';
+          })
+        });
+      }
       hrRows.push({
         label: `${roleLabel} : Less Attrition`,
         values: realTeams.map(t => {
@@ -850,7 +866,7 @@ const MarketReports: React.FC = () => {
     }
     const lastPeriod = Math.max(0, reportPeriod - 1);
 
-    const perfList = computeIndustryPerformance(realTeams, reportPeriod);
+    const perfList = computeIndustryPerformance(realTeams, reportPeriod, currentClass?.zenAuction);
     const perfMap = new Map(perfList.map(p => [p.teamId, p]));
 
     const getPerf = (t: typeof realTeams[0]): TeamIndustryPerformance => {
@@ -1009,11 +1025,17 @@ const MarketReports: React.FC = () => {
         { label: 'Mozambique : Agent Commission (4.5% of Sales)', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.operatingCost ?? 0, 0)) },
         { label: 'Mozambique : NET of Opportunity', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.mozambique?.netOfOpportunity ?? 0, 0)), bold: true, bg: 'bg-blue-50/60' }
       ] : []),
-      { label: 'Total Other Income (Regional Opportunities)', values: realTeams.map(t => formatCurrency(getPerf(t)?.otherIncome ?? 0, 0)), bold: true, bg: 'bg-emerald-50' }
+      ...(reportPeriod === 3 ? [
+        { label: 'Zen Acquisition : JV Ownership %', values: realTeams.map(t => `${getPerf(t)?.alpOpportunities?.zen?.ownershipPct ?? 0}%`), bold: true },
+        { label: 'Zen Acquisition : Purchase Price Share', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.zen?.purchasePriceShare ?? 0, 0)) },
+        { label: 'Zen B2B Sales : Total External Profit Pool', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.zen?.totalZenB2BProfit ?? 0, 0)) },
+        { label: 'Zen Acquisition : NET B2B Profit Share (Other Income)', values: realTeams.map(t => formatCurrency(getPerf(t)?.alpOpportunities?.zen?.netOfOpportunity ?? 0, 0)), bold: true, bg: 'bg-blue-50/60' }
+      ] : []),
+      { label: 'Total Other Income (Regional & Zen Opportunities)', values: realTeams.map(t => formatCurrency(getPerf(t)?.otherIncome ?? 0, 0)), bold: true, bg: 'bg-emerald-50' }
     ] : [];
 
     const getTeamBalance = (t: typeof realTeams[0]) => {
-      const bs = computeTeamPeriodBalanceSheet(t, reportPeriod, realTeams);
+      const bs = computeTeamPeriodBalanceSheet(t, reportPeriod, realTeams, currentClass?.zenAuction);
 
       const nonCurrAssets = bs.fixedAssets;
       const cashVal = bs.cash;

@@ -19,6 +19,9 @@ import ClassManagement from './pages/facilitator/ClassManagement';
 import DecisionTable from './pages/facilitator/DecisionTable';
 import GroupMarks from './pages/facilitator/GroupMarks';
 import ALPManager from './pages/facilitator/ALPManager';
+import ZenAuctionSandbox from './pages/facilitator/ZenAuctionSandbox';
+import TestingHub from './pages/facilitator/TestingHub';
+import ZenAuctionPage from './pages/ZenAuctionPage';
 import ScenarioBriefing from './pages/ScenarioBriefing';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import UserManagement from './pages/admin/UserManagement';
@@ -58,13 +61,22 @@ const AppLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  if (!isAuthenticated && location.pathname !== '/login' && location.pathname !== '/survey') {
+  if (!isAuthenticated && location.pathname !== '/login' && location.pathname !== '/survey' && location.pathname !== '/zen-sandbox') {
       return <Navigate to="/login" replace />;
   }
 
   // Login page layout (no sidebar/header)
   if (location.pathname === '/login') {
       return <Login />;
+  }
+
+  // Direct standalone preview of Zen Auction Sandbox when not logged in
+  if (!isAuthenticated && location.pathname === '/zen-sandbox') {
+      return (
+          <div className="min-h-screen bg-slate-100 p-4 sm:p-6 w-full">
+              <ZenAuctionSandbox />
+          </div>
+      );
   }
 
   // Survey page layout when not authenticated (no sidebar/header)
@@ -107,6 +119,7 @@ const AppLayout: React.FC = () => {
           <Route path="/market-reports" element={<MarketReports />} />
           <Route path="/survey" element={<Survey />} />
           <Route path="/scenario" element={<ScenarioBriefing />} />
+          <Route path="/zen-auction" element={<ZenAuctionPage />} />
           
           {/* Facilitator Routes */}
           <Route path="/facilitator/classes" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><FacilitatorClasses /></ProtectedRoute>} />
@@ -115,6 +128,9 @@ const AppLayout: React.FC = () => {
           <Route path="/facilitator/decision-table" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><DecisionTable /></ProtectedRoute>} />
           <Route path="/facilitator/marks" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><GroupMarks /></ProtectedRoute>} />
           <Route path="/facilitator/alp" element={<ProtectedRoute allowedRoles={['FACILITATOR']}><ALPManager /></ProtectedRoute>} />
+          <Route path="/facilitator/testing" element={<ProtectedRoute allowedRoles={['FACILITATOR', 'ADMIN']}><TestingHub /></ProtectedRoute>} />
+          <Route path="/facilitator/zen-sandbox" element={<Navigate to="/facilitator/testing" replace />} />
+          <Route path="/zen-sandbox" element={<ZenAuctionSandbox />} />
           
           {/* Admin Routes */}
           <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminDashboard /></ProtectedRoute>} />

@@ -8,6 +8,8 @@ import { TotalRevenueSlide } from '../pages/debrief/slides/TotalRevenueSlide';
 import { RevenueByProductSlide } from '../pages/debrief/slides/RevenueByProductSlide';
 import { RevenueMixSlide } from '../pages/debrief/slides/RevenueMixSlide';
 import { GrossProfitSlide } from '../pages/debrief/slides/GrossProfitSlide';
+import { RegionalOpportunitiesSlide } from '../pages/debrief/slides/RegionalOpportunitiesSlide';
+import { ZenAcquisitionSlide } from '../pages/debrief/slides/ZenAcquisitionSlide';
 import { ProductRevenueSlide } from '../pages/debrief/slides/ProductRevenueSlide';
 import { ProductShareSlide } from '../pages/debrief/slides/ProductShareSlide';
 import { ProductPlanVsActualSlide } from '../pages/debrief/slides/ProductPlanVsActualSlide';
@@ -84,6 +86,35 @@ export function compileDebriefSlides(dataset: DebriefDataset): SlideDefinition[]
     maxRevealSteps: 1,
     render: (p) => <GrossProfitSlide {...p} />
   });
+
+  // 5b. Regional Market Opportunities (Botswana & Mozambique) — right after Gross Profit for ALP classes in Year 2 & Year 3
+  const hasALPOpportunities =
+    (dataset.isActionLearningProject && (dataset.period === 2 || dataset.period === 3)) ||
+    dataset.teams.some(t => t.perf?.alpOpportunities != null || t.record?.alpOpportunities != null);
+
+  if (hasALPOpportunities) {
+    slides.push({
+      id: 'regional-opportunities',
+      title: 'Regional Market Opportunities & Other Income',
+      maxRevealSteps: 1,
+      render: (p) => <RegionalOpportunitiesSlide {...p} />
+    });
+  }
+
+  // 5c. Zen Acquisition, JV Split & B2B Other Income (ALP Year 3)
+  const hasZenYear3 =
+    (dataset.isActionLearningProject && dataset.period === 3) ||
+    Boolean(dataset.zenAuction?.isAwarded) ||
+    dataset.teams.some(t => t.perf?.alpOpportunities?.zen != null || t.record?.alpOpportunities?.zen != null);
+
+  if (hasZenYear3 && dataset.period === 3) {
+    slides.push({
+      id: 'zen-acquisition',
+      title: 'Zen Acquisition, JV Split & B2B Other Income',
+      maxRevealSteps: 1,
+      render: (p) => <ZenAcquisitionSlide {...p} />
+    });
+  }
 
   // Product slides (TechBook, Zroid, iTab)
   products.forEach(prod => {

@@ -5,6 +5,7 @@ import { PRODUCTS, SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_
 import { ProductId } from '../../types';
 import { Truck, Info, AlertCircle, ShoppingCart, Tag, BrainCircuit, Send, Lock, CheckCircle, Shield, Briefcase, User, Bot, X, MessageSquare } from 'lucide-react';
 import DecisionsSummary from '../../components/DecisionsSummary';
+import { ZenAuctionAndB2BPanel } from '../../components/alp/ZenAuctionAndB2BPanel';
 import { useFlashOnChange } from '../../utils/useFlashOnChange';
 
 const AnimatedProcurementInput: React.FC<{
@@ -32,7 +33,8 @@ const AnimatedProcurementInput: React.FC<{
 
 const Procurement: React.FC = () => {
   console.log("Procurement v2.1.3 loaded without negotiations.");
-  const { decisions, updateDecisions, currentTeam, startNegotiation, sendNegotiationMessage, isReadOnly, currentRole } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, classes, currentClassId, startNegotiation, sendNegotiationMessage, isReadOnly, currentRole } = useSimulation();
+  const currentClass = classes.find(c => c.id === currentClassId);
   const disabled = isReadOnly && currentRole === 'STUDENT';
   const { procurement, operations, negotiation } = decisions;
   const [activeTab, setActiveTab] = useState<ProductId>('techbook');
@@ -232,6 +234,11 @@ const Procurement: React.FC = () => {
           <p className="text-slate-500 mt-2 text-lg">Select suppliers and allocate volume for components and finished goods.</p>
         </div>
       </div>
+
+      {/* Year 3 Zen Live Auction, JV Split & B2B Negotiations (ALP Only) */}
+      {currentClass?.isActionLearningProject && (currentTeam?.currentPeriod === 3 || currentClass?.currentPeriod === 3) && (
+        <ZenAuctionAndB2BPanel />
+      )}
 
       {negotiation.status === 'AGREED' && (
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center justify-between shadow-sm">

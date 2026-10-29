@@ -1,5 +1,5 @@
 import { SimulationClass, ScenarioVariant, HRRole } from '../types';
-import { SCENARIO_TEMPLATES } from '../constants';
+import { SCENARIO_TEMPLATES, ZEN_RESERVE_PRICE, ZEN_TRANSFER_COSTS } from '../constants';
 import { getTeamRoleHeadcountForPeriod } from './marketShareBackModel';
 import { computeIndustryPerformance } from './industryPerformance';
 import { formatNumber } from './numberFormat';
@@ -37,7 +37,7 @@ export function buildDynamicAttritionTable(cls: SimulationClass | undefined, per
 
   const rateRow = `| Attrition Rate (1 - ESAT) | ${activeTeams
     .map(t => {
-      const breakdown = getTeamRoleHeadcountForPeriod(t, 'engineers', prevPeriod);
+      const breakdown = getTeamRoleHeadcountForPeriod(t, 'engineers', prevPeriod, true);
       const ratePct = Math.max(0, 1 - breakdown.closingEsat) * 100;
       return `${ratePct.toFixed(1)}%`;
     })
@@ -45,13 +45,41 @@ export function buildDynamicAttritionTable(cls: SimulationClass | undefined, per
 
   const roleRows = SCENARIO_ATTRITION_ROLES.map(({ id, label }) => {
     const values = activeTeams.map(t => {
-      const breakdown = getTeamRoleHeadcountForPeriod(t, id, prevPeriod);
+      const breakdown = getTeamRoleHeadcountForPeriod(t, id, prevPeriod, true);
+      // In Year 3 (prevPeriod === 2), show the ESAT-based attrition in the main table and break down the +2 salary penalty below
+      if (period === 3 && id === 'engineers') {
+        return String(breakdown.baseAttrition);
+      }
       return String(breakdown.attrition);
     });
     return `| ${label} | ${values.join(' | ')} |`;
   });
 
-  return [headerRow, separatorRow, rateRow, ...roleRows].join('\n');
+  const mainTable = [headerRow, separatorRow, rateRow, ...roleRows].join('\n');
+
+  if (period === 3) {
+    const engBreakdowns = activeTeams.map(t => getTeamRoleHeadcountForPeriod(t, 'engineers', 2, true));
+    const salaryRow = `| Year 2 Engineer Salary | ${engBreakdowns.map(b => `R ${formatNumber(b.salaryPaid, 0)}`).join(' | ')} |`;
+    const baseEngRow = `| Engineers (ESAT Attrition) | ${engBreakdowns.map(b => String(b.baseAttrition)).join(' | ')} |`;
+    const extraEngRow = `| Additional Engineers Lost (Salary < R60,000) | ${engBreakdowns.map(b => String(b.additionalAttrition)).join(' | ')} |`;
+    const totalEngRow = `| **Total Engineers Lost (into Year 3 Opening Staff)** | ${engBreakdowns.map(b => `**${b.attrition}**`).join(' | ')} |`;
+
+    const investorSection = [
+      '',
+      'It also appears the influential shareholder (investor), Mrs Smith, was correct in her worry about the salaries of engineers and the information she received has proved to have been reliable. The minimum salary of **R60,000** was wanted by the Engineers, and companies that paid their engineers less than **R60,000** at the end of Year 2 have incurred an additional attrition of **2 engineers** leading into Year 3 Opening Staff:',
+      '',
+      headerRow,
+      separatorRow,
+      salaryRow,
+      baseEngRow,
+      extraEngRow,
+      totalEngRow,
+    ].join('\n');
+
+    return `${mainTable}\n${investorSection}`;
+  }
+
+  return mainTable;
 }
 
 export function buildDynamicRegionalOpportunitiesYear2Section(cls: SimulationClass | undefined): string {
@@ -121,7 +149,12 @@ function injectDynamicAttrition(body: string, cls: SimulationClass | undefined, 
   if (period < 2 || !body) return body;
   const dynamicTable = buildDynamicAttritionTable(cls, period);
 
-  let updated = body;
+  // Strip any legacy static Mrs Smith / R60,000 engineer attrition paragraph & table before injecting {{STAFF_ATTRITION_TABLE}}
+  let updated = body.replace(
+    /\n*It also appears the shareholder, Mrs Smith, was correct in her worry about the salaries of engineers[\s\S]*?\|\s*Engineers\s*\|[^\n]*\n?/g,
+    '\n'
+  );
+
   if (updated.includes('{{STAFF_ATTRITION_TABLE}}')) {
     updated = updated.replace(/\{\{STAFF_ATTRITION_TABLE\}\}/g, dynamicTable);
   }
@@ -129,6 +162,37 @@ function injectDynamicAttrition(body: string, cls: SimulationClass | undefined, 
   if (period === 3 && updated.includes('{{REGIONAL_OPPORTUNITIES_YEAR2_TABLE}}')) {
     const oppSection = buildDynamicRegionalOpportunitiesYear2Section(cls);
     updated = updated.replace(/\{\{REGIONAL_OPPORTUNITIES_YEAR2_TABLE\}\}/g, oppSection);
+  }
+
+  // Dynamically inject Facilitator-configured Year 3 Zen Auction times, reserve price, and transfer costs
+  if (period === 3 && cls?.zenAuction) {
+    const zen = cls.zenAuction;
+    const startTime = zen.startTime || '14:45';
+    const endTime = zen.endTime || '15:00';
+    const reservePrice = zen.reservePrice || ZEN_RESERVE_PRICE;
+    const reservePriceMil = Math.round((reservePrice / 1_000_000) * 100) / 100;
+    const tc = zen.transferCosts || ZEN_TRANSFER_COSTS;
+
+    updated = updated.replace(
+      /The company will be sold at an OPEN bid auction between \d{1,2}:\d{2} and \d{1,2}:\d{2}\.[^\n]*/g,
+      `The company will be sold at an OPEN bid auction between ${startTime} and ${endTime}. Submit your bids live in the **Zen Auction** tab inside the simulation. Open bid means the highest price received on time wins the auction when the auction closes at ${endTime} (inclusive through ${endTime}:59).`
+    );
+    updated = updated.replace(
+      /The minimum asking price for the auction is R\s*[\d.,]+m\./g,
+      `The minimum asking price for the auction is R${reservePriceMil}m.`
+    );
+    updated = updated.replace(
+      /\*\*Asking Minimum Price:\s*R\s*[\d\s,]+\*\*/g,
+      `**Asking Minimum Price: R ${formatNumber(reservePrice, 0).replace(/,/g, ' ')}**`
+    );
+    updated = updated.replace(
+      /(Transfer Costs – Input Costs \/ Unit \(Raw Material\):\s*\n+\|\s*Product\s*\|\s*Cost\s*\|\s*\n\|\s*---\s*\|\s*---\s*\|\s*\n)\|\s*TechBook\s*\|\s*R\s*\d+\s*\|\s*\n\|\s*Zroid\s*\|\s*R\s*\d+\s*\|\s*\n\|\s*iTab\s*\|\s*R\s*\d+\s*\|/,
+      `$1| TechBook | R ${tc.techbook.components} |\n| Zroid | R ${tc.zroid.components} |\n| iTab | R ${tc.itab.components} |`
+    );
+    updated = updated.replace(
+      /(Transfer Costs – Input Costs \/ Unit \(Finished Goods\):\s*\n+\|\s*Product\s*\|\s*Cost\s*\|\s*\n\|\s*---\s*\|\s*---\s*\|\s*\n)\|\s*TechBook\s*\|\s*R\s*\d+\s*\|\s*\n\|\s*Zroid\s*\|\s*R\s*\d+\s*\|\s*\n\|\s*iTab\s*\|\s*R\s*\d+\s*\|/,
+      `$1| TechBook | R ${tc.techbook.finishedGoods} |\n| Zroid | R ${tc.zroid.finishedGoods} |\n| iTab | R ${tc.itab.finishedGoods} |`
+    );
   }
 
   // Also upgrade any existing saved override that still has the legacy static Year 2 / Year 3 attrition table or placeholder sentence

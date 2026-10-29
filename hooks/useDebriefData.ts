@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { doc, collection, onSnapshot } from 'firebase/firestore';
 import { getAppDb } from '../firebase';
-import { PeriodRecord, SimulationClass, Team, EditionId } from '../types';
+import { PeriodRecord, SimulationClass, Team, EditionId, ZenAuctionState } from '../types';
 import { ensurePeriodMarketRecord } from '../utils/debriefBackfill';
 import { processTurn } from '../utils/SimulationEngine';
 import { computeIndustryPerformance, TeamIndustryPerformance } from '../utils/industryPerformance';
-import { INITIAL_DECISIONS } from '../constants';
+import { INITIAL_DECISIONS, setActiveClassIsALP } from '../constants';
 import { getEdition } from '../utils/editions';
 
 export interface DebriefTeam {
@@ -26,6 +26,8 @@ export interface DebriefDataset {
   loading: boolean;
   error: string | null;
   editionId?: string;
+  isActionLearningProject?: boolean;
+  zenAuction?: ZenAuctionState;
 }
 
 export function useDebriefData(classId: string | null, period: number): DebriefDataset {
@@ -52,6 +54,8 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
 
     let currentClassName = '';
     let currentEditionId: EditionId | undefined = undefined;
+    let currentIsALP = false;
+    let currentZenAuction: ZenAuctionState | undefined = undefined;
     let rawTeams: Team[] = [];
 
     const loadFallbackTeams = (): Team[] => {
@@ -66,6 +70,8 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
               if (found && found.teams && found.teams.length > 0) {
                 if (!currentClassName) currentClassName = found.name || '';
                 if (!currentEditionId) currentEditionId = found.editionId;
+                if (found.isActionLearningProject !== undefined) currentIsALP = Boolean(found.isActionLearningProject);
+                if (found.zenAuction && !currentZenAuction) currentZenAuction = found.zenAuction;
                 return found.teams;
               }
             }
@@ -110,10 +116,12 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         .filter(t => !t.isArchived)
         .sort((a, b) => a.id.localeCompare(b.id));
 
+      setActiveClassIsALP(Boolean(currentIsALP));
+
       let livePerfList: TeamIndustryPerformance[] = [];
       try {
         if (activeTeams.length > 0) {
-          livePerfList = computeIndustryPerformance(activeTeams, period);
+          livePerfList = computeIndustryPerformance(activeTeams, period, currentZenAuction);
         }
       } catch (err) {
         console.warn("Error running industry performance calculation in debrief:", err);
@@ -176,7 +184,9 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
             ebitda: effectiveRec.operatingProfit ?? basePerf?.ebitda ?? (gp - (effectiveRec.opex?.total || 0)),
             depreciation: basePerf?.depreciation || 0,
             financeCharges: effectiveRec.interestExpense ?? basePerf?.financeCharges ?? 0,
-            ebt: effectiveRec.ebt ?? basePerf?.ebt ?? (gp - (effectiveRec.opex?.total || 0) - (effectiveRec.interestExpense || 0)),
+            otherIncome: effectiveRec.otherIncome ?? basePerf?.otherIncome ?? 0,
+            alpOpportunities: effectiveRec.alpOpportunities ?? basePerf?.alpOpportunities,
+            ebt: effectiveRec.ebt ?? basePerf?.ebt ?? (gp - (effectiveRec.opex?.total || 0) - (effectiveRec.interestExpense || 0) + (effectiveRec.otherIncome ?? basePerf?.otherIncome ?? 0)),
             taxation: effectiveRec.taxExpense ?? basePerf?.taxation ?? 0,
             netProfit: np,
             npMargin: npPct,
@@ -217,7 +227,9 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         teams: debriefTeams,
         loading: false,
         error: null,
-        editionId: currentEditionId
+        editionId: currentEditionId,
+        isActionLearningProject: currentIsALP,
+        zenAuction: currentZenAuction
       });
     };
 
@@ -226,6 +238,8 @@ export function useDebriefData(classId: string | null, period: number): DebriefD
         const cData = snap.data() as SimulationClass;
         currentClassName = cData.name || '';
         currentEditionId = cData.editionId;
+        currentIsALP = Boolean(cData.isActionLearningProject);
+        currentZenAuction = cData.zenAuction;
         if (cData.teams && cData.teams.length > 0) {
           rawTeams = mergeTeamsWithHistory(cData.teams, rawTeams);
         }

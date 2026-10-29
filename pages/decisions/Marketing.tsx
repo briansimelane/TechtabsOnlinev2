@@ -7,6 +7,7 @@ import DecisionsSummary from '../../components/DecisionsSummary';
 import { formatCurrency, formatNumber, formatPercent, parseNumber } from '../../utils/numberFormat';
 import { useFlashOnChange } from '../../utils/useFlashOnChange';
 import { computeIndustryPerformance, didTeamEnterBotswanaInPeriod } from '../../utils/industryPerformance';
+import { getCriterionRating } from '../../utils/marketShareBackModel';
 
 const Marketing: React.FC = () => {
   const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole, classes, currentClassId } = useSimulation();
@@ -329,11 +330,19 @@ const Marketing: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {PRODUCTS.map((product) => (
+                                {PRODUCTS.map((product) => {
+                                    const priceRating = getCriterionRating(1, product.id, currentTeam.currentPeriod);
+                                    const isAlpYear3ItabShift = Boolean(currentClass?.isActionLearningProject) && currentTeam.currentPeriod >= 3 && product.id === 'itab';
+                                    return (
                                     <tr key={product.id} className="hover:bg-slate-50">
                                         <td className="px-6 py-4 w-48">
                                             <div className="font-medium text-slate-900">{product.name}</div>
                                             <div className="text-xs text-slate-500">{product.segment} Segment</div>
+                                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${isAlpYear3ItabShift ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-slate-100 text-slate-600'}`}>
+                                                    Price Criteria: {priceRating}/10{isAlpYear3ItabShift ? ' (Updated in Year 3)' : ''}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4">
                                              <div className="relative w-32">
@@ -352,20 +361,27 @@ const Marketing: React.FC = () => {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
 
                     {/* Mobile Card View */}
                     <div className="block lg:hidden space-y-4 p-4">
-                        {PRODUCTS.map((product) => (
+                        {PRODUCTS.map((product) => {
+                            const priceRating = getCriterionRating(1, product.id, currentTeam.currentPeriod);
+                            const isAlpYear3ItabShift = Boolean(currentClass?.isActionLearningProject) && currentTeam.currentPeriod >= 3 && product.id === 'itab';
+                            return (
                             <div key={product.id} className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3">
                                 <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                                     <div>
                                         <h4 className="font-bold text-slate-800 text-sm">{product.name}</h4>
                                         <span className="text-[10px] text-slate-400 font-semibold uppercase">{product.segment} Segment</span>
                                     </div>
+                                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${isAlpYear3ItabShift ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                                        Price Criteria: {priceRating}/10
+                                    </span>
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[11px] font-medium text-slate-500 block">Unit Price (R)</label>
@@ -385,7 +401,8 @@ const Marketing: React.FC = () => {
                                     </span>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>

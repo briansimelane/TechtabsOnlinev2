@@ -2,6 +2,7 @@ import React from 'react';
 import { useSimulation } from '../contexts/SimulationContext';
 import { resolveScenario } from '../utils/scenarioResolver';
 import { MarkdownViewer } from '../components/common/MarkdownViewer';
+import { ZenAuctionAndB2BPanel } from '../components/alp/ZenAuctionAndB2BPanel';
 import { BookOpen, Calendar, Pin, AlertCircle, Info } from 'lucide-react';
 
 export default function ScenarioBriefing() {
@@ -93,6 +94,11 @@ export default function ScenarioBriefing() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Year 3 Zen Live Auction, JV Split & B2B Negotiations (ALP Only) */}
+      {isALP && activePeriod === 3 && (
+        <ZenAuctionAndB2BPanel />
       )}
 
       {/* Scenario Body Section */}

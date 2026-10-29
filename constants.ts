@@ -30,6 +30,14 @@ export const FINISHED_GOODS_COSTS: Record<string, Record<string, number>> = {
     itab: { Alpha: 1700, Neepo: 1600, Zen: 1800, Cheng: 1850 },
 };
 
+export const ZEN_RESERVE_PRICE = 190_000_000;
+
+export const ZEN_TRANSFER_COSTS: Record<ProductId, { components: number; finishedGoods: number }> = {
+    techbook: { components: 540, finishedGoods: 624 },
+    zroid: { components: 664, finishedGoods: 893 },
+    itab: { components: 575, finishedGoods: 900 },
+};
+
 // HR Constants
 export const HR_CONSTANTS = {
     trainingCosts: {
@@ -568,7 +576,7 @@ The Neepo management and the union representing employees have not been able to 
 
 The Zen family have decided to sell 100% of Zen as Mr Zen (who controls the company) has not been well for a while – the auction will take place today.
 
-The company will be sold at an OPEN bid auction between 14:45 and 15:00. Only send your bids directly to the class WhatsApp group. Open bid means the highest price received wins the auction when the auction closes at 15:00.
+The company will be sold at an OPEN bid auction between 14:45 and 15:00. Submit your bids live in the **Zen Auction** tab inside the simulation. Open bid means the highest price received on time wins the auction when the auction closes at 15:00 (inclusive through 15:00:59).
 
 The minimum asking price for the auction is R190m.
 
@@ -655,12 +663,6 @@ Based on the ending employee satisfaction levels, the following number of staff 
 
 {{STAFF_ATTRITION_TABLE}}
 
-It also appears the shareholder, Mrs Smith, was correct in her worry about the salaries of engineers and the information she received has proved to have been reliable. Additional attrition due to companies not paying what was considered to be a fair wage by the engineers in the industry (i.e. a minimum of R60,000):
-
-| | Team 1 | Team 2 | Team 3 | Team 4 | Team 5 |
-| --- | --- | --- | --- | --- | --- |
-| Engineers | 2 | 2 | 2 | 0 | 0 |
-
 ## Supplier Negotiations
 
 There will be no supplier negotiations allowed this year.
@@ -683,7 +685,7 @@ The Neepo management and the union representing employees have not been able to 
 
 The Zen family have decided to sell 100% of Zen as Mr Zen (who controls the company) has not been well for a while – the auction will take place today.
 
-The company will be sold at an OPEN bid auction between 14:30 and 14:45. Only send your bids directly to the class WhatsApp group. Open bid means the highest price received wins the auction when the auction closes at 14:45.
+The company will be sold at an OPEN bid auction between 14:45 and 15:00. Submit your bids live in the **Zen Auction** tab inside the simulation. Open bid means the highest price received on time wins the auction when the auction closes at 15:00 (inclusive through 15:00:59).
 
 The minimum asking price for the auction is R190m.
 

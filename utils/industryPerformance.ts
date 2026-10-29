@@ -1,5 +1,5 @@
-import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions, ALPOpportunityMarketResult, PeriodALPOpportunities } from '../types';
-import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, COMPONENT_COSTS, FINISHED_GOODS_COSTS } from '../constants';
+import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions, ALPOpportunityMarketResult, PeriodALPOpportunities, ZenAuctionState, ZenOpportunityResult, ZenBuyerBreakdown } from '../types';
+import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, COMPONENT_COSTS, FINISHED_GOODS_COSTS, ZEN_TRANSFER_COSTS, ZEN_RESERVE_PRICE } from '../constants';
 import { computeMarketShareBackModel, getScaledProduction, getDecisionsForTeamPeriod } from './marketShareBackModel';
 
 export function didTeamEnterBotswanaInPeriod(team: Team, period: number): boolean {
@@ -135,7 +135,8 @@ export interface TeamIndustryPerformance {
 
 export function computeIndustryPerformance(
   teams: Team[],
-  period: number
+  period: number,
+  zenAuction?: ZenAuctionState
 ): TeamIndustryPerformance[] {
   const activeTeams = teams
     .filter(t => !t.isArchived)
@@ -152,6 +153,90 @@ export function computeIndustryPerformance(
   const rawMozambiqueEnteringCount = period === 2
     ? activeTeams.filter(tm => didTeamEnterMozambiqueInPeriod(tm, 2)).length
     : 0;
+
+  // Pre-calculate Year 3 Zen B2B Sales & Profit across all non-owner teams (ALP Year 3)
+  let zenOwnerSplits: Record<string, number> = {};
+  let zenWinningBidAmount = ZEN_RESERVE_PRICE;
+  let hasZenAward = false;
+
+  if (period === 3) {
+    if (zenAuction?.isAwarded && zenAuction.jvSplits && Object.keys(zenAuction.jvSplits).length > 0) {
+      zenOwnerSplits = { ...zenAuction.jvSplits };
+      zenWinningBidAmount = zenAuction.winningAmount || ZEN_RESERVE_PRICE;
+      hasZenAward = true;
+    } else if (zenAuction?.isAwarded && zenAuction.winningTeamId) {
+      zenOwnerSplits = { [zenAuction.winningTeamId]: 100 };
+      zenWinningBidAmount = zenAuction.winningAmount || ZEN_RESERVE_PRICE;
+      hasZenAward = true;
+    } else {
+      // Fallback: check if any team has historical zen opportunity recorded for period 3
+      activeTeams.forEach(tm => {
+        const histZen = tm.history?.[3]?.alpOpportunities?.zen || (tm.history as any)?.['3']?.alpOpportunities?.zen;
+        if (histZen && histZen.isOwner && histZen.ownershipPct > 0) {
+          zenOwnerSplits[tm.id] = histZen.ownershipPct;
+          if (histZen.winningBidAmount) zenWinningBidAmount = histZen.winningBidAmount;
+          hasZenAward = true;
+        }
+      });
+    }
+  }
+
+  let totalExternalUnitsSold = 0;
+  let totalExternalSalesRevenue = 0;
+  let totalExternalTransferCost = 0;
+  let totalZenB2BProfit = 0;
+  const zenBuyerBreakdown: Record<string, ZenBuyerBreakdown> = {};
+
+  if (period === 3 && hasZenAward) {
+    const pIds: ProductId[] = ['techbook', 'zroid', 'itab'];
+    const activeTransferCosts = zenAuction?.transferCosts || ZEN_TRANSFER_COSTS;
+    activeTeams.forEach(buyerTeam => {
+      const isBuyerOwner = (zenOwnerSplits[buyerTeam.id] || 0) > 0;
+      const buyerDec = getDecisionsForTeamPeriod(buyerTeam, 3);
+      let teamUnits = 0;
+      let teamRev = 0;
+      let teamTransfer = 0;
+      let teamProfit = 0;
+
+      pIds.forEach(pId => {
+        const zenAlloc = buyerDec.procurement?.supplierAllocation?.[pId]?.Zen;
+        const compUnits = Number(zenAlloc?.components) || 0;
+        const fgUnits = Number(zenAlloc?.finishedGoods) || 0;
+        if (compUnits <= 0 && fgUnits <= 0) return;
+
+        const compTransfer = activeTransferCosts[pId]?.components ?? ZEN_TRANSFER_COSTS[pId].components;
+        const fgTransfer = activeTransferCosts[pId]?.finishedGoods ?? ZEN_TRANSFER_COSTS[pId].finishedGoods;
+
+        const compPrice = isBuyerOwner ? compTransfer : getSupplierComponentCost(pId, 'Zen', buyerDec);
+        const fgPrice = isBuyerOwner ? fgTransfer : getSupplierFinishedGoodsCost(pId, 'Zen', buyerDec);
+
+        const rev = compUnits * compPrice + fgUnits * fgPrice;
+        const tCost = compUnits * compTransfer + fgUnits * fgTransfer;
+        const prof = isBuyerOwner ? 0 : (rev - tCost);
+
+        teamUnits += compUnits + fgUnits;
+        teamRev += rev;
+        teamTransfer += tCost;
+        teamProfit += prof;
+      });
+
+      zenBuyerBreakdown[buyerTeam.id] = {
+        teamId: buyerTeam.id,
+        teamName: buyerTeam.name,
+        units: teamUnits,
+        revenue: teamRev,
+        transferCost: teamTransfer,
+        profit: teamProfit,
+      };
+
+      if (!isBuyerOwner) {
+        totalExternalUnitsSold += teamUnits;
+        totalExternalSalesRevenue += teamRev;
+        totalExternalTransferCost += teamTransfer;
+        totalZenB2BProfit += teamProfit;
+      }
+    });
+  }
 
   return activeTeams.map((t, tIdx) => {
     const dec = getDecisionsForTeamPeriod(t, period);
@@ -275,8 +360,8 @@ export function computeIndustryPerformance(
     const ebt = ebitda - depr - finCharges;
     const taxation = ebt > 0 ? Math.round(ebt * (FINANCE_CONSTANTS?.taxRate || 0.28)) : 0;
 
-    // 7. ALP Regional Market Opportunities (Botswana & Mozambique in Year 2; Botswana in Year 3)
-    const isALPActive = getActiveClassIsALP() || rawBotswanaEnteringCount > 0 || rawMozambiqueEnteringCount > 0 || Boolean(t.history?.[period]?.alpOpportunities);
+    // 7. ALP Regional Market Opportunities (Botswana & Mozambique in Year 2; Botswana & Zen Acquisition in Year 3)
+    const isALPActive = getActiveClassIsALP() || rawBotswanaEnteringCount > 0 || rawMozambiqueEnteringCount > 0 || hasZenAward || Boolean(t.history?.[period]?.alpOpportunities);
     let alpOpportunities: PeriodALPOpportunities | undefined;
     let otherIncome = 0;
 
@@ -380,10 +465,31 @@ export function computeIndustryPerformance(
         };
       }
 
-      otherIncome = botswanaResult.netOfOpportunity + (mozambiqueResult?.netOfOpportunity ?? 0);
+      let zenResult: ZenOpportunityResult | undefined;
+      if (period === 3 && hasZenAward) {
+        const ownershipPct = zenOwnerSplits[t.id] || 0;
+        const isOwner = ownershipPct > 0;
+        const purchasePriceShare = Math.round(zenWinningBidAmount * (ownershipPct / 100));
+        const zenNet = isOwner ? Math.round(totalZenB2BProfit * (ownershipPct / 100)) : 0;
+        zenResult = {
+          isOwner,
+          ownershipPct,
+          winningBidAmount: zenWinningBidAmount,
+          purchasePriceShare,
+          totalExternalUnitsSold,
+          totalExternalSalesRevenue,
+          totalExternalTransferCost,
+          totalZenB2BProfit,
+          netOfOpportunity: zenNet,
+          buyerBreakdown: zenBuyerBreakdown,
+        };
+      }
+
+      otherIncome = botswanaResult.netOfOpportunity + (mozambiqueResult?.netOfOpportunity ?? 0) + (zenResult?.netOfOpportunity ?? 0);
       alpOpportunities = {
         botswana: botswanaResult,
         ...(mozambiqueResult ? { mozambique: mozambiqueResult } : {}),
+        ...(zenResult ? { zen: zenResult } : {}),
         totalNetOtherIncome: otherIncome,
       };
     }

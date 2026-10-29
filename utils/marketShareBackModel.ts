@@ -1,5 +1,5 @@
-import { Team, TurnDecisions, ProductId, HRRole, PeriodRecord } from '../types';
-import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS, SUPPLIER_METRICS, YEAR_0_RECORD } from '../constants';
+import { Team, TurnDecisions, ProductId, HRRole, PeriodRecord, ZenAuctionState } from '../types';
+import { PRODUCTS, SUPPLIERS, HR_ROLES, INITIAL_DECISIONS, SUPPLIER_METRICS, YEAR_0_RECORD, getActiveClassIsALP } from '../constants';
 import CONFIG from '../resources/config.json';
 import { processTurn } from './SimulationEngine';
 import { computeIndustryPerformance } from './industryPerformance';
@@ -111,7 +111,7 @@ export function getCriterionRating(criterionId: number, productId: ProductId, pe
     case 1: // Price
       if (productId === 'techbook') return 10;
       if (productId === 'zroid') return 5;
-      if (productId === 'itab') return period === 3 ? 8 : 3;
+      if (productId === 'itab') return (period === 3 || (getActiveClassIsALP() && period >= 3)) ? 8 : 3;
       return 0;
     case 2: // Payment Terms
       if (productId === 'techbook') return 9;
@@ -173,11 +173,19 @@ export interface RoleHeadcountBreakdown {
   hire: number;
   closingBeforeAttrition: number;
   closingEsat: number;
+  baseAttrition: number;
+  additionalAttrition: number;
   attrition: number;
   nextOpening: number;
+  salaryPaid: number;
 }
 
-export function getTeamRoleHeadcountForPeriod(team: Team, role: HRRole, targetPeriod: number): RoleHeadcountBreakdown {
+export function getTeamRoleHeadcountForPeriod(
+  team: Team,
+  role: HRRole,
+  targetPeriod: number,
+  isALPOverride?: boolean
+): RoleHeadcountBreakdown {
   let opening = team.history?.[0]?.staffCounts?.[role] ?? BASE_OPENING_STAFF[role];
   if (targetPeriod <= 1 && !team.history?.[1] && !(team.history as any)?.['1']) {
     opening = team.staffCounts?.[role] ?? BASE_OPENING_STAFF[role];
@@ -186,9 +194,13 @@ export function getTeamRoleHeadcountForPeriod(team: Team, role: HRRole, targetPe
   let hire = 0;
   let closingBeforeAttrition = opening;
   let closingEsat = 0.70;
+  let baseAttrition = 0;
+  let additionalAttrition = 0;
   let attrition = 0;
   let nextOpening = opening;
+  let salaryPaid = 0;
 
+  const isALP = isALPOverride !== undefined ? isALPOverride : getActiveClassIsALP();
   const maxP = Math.max(1, targetPeriod);
   for (let p = 1; p <= maxP; p++) {
     if (p > 1) {
@@ -212,11 +224,31 @@ export function getTeamRoleHeadcountForPeriod(team: Team, role: HRRole, targetPe
       closingBeforeAttrition = Math.max(0, opening + hire);
     }
     closingEsat = rec?.kpis?.employeeSatisfaction ?? 0.70;
-    attrition = rec?.staffAttrition?.[role] ?? Math.floor(closingBeforeAttrition * Math.max(0, 1 - closingEsat));
-    nextOpening = rec?.closingStaffAfterAttrition?.[role] ?? Math.max(0, closingBeforeAttrition - attrition);
+    baseAttrition = Math.floor(closingBeforeAttrition * Math.max(0, 1 - closingEsat));
+    salaryPaid = rec?.salaries?.[role] ?? dec.hr?.salaries?.[role] ?? (role === 'engineers' ? 55000 : 0);
+
+    if (isALP && p === 2 && role === 'engineers') {
+      additionalAttrition = salaryPaid < 60000 ? 2 : 0;
+      attrition = Math.min(closingBeforeAttrition, baseAttrition + additionalAttrition);
+      nextOpening = Math.max(0, closingBeforeAttrition - attrition);
+    } else {
+      additionalAttrition = 0;
+      attrition = rec?.staffAttrition?.[role] ?? baseAttrition;
+      nextOpening = rec?.closingStaffAfterAttrition?.[role] ?? Math.max(0, closingBeforeAttrition - attrition);
+    }
   }
 
-  return { opening, hire, closingBeforeAttrition, closingEsat, attrition, nextOpening };
+  return {
+    opening,
+    hire,
+    closingBeforeAttrition,
+    closingEsat,
+    baseAttrition,
+    additionalAttrition,
+    attrition,
+    nextOpening,
+    salaryPaid,
+  };
 }
 
 export function getTeamOpeningStaffForPeriod(team: Team, targetPeriod = team.currentPeriod): Record<HRRole, number> {
@@ -582,7 +614,12 @@ export function computeMarketShareBackModel(
   });
 }
 
-export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number, allTeams?: Team[]): PeriodRecord['balanceSheet'] & { openingEquity: number; netProfit: number } {
+export function computeTeamPeriodBalanceSheet(
+  team: Team,
+  targetPeriod: number,
+  allTeams?: Team[],
+  zenAuction?: ZenAuctionState
+): PeriodRecord['balanceSheet'] & { openingEquity: number; netProfit: number } {
   if (targetPeriod <= 0) {
     return {
       ...YEAR_0_RECORD.balanceSheet,
@@ -615,7 +652,7 @@ export function computeTeamPeriodBalanceSheet(team: Team, targetPeriod: number, 
     
     // Ensure Net Profit matches computeIndustryPerformance single source of truth exactly
     try {
-      const perfList = computeIndustryPerformance(allTeams && allTeams.length > 0 ? allTeams : [team], p);
+      const perfList = computeIndustryPerformance(allTeams && allTeams.length > 0 ? allTeams : [team], p, p === 3 ? zenAuction : undefined);
       const teamPerf = perfList.find(item => item.teamId === team.id);
       if (teamPerf) {
         lastNetProfit = teamPerf.netProfit;

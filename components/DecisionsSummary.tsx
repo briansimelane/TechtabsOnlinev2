@@ -4,7 +4,7 @@ import { useSimulation } from '../contexts/SimulationContext';
 import { PRODUCTS, STORE_COSTS, HR_CONSTANTS, FINANCE_CONSTANTS, getMarketSize, YEAR_0_RECORD } from '../constants';
 import { ProductId, HRRole } from '../types';
 import { formatNumber, formatPercent } from '../utils/numberFormat';
-import { sCurve, WEIGHTS, MARKET_ANCHORS } from '../utils/SimulationEngine';
+import { sCurve, WEIGHTS, MARKET_ANCHORS, getProductBuyingWeights } from '../utils/SimulationEngine';
 import { getEdition } from '../utils/editions';
 import { processTurnGlobalMarkets } from '../utils/editions/globalMarkets/engine';
 
@@ -268,7 +268,7 @@ const DecisionsSummary: React.FC = () => {
   let sumProductCSAT = 0;
   
   PRODUCTS.forEach(p => {
-    const w = WEIGHTS[p.name.toLowerCase()] || WEIGHTS[p.id] || { price: 1, terms: 1, innov: 1, ad: 1, stores: 1, agents: 1, staff: 1 };
+    const w = getProductBuyingWeights(p.id, currentPeriod, Boolean(currentClass?.isActionLearningProject));
     
     // Calculate sub-scores (0.0 to 1.0)
     const sPrice = sCurve(decisions.marketing.prices[p.id], MARKET_ANCHORS.price[p.name.toLowerCase()] || MARKET_ANCHORS.price[p.id], false);

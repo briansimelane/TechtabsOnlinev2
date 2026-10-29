@@ -22,7 +22,9 @@ import {
   ClipboardCheck,
   ChevronLeft,
   ChevronRight,
-  BookOpen
+  BookOpen,
+  Gavel,
+  FlaskConical
 } from 'lucide-react';
 import { useSimulation } from '../contexts/SimulationContext';
 
@@ -205,6 +207,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && <span>Scenario</span>}
                 </NavLink>
               )}
+              {currentClass?.isActionLearningProject && (currentTeam?.currentPeriod === 3 || currentClass?.currentPeriod === 3) && (
+                <NavLink to="/zen-auction" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Zen Auction" : undefined}>
+                  <Gavel size={iconSize} />
+                  {!isCollapsed && <span>Zen Auction</span>}
+                </NavLink>
+              )}
             </>
           )}
           
@@ -259,6 +267,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                   Control
                 </div>
               )}
+
+              <NavLink to="/facilitator/testing" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Testing" : undefined}>
+                <FlaskConical size={iconSize} />
+                {!isCollapsed && <span>Testing</span>}
+              </NavLink>
 
               <NavLink to="/settings" className={navItemClass} onClick={handleLinkClick} title={isCollapsed ? "Sim Settings" : undefined}>
                 <Settings size={iconSize} />

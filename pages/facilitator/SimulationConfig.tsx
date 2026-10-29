@@ -543,7 +543,8 @@ export const SimulationConfig: React.FC = () => {
                                 {factor.replace(/_/g, ' ')}
                               </td>
                               {[0, 1, 2, 3, 4].map(y => {
-                                const currentWeight = yearWeights[y] ?? baseWeight;
+                                const defaultForYear = (product === 'iTab' && factor === 'Price' && y === 3) ? 8 : baseWeight;
+                                const currentWeight = yearWeights[y] ?? defaultForYear;
                                 return (
                                   <td key={y} className="py-1.5 px-2 text-center">
                                     <NumberInput

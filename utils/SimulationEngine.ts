@@ -2,7 +2,7 @@
 import { Team, TurnDecisions, ProductId, KPI, MarketEvent, HRRole, PeriodRecord } from '../types';
 import CONFIG from '../resources/config.json';
 import CALC_RULES from '../resources/calculation_rules.json';
-import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, getMarketSize, YEAR_0_RECORD, SUPPLIER_METRICS } from '../constants';
+import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, YEAR_0_RECORD, SUPPLIER_METRICS } from '../constants';
 import { capacityExpansionCost } from './capex';
 
 // Helpers to map config json into usable structures
@@ -60,6 +60,15 @@ Object.entries(((CONFIG as any).customer_buying_criteria || {})).forEach(([k, v]
         staff: v.Staff_Availability || 1
     };
 });
+
+export function getProductBuyingWeights(productId: ProductId, period: number, isALP?: boolean) {
+    const base = WEIGHTS[productId] || { price: 1, terms: 1, innov: 1, ad: 1, stores: 1, agents: 1, staff: 1 };
+    const useALP = isALP !== undefined ? isALP : getActiveClassIsALP();
+    if (useALP && period >= 3 && productId === 'itab') {
+        return { ...base, price: 8 };
+    }
+    return base;
+}
 
 // --- Helper Functions ---
 
@@ -125,6 +134,15 @@ export const processTurn = (
 
     const getRoleOpeningStaff = (r: HRRole, fallback = 0): number => {
         if (prevRecForStaff) {
+            if (getActiveClassIsALP() && team.currentPeriod === 3 && r === 'engineers' && prevRecForStaff.staffCounts?.engineers !== undefined) {
+                const prevBefore = prevRecForStaff.staffCounts.engineers;
+                const prevEsat = prevRecForStaff.kpis?.employeeSatisfaction ?? 0.70;
+                const baseAttr = Math.floor(prevBefore * Math.max(0, 1 - prevEsat));
+                const prevEngSal = prevRecForStaff.salaries?.engineers ?? (prevRecForStaff as any).decisions?.hr?.salaries?.engineers ?? 55000;
+                const extraAttr = prevEngSal < 60000 ? 2 : 0;
+                const totalAttr = Math.min(prevBefore, baseAttr + extraAttr);
+                return Math.max(0, prevBefore - totalAttr);
+            }
             if (prevRecForStaff.closingStaffAfterAttrition?.[r] !== undefined) {
                 return prevRecForStaff.closingStaffAfterAttrition[r];
             }
@@ -173,7 +191,7 @@ export const processTurn = (
     const productAvailable: Record<ProductId, number> = { techbook: 0, zroid: 0, itab: 0 };
 
     PRODUCTS.forEach(p => {
-        const w = WEIGHTS[p.name.toLowerCase()] || WEIGHTS[p.id] || { price: 1, terms: 1, innov: 1, ad: 1, stores: 1, agents: 1, staff: 1 };
+        const w = getProductBuyingWeights(p.id, team.currentPeriod || 1);
 
         // Calculate sub-scores (0.0 to 1.0)
         const sPrice = sCurve(decisions.marketing.prices[p.id], MARKET_ANCHORS.price[p.name.toLowerCase()] || MARKET_ANCHORS.price[p.id], false);
@@ -624,9 +642,12 @@ export const processTurn = (
         customerService: 0
     };
     const nextOpeningStaffCounts: Record<HRRole, number> = { ...staffCounts };
+    const isALPYear2 = getActiveClassIsALP() && (team.currentPeriod || 1) === 2;
     (Object.keys(staffCounts) as HRRole[]).forEach(r => {
         const closingBeforeAttrition = staffCounts[r] || 0;
-        const attrition = Math.floor(closingBeforeAttrition * Math.max(0, 1 - finalESAT));
+        const baseAttrition = Math.floor(closingBeforeAttrition * Math.max(0, 1 - finalESAT));
+        const extraEngineerAttrition = (isALPYear2 && r === 'engineers' && (decisions.hr?.salaries?.engineers ?? 55000) < 60000) ? 2 : 0;
+        const attrition = Math.min(closingBeforeAttrition, baseAttrition + extraEngineerAttrition);
         staffAttrition[r] = attrition;
         nextOpeningStaffCounts[r] = Math.max(0, closingBeforeAttrition - attrition);
     });

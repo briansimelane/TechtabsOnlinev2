@@ -2,8 +2,8 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, signInAnonymously, signInWithPopup, signOut } from 'firebase/auth';
 import { doc, onSnapshot, collection, getDoc } from 'firebase/firestore';
-import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride, EditionId } from '../types';
-import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS, setActiveClassIsALP } from '../constants';
+import { SimulationState, TurnDecisions, Role, SimulationClass, Team, Facilitator, NegotiationMessage, NegotiationDecision, TeamSupplierOverride, MarketEvent, SurveyConfig, SurveyResponse, ProductId, Administrator, MarksConfig, ClassEvent, ClassScenarioOverride, EditionId, ZenAuctionState, ZenAuctionBid } from '../types';
+import { INITIAL_STATE, INITIAL_DECISIONS, SUPPLIER_METRICS, DEFAULT_SURVEY_CONFIG, YEAR_0_RECORD, COMPONENT_COSTS, FINISHED_GOODS_COSTS, ZEN_TRANSFER_COSTS, ZEN_RESERVE_PRICE, setActiveClassIsALP } from '../constants';
 import { GoogleGenAI, FunctionDeclaration, Type } from "@google/genai";
 import { processTurn } from '../utils/SimulationEngine';
 import { getEdition } from '../utils/editions';
@@ -86,6 +86,26 @@ interface SimulationContextType extends SimulationState {
   deleteClassEvent: (eventId: string) => void;
   upsertScenarioOverride: (period: number, patch: Partial<ClassScenarioOverride>) => void;
   clearScenarioOverride: (period: number) => void;
+  // ALP Year 3 Zen Auction & B2B Negotiation Actions
+  updateZenAuctionConfig: (classId: string, patch: Partial<ZenAuctionState>) => Promise<void>;
+  placeZenBid: (classId: string, teamId: string, increment: number) => Promise<{ success: boolean; message: string }>;
+  awardZenAuction: (classId: string) => Promise<void>;
+  confirmZenJvSplits: (classId: string, jvSplits: Record<string, number>) => Promise<void>;
+  submitZenClientTermsAndPricing: (
+    classId: string,
+    targetTeamIds: string[],
+    zenConfig: {
+      componentCosts: Record<ProductId, number>;
+      finishedGoodsCosts: Record<ProductId, number>;
+      paymentTerms: number;
+      quality: number;
+      deliveryReliability: number;
+      leadTime: number;
+      service: number;
+      capacity: number;
+      innovation: number;
+    }
+  ) => Promise<void>;
 }
 
 const SimulationContext = createContext<SimulationContextType | undefined>(undefined);
@@ -262,7 +282,7 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
     const peerTeams = cls?.teams && cls.teams.length > 0
       ? cls.teams.map(tm => tm.id === currentTeamState.id ? currentTeamState : tm)
       : [currentTeamState];
-    const perfList = cls?.isActionLearningProject ? computeIndustryPerformance(peerTeams, p) : [];
+    const perfList = cls?.isActionLearningProject ? computeIndustryPerformance(peerTeams, p, cls?.zenAuction) : [];
     const rawTeamPerf = perfList.find(item => item.teamId === currentTeamState.id);
     const otherIncome = rawTeamPerf?.otherIncome ?? 0;
     const np = (result.periodRecord.netProfit ?? 0) + otherIncome;
@@ -785,16 +805,23 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                               return exTeam;
                           }
 
+                          const isMyOwnTeam = prev.currentRole === 'STUDENT' && prev.currentTeam.id === inTeam.id;
                           return {
                               ...exTeam,
                               ...inTeam,
                               ceoName: inTeam.ceoName || exTeam.ceoName,
                               ceoPin: inTeam.ceoPin || exTeam.ceoPin,
-                              draftDecisions: {
-                                  ...(inTeam.draftDecisions || {}),
-                                  ...(exTeam.draftDecisions || {}),
-                                  supplierOverrides: exTeam.draftDecisions?.supplierOverrides || inTeam.draftDecisions?.supplierOverrides
-                              }
+                              draftDecisions: isMyOwnTeam
+                                  ? {
+                                      ...(inTeam.draftDecisions || {}),
+                                      ...(exTeam.draftDecisions || {}),
+                                      supplierOverrides: inTeam.draftDecisions?.supplierOverrides || exTeam.draftDecisions?.supplierOverrides
+                                  }
+                                  : {
+                                      ...(exTeam.draftDecisions || {}),
+                                      ...(inTeam.draftDecisions || {}),
+                                      supplierOverrides: inTeam.draftDecisions?.supplierOverrides || exTeam.draftDecisions?.supplierOverrides
+                                  }
                           };
                       });
 
@@ -852,7 +879,13 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       
                       const updatedDecisions = (!canEdit && teamData.draftDecisions) 
                         ? teamData.draftDecisions 
-                        : (teamData.draftDecisions ? { ...teamData.draftDecisions, ...prev.decisions } : prev.decisions);
+                        : (teamData.draftDecisions
+                            ? {
+                                ...teamData.draftDecisions,
+                                ...prev.decisions,
+                                supplierOverrides: teamData.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
+                              }
+                            : prev.decisions);
 
                       return {
                           ...prev,
@@ -1867,7 +1900,16 @@ BEHAVIOR RULES:
           const updatedClass = {
             ...c,
             currentPeriod: 1,
-            teams: resetTeams
+            teams: resetTeams,
+            ...(c.zenAuction ? {
+              zenAuction: {
+                ...getDefaultZenAuction(),
+                startTime: c.zenAuction.startTime || '14:45',
+                endTime: c.zenAuction.endTime || '15:00',
+                reservePrice: c.zenAuction.reservePrice || ZEN_RESERVE_PRICE,
+                transferCosts: c.zenAuction.transferCosts,
+              }
+            } : {})
           };
 
           // Async save
@@ -2596,7 +2638,7 @@ BEHAVIOR RULES:
 
     setActiveClassIsALP(Boolean(cls.isActionLearningProject));
     const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
-    const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod);
+    const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod, cls.zenAuction);
     const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
 
     const updatedTeams = cls.teams.map(team => {
@@ -3265,6 +3307,396 @@ BEHAVIOR RULES:
     }
   };
 
+  // ── ALP Year 3 Zen Open-Bid Auction, JV Split & B2B Negotiations ──
+  const getDefaultZenAuction = (): ZenAuctionState => ({
+    startTime: '14:45',
+    endTime: '15:00',
+    reservePrice: ZEN_RESERVE_PRICE,
+    manualStatus: 'AUTO',
+    bids: [],
+    isAwarded: false,
+    jvSplits: {},
+    jvConfirmed: false,
+    updatedAt: new Date().toISOString()
+  });
+
+  const applyZenTransferCostsToTeam = (
+    team: Team,
+    customTransferCosts?: Record<ProductId, { components: number; finishedGoods: number }>
+  ): Team => {
+    const tc = customTransferCosts || ZEN_TRANSFER_COSTS;
+    const currentDraft = team.draftDecisions || INITIAL_DECISIONS;
+    const prevOverrides = currentDraft.supplierOverrides || {};
+    const updatedOverrides: TeamSupplierOverride = {
+      ...prevOverrides,
+      componentCosts: {
+        ...(prevOverrides.componentCosts || {}),
+        techbook: { ...(prevOverrides.componentCosts?.techbook || {}), Zen: tc.techbook.components },
+        zroid: { ...(prevOverrides.componentCosts?.zroid || {}), Zen: tc.zroid.components },
+        itab: { ...(prevOverrides.componentCosts?.itab || {}), Zen: tc.itab.components }
+      },
+      finishedGoodsCosts: {
+        ...(prevOverrides.finishedGoodsCosts || {}),
+        techbook: { ...(prevOverrides.finishedGoodsCosts?.techbook || {}), Zen: tc.techbook.finishedGoods },
+        zroid: { ...(prevOverrides.finishedGoodsCosts?.zroid || {}), Zen: tc.zroid.finishedGoods },
+        itab: { ...(prevOverrides.finishedGoodsCosts?.itab || {}), Zen: tc.itab.finishedGoods }
+      },
+      status: {
+        ...(prevOverrides.status || {}),
+        Zen: 'AGREED'
+      }
+    };
+    return {
+      ...team,
+      draftDecisions: {
+        ...currentDraft,
+        supplierOverrides: updatedOverrides
+      }
+    };
+  };
+
+  const updateZenAuctionConfig = async (classId: string, patch: Partial<ZenAuctionState>) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const existing = targetClass.zenAuction || getDefaultZenAuction();
+    const updatedZen: ZenAuctionState = {
+      ...existing,
+      ...patch,
+      updatedAt: new Date().toISOString()
+    };
+
+    let updatedTeams = targetClass.teams;
+    if (patch.transferCosts && updatedZen.isAwarded) {
+      const ownerSplits = updatedZen.jvSplits || {};
+      updatedTeams = targetClass.teams.map(team => {
+        if ((ownerSplits[team.id] || 0) > 0 || team.id === updatedZen.winningTeamId) {
+          const updatedTeam = applyZenTransferCostsToTeam(team, updatedZen.transferCosts);
+          void saveTeamState(classId, updatedTeam).catch(err => console.error('Failed to update JV partner Zen transfer costs', err));
+          return updatedTeam;
+        }
+        return team;
+      });
+    }
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams,
+      zenAuction: updatedZen
+    };
+
+    setState(prev => {
+      const myUpdatedTeam = updatedTeams.find(t => t.id === prev.currentTeam?.id);
+      return {
+        ...prev,
+        classes: prev.classes.map(c => c.id === classId ? updatedClass : c),
+        currentTeam: (prev.currentClassId === classId && myUpdatedTeam) ? myUpdatedTeam : prev.currentTeam,
+        decisions: (prev.currentClassId === classId && myUpdatedTeam?.draftDecisions) ? myUpdatedTeam.draftDecisions : prev.decisions
+      };
+    });
+
+    try {
+      await persistClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to update Zen auction config:', err);
+    }
+  };
+
+  const placeZenBid = async (
+    classId: string,
+    teamId: string,
+    increment: number
+  ): Promise<{ success: boolean; message: string }> => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return { success: false, message: 'Class not found.' };
+    if (!targetClass.isActionLearningProject) {
+      return { success: false, message: 'Zen Auction is only available in the Action Learning Project edition.' };
+    }
+
+    const team = targetClass.teams.find(t => t.id === teamId);
+    if (!team) return { success: false, message: 'Team not found.' };
+
+    const zen = targetClass.zenAuction || getDefaultZenAuction();
+    if (zen.isAwarded || zen.manualStatus === 'FORCE_CLOSED') {
+      return { success: false, message: 'Bidding is closed for this auction.' };
+    }
+
+    // Check time window if manualStatus === 'AUTO'
+    const now = new Date();
+    const nowSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const [sh, sm] = (zen.startTime || '14:45').split(':').map(Number);
+    const [eh, em] = (zen.endTime || '15:00').split(':').map(Number);
+    const startSec = (sh || 0) * 3600 + (sm || 0) * 60;
+    const endSecInclusive = (eh || 0) * 3600 + (em || 0) * 60 + 59;
+
+    if (zen.manualStatus !== 'FORCE_OPEN') {
+      if (nowSeconds < startSec) {
+        return { success: false, message: `Auction has not opened yet (opens at ${zen.startTime}:00).` };
+      }
+      if (nowSeconds > endSecInclusive) {
+        return { success: false, message: `Bid rejected: Auction closed at ${zen.endTime}:59.` };
+      }
+    }
+
+    const currentBids = zen.bids || [];
+    const currentHighBid = currentBids.length > 0
+      ? currentBids.reduce((max, b) => (b.amount > max.amount ? b : max), currentBids[0])
+      : null;
+
+    // Rule: A team cannot outbid themselves if they currently hold the highest bid
+    if (currentHighBid && currentHighBid.teamId === teamId) {
+      return {
+        success: false,
+        message: 'Blocked: Your team already holds the current highest bid and cannot outbid itself.'
+      };
+    }
+
+    const baseAmount = currentHighBid ? currentHighBid.amount : (zen.reservePrice || ZEN_RESERVE_PRICE);
+    const proposedAmount = baseAmount + increment;
+
+    if (proposedAmount < (zen.reservePrice || ZEN_RESERVE_PRICE) || (currentHighBid && proposedAmount <= currentHighBid.amount)) {
+      return {
+        success: false,
+        message: `Blocked: Bid of R ${proposedAmount.toLocaleString('en-ZA')} must be higher than the current leading bid.`
+      };
+    }
+
+    const displayTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const newBid: ZenAuctionBid = {
+      id: `zbid_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      teamId: team.id,
+      teamName: team.name,
+      amount: proposedAmount,
+      incrementUsed: increment,
+      timestamp: now.toISOString(),
+      displayTime
+    };
+
+    const updatedZen: ZenAuctionState = {
+      ...zen,
+      bids: [newBid, ...currentBids],
+      updatedAt: now.toISOString()
+    };
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      zenAuction: updatedZen
+    };
+
+    setState(prev => ({
+      ...prev,
+      classes: prev.classes.map(c => c.id === classId ? updatedClass : c)
+    }));
+
+    try {
+      await persistClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to save Zen bid:', err);
+    }
+
+    return {
+      success: true,
+      message: `Bid accepted at ${displayTime}! ${team.name} leads with R ${proposedAmount.toLocaleString('en-ZA')}.`
+    };
+  };
+
+  const awardZenAuction = async (classId: string) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const zen = targetClass.zenAuction || getDefaultZenAuction();
+    const currentBids = zen.bids || [];
+    if (currentBids.length === 0) return;
+
+    const winningBid = currentBids.reduce((max, b) => (b.amount > max.amount ? b : max), currentBids[0]);
+    const initialJvSplits: Record<string, number> = { [winningBid.teamId]: 100 };
+
+    const updatedTeams = targetClass.teams.map(team => {
+      if (team.id === winningBid.teamId) {
+        const updatedTeam = applyZenTransferCostsToTeam(team, zen.transferCosts);
+        void saveTeamState(classId, updatedTeam).catch(err => console.error('Failed to save winner team Zen transfer costs', err));
+        return updatedTeam;
+      }
+      return team;
+    });
+
+    const updatedZen: ZenAuctionState = {
+      ...zen,
+      isAwarded: true,
+      manualStatus: 'FORCE_CLOSED',
+      winningBidId: winningBid.id,
+      winningTeamId: winningBid.teamId,
+      winningTeamName: winningBid.teamName,
+      winningAmount: winningBid.amount,
+      jvSplits: initialJvSplits,
+      jvConfirmed: false,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams,
+      zenAuction: updatedZen
+    };
+
+    setState(prev => {
+      const myUpdatedTeam = updatedTeams.find(t => t.id === prev.currentTeam?.id);
+      return {
+        ...prev,
+        classes: prev.classes.map(c => c.id === classId ? updatedClass : c),
+        currentTeam: (prev.currentClassId === classId && myUpdatedTeam) ? myUpdatedTeam : prev.currentTeam,
+        decisions: (prev.currentClassId === classId && myUpdatedTeam?.draftDecisions) ? myUpdatedTeam.draftDecisions : prev.decisions
+      };
+    });
+
+    try {
+      await persistClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to award Zen auction:', err);
+    }
+  };
+
+  const confirmZenJvSplits = async (classId: string, jvSplits: Record<string, number>) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass) return;
+
+    const zen = targetClass.zenAuction || getDefaultZenAuction();
+    const cleanSplits: Record<string, number> = {};
+    Object.entries(jvSplits).forEach(([tid, pct]) => {
+      if (Number(pct) > 0) {
+        cleanSplits[tid] = Number(pct);
+      }
+    });
+
+    // Apply Zen Transfer Costs automatically to all JV owners
+    const updatedTeams = targetClass.teams.map(team => {
+      if ((cleanSplits[team.id] || 0) > 0) {
+        const updatedTeam = applyZenTransferCostsToTeam(team, zen.transferCosts);
+        void saveTeamState(classId, updatedTeam).catch(err => console.error('Failed to save JV partner Zen transfer costs', err));
+        return updatedTeam;
+      }
+      return team;
+    });
+
+    const updatedZen: ZenAuctionState = {
+      ...zen,
+      jvSplits: cleanSplits,
+      jvConfirmed: true,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams,
+      zenAuction: updatedZen
+    };
+
+    setState(prev => {
+      const myUpdatedTeam = updatedTeams.find(t => t.id === prev.currentTeam?.id);
+      return {
+        ...prev,
+        classes: prev.classes.map(c => c.id === classId ? updatedClass : c),
+        currentTeam: (prev.currentClassId === classId && myUpdatedTeam) ? myUpdatedTeam : prev.currentTeam,
+        decisions: (prev.currentClassId === classId && myUpdatedTeam?.draftDecisions) ? myUpdatedTeam.draftDecisions : prev.decisions
+      };
+    });
+
+    try {
+      await persistClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to confirm Zen JV splits:', err);
+    }
+  };
+
+  const submitZenClientTermsAndPricing = async (
+    classId: string,
+    targetTeamIds: string[],
+    zenConfig: {
+      componentCosts: Record<ProductId, number>;
+      finishedGoodsCosts: Record<ProductId, number>;
+      paymentTerms: number;
+      quality: number;
+      deliveryReliability: number;
+      leadTime: number;
+      service: number;
+      capacity: number;
+      innovation: number;
+    }
+  ) => {
+    const targetClass = state.classes.find(c => c.id === classId);
+    if (!targetClass || targetTeamIds.length === 0) return;
+
+    const ownerSplits = targetClass.zenAuction?.jvSplits || {};
+
+    const updatedTeams = targetClass.teams.map(team => {
+      // Only update selected non-owning teams
+      if (!targetTeamIds.includes(team.id) || (ownerSplits[team.id] || 0) > 0) {
+        return team;
+      }
+
+      const currentDraft = team.draftDecisions || INITIAL_DECISIONS;
+      const prevOverrides = currentDraft.supplierOverrides || {};
+      const updatedOverrides: TeamSupplierOverride = {
+        ...prevOverrides,
+        componentCosts: {
+          ...(prevOverrides.componentCosts || {}),
+          techbook: { ...(prevOverrides.componentCosts?.techbook || {}), Zen: zenConfig.componentCosts.techbook },
+          zroid: { ...(prevOverrides.componentCosts?.zroid || {}), Zen: zenConfig.componentCosts.zroid },
+          itab: { ...(prevOverrides.componentCosts?.itab || {}), Zen: zenConfig.componentCosts.itab }
+        },
+        finishedGoodsCosts: {
+          ...(prevOverrides.finishedGoodsCosts || {}),
+          techbook: { ...(prevOverrides.finishedGoodsCosts?.techbook || {}), Zen: zenConfig.finishedGoodsCosts.techbook },
+          zroid: { ...(prevOverrides.finishedGoodsCosts?.zroid || {}), Zen: zenConfig.finishedGoodsCosts.zroid },
+          itab: { ...(prevOverrides.finishedGoodsCosts?.itab || {}), Zen: zenConfig.finishedGoodsCosts.itab }
+        },
+        paymentTerms: { ...(prevOverrides.paymentTerms || {}), Zen: zenConfig.paymentTerms },
+        quality: { ...(prevOverrides.quality || {}), Zen: zenConfig.quality },
+        deliveryReliability: { ...(prevOverrides.deliveryReliability || {}), Zen: zenConfig.deliveryReliability },
+        leadTime: { ...(prevOverrides.leadTime || {}), Zen: zenConfig.leadTime },
+        service: { ...(prevOverrides.service || {}), Zen: zenConfig.service },
+        capacity: { ...(prevOverrides.capacity || {}), Zen: zenConfig.capacity },
+        innovation: { ...(prevOverrides.innovation || {}), Zen: zenConfig.innovation },
+        status: { ...(prevOverrides.status || {}), Zen: 'AGREED' }
+      };
+
+      const updatedTeam: Team = {
+        ...team,
+        draftDecisions: {
+          ...currentDraft,
+          supplierOverrides: updatedOverrides
+        }
+      };
+
+      void saveTeamState(classId, updatedTeam).catch(err =>
+        console.error(`Failed to save Zen client pricing/KPIs for team ${team.id}`, err)
+      );
+
+      return updatedTeam;
+    });
+
+    const updatedClass: SimulationClass = {
+      ...targetClass,
+      teams: updatedTeams
+    };
+
+    setState(prev => {
+      const myUpdatedTeam = updatedTeams.find(t => t.id === prev.currentTeam?.id);
+      return {
+        ...prev,
+        classes: prev.classes.map(c => c.id === classId ? updatedClass : c),
+        currentTeam: (prev.currentClassId === classId && myUpdatedTeam) ? myUpdatedTeam : prev.currentTeam,
+        decisions: (prev.currentClassId === classId && myUpdatedTeam?.draftDecisions) ? myUpdatedTeam.draftDecisions : prev.decisions
+      };
+    });
+
+    try {
+      await persistClass(updatedClass);
+    } catch (err) {
+      console.error('Failed to persist class after Zen client pricing update:', err);
+    }
+  };
+
   const activeClassObj = state.classes.find(c => c.id === state.currentClassId);
   setActiveClassIsALP(Boolean(activeClassObj?.isActionLearningProject));
 
@@ -3321,7 +3753,12 @@ BEHAVIOR RULES:
         updateClassEvent,
         deleteClassEvent,
         upsertScenarioOverride,
-        clearScenarioOverride
+        clearScenarioOverride,
+        updateZenAuctionConfig,
+        placeZenBid,
+        awardZenAuction,
+        confirmZenJvSplits,
+        submitZenClientTermsAndPricing
     }}>
       {children}
     </SimulationContext.Provider>

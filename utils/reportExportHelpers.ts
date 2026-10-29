@@ -14,6 +14,7 @@ interface ExportDataParams {
   } | null;
   performanceData: {
     income: { label: string; values: string[]; bold?: boolean; bg?: string }[];
+    alpOpportunities?: { label: string; values: string[]; bold?: boolean; bg?: string }[];
     balance: { label: string; values: string[]; bold?: boolean; bg?: string }[];
     kpis: { label: string; values: string[] }[];
   } | null;
@@ -73,6 +74,9 @@ export const exportReportCSV = (
   if (type === 'all' || type === 'performance') {
     if (performanceData) {
       appendTable('Industry Performance - Income Statement', performanceData.income);
+      if (performanceData.alpOpportunities && performanceData.alpOpportunities.length > 0) {
+        appendTable('Industry Performance - Regional Market Opportunities (Other Income)', performanceData.alpOpportunities);
+      }
     }
   }
 
@@ -247,6 +251,13 @@ export const exportReportPDF = (
   if (type === 'all' || type === 'performance') {
     if (performanceData) {
       appendPDFTable('Industry Performance — Income Statement', performanceData.income);
+      if (performanceData.alpOpportunities && performanceData.alpOpportunities.length > 0) {
+        appendPDFTable(
+          'Industry Performance — Regional Market Opportunities (Other Income)',
+          performanceData.alpOpportunities,
+          { samePage: true, subTitle: 'Regional Market Opportunities (Botswana & Mozambique) — Breakdown' }
+        );
+      }
     }
   }
 
