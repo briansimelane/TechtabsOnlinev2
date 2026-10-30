@@ -583,11 +583,6 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               }
               return c;
             });
-            try {
-              localStorage.setItem('techtabs_classes', JSON.stringify(nextClasses));
-            } catch (e) {
-              console.warn("Failed to write classes to localStorage", e);
-            }
             return {
               ...prev,
               classes: nextClasses,
@@ -1020,9 +1015,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
       }
   }, [isDemoMode, state.isAuthenticated, state.currentClassId]);
 
-  // Sync team in classes for display (only needed for local mode or backup)
+  // Sync team in classes for display (only needed for local demo mode)
   useEffect(() => {
-      if (state.currentRole === 'STUDENT' && state.currentClassId) {
+      if (isDemoMode && state.currentRole === 'STUDENT' && state.currentClassId) {
           const activeClass = state.classes.find(c => c.id === state.currentClassId);
           if (activeClass) {
               const teamInClass = activeClass.teams.find(t => t.id === state.currentTeam.id);
@@ -1058,13 +1053,13 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               }
           }
       }
-  }, [state.classes, state.currentClassId, state.currentRole, state.currentTeam.id, state.currentTeam]);
+  }, [isDemoMode, state.classes, state.currentClassId, state.currentRole, state.currentTeam.id, state.currentTeam]);
 
   const setRole = (role: Role) => {
     setState((prev) => ({ ...prev, currentRole: role }));
   };
 
-  const updateDecisions = (section: keyof TurnDecisions, data: any) => {
+  const updateDecisions = React.useCallback((section: keyof TurnDecisions, data: any) => {
     setState((prev) => {
       const currentOverrides = prev.currentTeam?.draftDecisions?.supplierOverrides || prev.decisions?.supplierOverrides;
 
@@ -1108,7 +1103,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         decisions: canEdit ? updatedDecisions : prev.decisions,
       };
     });
-  };
+  }, [isDemoMode, debouncedSaveDraft]);
 
   const submitTurn = async () => {
     if (isDemoMode) {

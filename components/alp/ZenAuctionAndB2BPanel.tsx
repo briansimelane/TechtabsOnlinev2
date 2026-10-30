@@ -51,6 +51,19 @@ const PRODUCTS: { id: ProductId; name: string }[] = [
 const formatZAR = (val: number) => `R ${Math.round(val).toLocaleString('en-ZA')}`;
 const formatMillions = (val: number) => `R ${(val / 1_000_000).toFixed(2).replace(/\.00$/, '')}m`;
 
+const EMPTY_JV_SPLITS: Record<string, number> = {};
+const EMPTY_BIDS: any[] = [];
+const DEFAULT_ZEN_AUCTION = {
+  startTime: '14:45',
+  endTime: '15:00',
+  reservePrice: ZEN_RESERVE_PRICE,
+  manualStatus: 'AUTO' as const,
+  bids: EMPTY_BIDS,
+  isAwarded: false,
+  jvSplits: EMPTY_JV_SPLITS,
+  jvConfirmed: false
+};
+
 export const ZenAuctionAndB2BPanel: React.FC = () => {
   const {
     currentClassId,
@@ -65,26 +78,15 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
   } = useSimulation();
 
   const currentClass = classes.find(c => c.id === currentClassId);
-  if (!currentClass || !currentClass.isActionLearningProject) {
-    return null;
-  }
 
   const isFacilitator = currentRole === 'FACILITATOR' || currentRole === 'ADMIN';
   const activeTeams = useMemo(
-    () => (currentClass.teams || []).filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)),
-    [currentClass.teams]
+    () => (currentClass?.teams || []).filter(t => !t.isArchived).sort((a, b) => a.id.localeCompare(b.id)),
+    [currentClass?.teams]
   );
 
-  const zen = currentClass.zenAuction || {
-    startTime: '14:45',
-    endTime: '15:00',
-    reservePrice: ZEN_RESERVE_PRICE,
-    manualStatus: 'AUTO' as const,
-    bids: [],
-    isAwarded: false,
-    jvSplits: {},
-    jvConfirmed: false
-  };
+  const zen = currentClass?.zenAuction || DEFAULT_ZEN_AUCTION;
+  const jvSplits = zen.jvSplits || EMPTY_JV_SPLITS;
 
   // Live Wall-Clock State
   const [nowDate, setNowDate] = useState<Date>(() => new Date());
@@ -152,14 +154,23 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
   };
 
   // ── JV Split Local Draft State ──
-  const [localJvSplits, setLocalJvSplits] = useState<Record<string, number>>(zen.jvSplits || {});
+  const [localJvSplits, setLocalJvSplits] = useState<Record<string, number>>(jvSplits);
   useEffect(() => {
-    if (zen.jvSplits && Object.keys(zen.jvSplits).length > 0) {
-      setLocalJvSplits(zen.jvSplits);
-    } else if (zen.winningTeamId) {
-      setLocalJvSplits({ [zen.winningTeamId]: 100 });
-    }
-  }, [zen.jvSplits, zen.winningTeamId]);
+    const nextSplits = Object.keys(jvSplits).length > 0
+      ? jvSplits
+      : zen.winningTeamId
+        ? { [zen.winningTeamId]: 100 }
+        : null;
+    if (!nextSplits) return;
+    setLocalJvSplits(prev => {
+      const prevKeys = Object.keys(prev);
+      const nextKeys = Object.keys(nextSplits);
+      if (prevKeys.length === nextKeys.length && nextKeys.every(k => prev[k] === nextSplits[k])) {
+        return prev;
+      }
+      return nextSplits;
+    });
+  }, [jvSplits, zen.winningTeamId]);
 
   const totalJvPct = useMemo(
     () => (Object.values(localJvSplits) as number[]).reduce((sum, v) => sum + (Number(v) || 0), 0),
@@ -168,11 +179,11 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
 
   const canManageJvSplit =
     isFacilitator ||
-    (zen.isAwarded && (zen.winningTeamId === currentTeam.id || (zen.jvSplits?.[currentTeam.id] || 0) > 0));
+    (zen.isAwarded && (zen.winningTeamId === currentTeam.id || (jvSplits[currentTeam.id] || 0) > 0));
 
   const ownerTeamIds = useMemo(
-    () => Object.keys(zen.jvSplits || {}).filter(id => (zen.jvSplits?.[id] || 0) > 0),
-    [zen.jvSplits]
+    () => Object.keys(jvSplits).filter(id => (jvSplits[id] || 0) > 0),
+    [jvSplits]
   );
 
   const isZenOwnerOrFacilitator =
@@ -190,7 +201,11 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
     // Default select all non-owner teams when list updates
     setSelectedClientTeamIds(prev => {
       const valid = prev.filter(id => nonOwnerTeams.some(t => t.id === id));
-      return valid.length > 0 ? valid : nonOwnerTeams.map(t => t.id);
+      const next = valid.length > 0 ? valid : nonOwnerTeams.map(t => t.id);
+      if (next.length === prev.length && next.every((id, i) => id === prev[i])) {
+        return prev;
+      }
+      return next;
     });
   }, [nonOwnerTeams]);
 
@@ -321,6 +336,10 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
       totalExternalProfit
     };
   }, [nonOwnerTeams, activeTransferCosts]);
+
+  if (!currentClass || !currentClass.isActionLearningProject) {
+    return null;
+  }
 
   return (
     <div className="space-y-6">
