@@ -4,27 +4,33 @@ import { computeMarketShareBackModel, getScaledProduction, getDecisionsForTeamPe
 
 export function didTeamEnterBotswanaInPeriod(team: Team, period: number): boolean {
   const rec = team.history?.[period] || (team.history as any)?.[String(period)];
-  if (rec?.alpOpportunities?.botswana?.entered !== undefined) {
-    return Boolean(rec.alpOpportunities.botswana.entered);
-  }
   if (rec?.industry?.alpOpportunities?.botswana?.entered !== undefined) {
     return Boolean(rec.industry.alpOpportunities.botswana.entered);
   }
   const dec = getDecisionsForTeamPeriod(team, period);
-  return Boolean(dec?.marketing?.alpOpportunities?.botswana);
+  if (dec?.marketing?.alpOpportunities?.botswana !== undefined) {
+    return Boolean(dec.marketing.alpOpportunities.botswana);
+  }
+  if (rec?.alpOpportunities?.botswana?.entered !== undefined) {
+    return Boolean(rec.alpOpportunities.botswana.entered);
+  }
+  return false;
 }
 
 export function didTeamEnterMozambiqueInPeriod(team: Team, period: number): boolean {
   if (period !== 2) return false;
   const rec = team.history?.[period] || (team.history as any)?.[String(period)];
-  if (rec?.alpOpportunities?.mozambique?.entered !== undefined) {
-    return Boolean(rec.alpOpportunities.mozambique.entered);
-  }
   if (rec?.industry?.alpOpportunities?.mozambique?.entered !== undefined) {
     return Boolean(rec.industry.alpOpportunities.mozambique.entered);
   }
   const dec = getDecisionsForTeamPeriod(team, period);
-  return Boolean(dec?.marketing?.alpOpportunities?.mozambique);
+  if (dec?.marketing?.alpOpportunities?.mozambique !== undefined) {
+    return Boolean(dec.marketing.alpOpportunities.mozambique);
+  }
+  if (rec?.alpOpportunities?.mozambique?.entered !== undefined) {
+    return Boolean(rec.alpOpportunities.mozambique.entered);
+  }
+  return false;
 }
 
 export function getSupplierComponentCost(productId: ProductId, supplier: string, dec?: TurnDecisions): number {

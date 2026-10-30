@@ -652,8 +652,9 @@ export function computeTeamPeriodBalanceSheet(
     
     // Ensure Net Profit matches computeIndustryPerformance single source of truth exactly
     try {
+      const rec = team.history?.[p] || (team.history as any)?.[String(p)];
       const perfList = computeIndustryPerformance(allTeams && allTeams.length > 0 ? allTeams : [team], p, p === 3 ? zenAuction : undefined);
-      const teamPerf = perfList.find(item => item.teamId === team.id);
+      const teamPerf = (p < team.currentPeriod && rec?.industry) ? rec.industry : perfList.find(item => item.teamId === team.id);
       if (teamPerf) {
         lastNetProfit = teamPerf.netProfit;
         periodOtherIncome = teamPerf.otherIncome ?? 0;

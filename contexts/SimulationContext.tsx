@@ -277,16 +277,35 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
 
   while (currentTeamState.currentPeriod < targetPeriod) {
     const p = currentTeamState.currentPeriod;
+    const existingPeriodRec = currentTeamState.history?.[p] || (currentTeamState.history as any)?.[String(p)];
     const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
     const result = processTurn(currentTeamState, decs, [], edition);
     const peerTeams = cls?.teams && cls.teams.length > 0
       ? cls.teams.map(tm => tm.id === currentTeamState.id ? currentTeamState : tm)
       : [currentTeamState];
-    const perfList = cls?.isActionLearningProject ? computeIndustryPerformance(peerTeams, p, cls?.zenAuction) : [];
+    const perfList = computeIndustryPerformance(peerTeams, p, cls?.zenAuction);
     const rawTeamPerf = perfList.find(item => item.teamId === currentTeamState.id);
     const otherIncome = rawTeamPerf?.otherIncome ?? 0;
+    const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
+    const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
+    const gp = result.periodRecord.grossProfit?.total ?? (totRev - totCogs);
     const np = (result.periodRecord.netProfit ?? 0) + otherIncome;
     const eq = (result.periodRecord.balanceSheet?.equity ?? 0) + otherIncome;
+
+    const teamPerf = rawTeamPerf ? {
+      ...rawTeamPerf,
+      revenueByProduct: result.periodRecord.revenue?.byProduct ?? rawTeamPerf.revenueByProduct,
+      totalRevenue: totRev,
+      cogsByProduct: result.periodRecord.cogs?.byProduct ?? rawTeamPerf.cogsByProduct,
+      totalCogs: totCogs,
+      grossProfit: gp,
+      gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
+      netProfit: np,
+      npMargin: totRev > 0 ? (np / totRev) * 100 : 0,
+      equity: eq,
+      roe: eq > 0 ? (np / eq) * 100 : 0,
+      staffCounts: result.periodRecord.staffCounts ?? rawTeamPerf.staffCounts
+    } : undefined;
     
     const carriedNegotiation = (decs.negotiation && decs.negotiation.status === 'AGREED')
       ? {
@@ -324,32 +343,36 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
       negotiation: carriedNegotiation
     };
 
-    const periodRecordWithDecs = {
-      ...result.periodRecord,
-      ...(rawTeamPerf?.alpOpportunities ? {
-        otherIncome,
-        alpOpportunities: rawTeamPerf.alpOpportunities,
-      } : {}),
-      netProfit: np,
-      balanceSheet: {
-        ...result.periodRecord.balanceSheet,
-        cash: (result.periodRecord.balanceSheet?.cash ?? 0) + otherIncome,
-        totalAssets: (result.periodRecord.balanceSheet?.totalAssets ?? 0) + otherIncome,
-        equity: eq,
-        totalLiabilitiesAndEquity: (result.periodRecord.balanceSheet?.totalLiabilitiesAndEquity ?? 0) + otherIncome,
-      },
-      cashFlow: {
-        ...result.periodRecord.cashFlow,
-        operating: (result.periodRecord.cashFlow?.operating ?? 0) + otherIncome,
-        net: (result.periodRecord.cashFlow?.net ?? 0) + otherIncome,
-      },
-      kpis: {
-        ...result.periodRecord.kpis,
-        netProfit: np,
-      },
-      decisions: decs,
-      draftDecisions: decs
-    };
+    const periodRecordWithDecs = existingPeriodRec?.industry
+      ? existingPeriodRec
+      : {
+          ...result.periodRecord,
+          ...(rawTeamPerf?.alpOpportunities ? {
+            otherIncome,
+            alpOpportunities: rawTeamPerf.alpOpportunities,
+          } : {}),
+          netProfit: np,
+          balanceSheet: {
+            ...result.periodRecord.balanceSheet,
+            cash: (result.periodRecord.balanceSheet?.cash ?? 0) + otherIncome,
+            totalAssets: (result.periodRecord.balanceSheet?.totalAssets ?? 0) + otherIncome,
+            equity: eq,
+            totalLiabilitiesAndEquity: (result.periodRecord.balanceSheet?.totalLiabilitiesAndEquity ?? 0) + otherIncome,
+          },
+          cashFlow: {
+            ...result.periodRecord.cashFlow,
+            operating: (result.periodRecord.cashFlow?.operating ?? 0) + otherIncome,
+            net: (result.periodRecord.cashFlow?.net ?? 0) + otherIncome,
+          },
+          kpis: {
+            ...result.periodRecord.kpis,
+            netProfit: np,
+          },
+          decisions: decs,
+          draftDecisions: decs,
+          industry: teamPerf,
+          fullIndustryReport: perfList
+        };
 
     currentTeamState = {
       ...result.newTeamState,
@@ -894,7 +917,6 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
                       if (targetClass && targetClass.currentPeriod > teamData.currentPeriod && !teamData.isArchived) {
                           teamData = reconcileTeamPeriod(teamData, targetClass.currentPeriod, targetClass);
-                          void saveTeamState(prev.currentClassId!, teamData, false).catch(err => console.error("Failed auto-sync student team period", err));
                       }
 
                       if (JSON.stringify(prev.currentTeam) === JSON.stringify(teamData)) {
@@ -903,6 +925,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       
                       const localPin = localStorage.getItem('techtabs_ceo_pin');
                       const canEdit = isDemoMode || (Boolean(teamData.ceoPin) && localPin === teamData.ceoPin);
+                      const remoteIsNewer = getTeamTimestampMs(teamData) > getTeamTimestampMs(prev.currentTeam);
                       
                       const updatedDecisions = (!canEdit && teamData.draftDecisions) 
                         ? teamData.draftDecisions 
@@ -910,6 +933,12 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                             ? {
                                 ...teamData.draftDecisions,
                                 ...prev.decisions,
+                                marketing: {
+                                    ...(prev.decisions?.marketing || teamData.draftDecisions.marketing),
+                                    alpOpportunities: remoteIsNewer && teamData.draftDecisions.marketing?.alpOpportunities
+                                        ? teamData.draftDecisions.marketing.alpOpportunities
+                                        : (prev.decisions?.marketing?.alpOpportunities || teamData.draftDecisions.marketing?.alpOpportunities)
+                                },
                                 supplierOverrides: teamData.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
                               }
                             : prev.decisions);
@@ -944,11 +973,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
               setState(prev => {
                   const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
-                  const maxTeamPeriod = Math.max(
-                      targetClass?.currentPeriod || 1,
-                      ...sortedTeams.map(t => t.currentPeriod || 1)
-                  );
-                  const effectivePeriod = Math.max(targetClass?.currentPeriod || 1, maxTeamPeriod);
+                  const effectivePeriod = targetClass?.currentPeriod || 1;
 
                   const reconciledTeams = sortedTeams.map(tData => {
                       const exTeam = targetClass?.teams?.find(t => t.id === tData.id);
@@ -958,9 +983,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       const mergedTData = latestUpdatedAt ? { ...tData, updatedAt: latestUpdatedAt } : tData;
 
                       if (targetClass && effectivePeriod > mergedTData.currentPeriod && !mergedTData.isArchived) {
-                          const synced = reconcileTeamPeriod(mergedTData, effectivePeriod, targetClass);
-                          void saveTeamState(prev.currentClassId!, synced, false).catch(err => console.error("Failed auto-sync team period", err));
-                          return synced;
+                          return reconcileTeamPeriod(mergedTData, effectivePeriod, targetClass);
                       }
                       return mergedTData;
                   });
@@ -983,6 +1006,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                   if (prev.currentRole === 'STUDENT' && prev.currentTeam.id) {
                       const matched = reconciledTeams.find(t => t.id === prev.currentTeam.id);
                       if (matched) {
+                          const remoteIsNewer = getTeamTimestampMs(matched) > getTeamTimestampMs(prev.currentTeam);
                           updatedCurrentTeam = matched;
                           const localPin = localStorage.getItem('techtabs_ceo_pin');
                           const canEdit = isDemoMode || (Boolean(matched.ceoPin) && localPin === matched.ceoPin);
@@ -993,6 +1017,12 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                                   updatedDecisions = {
                                       ...matched.draftDecisions,
                                       ...prev.decisions,
+                                      marketing: {
+                                          ...(prev.decisions?.marketing || matched.draftDecisions.marketing),
+                                          alpOpportunities: remoteIsNewer && matched.draftDecisions.marketing?.alpOpportunities
+                                              ? matched.draftDecisions.marketing.alpOpportunities
+                                              : (prev.decisions?.marketing?.alpOpportunities || matched.draftDecisions.marketing?.alpOpportunities)
+                                      },
                                       supplierOverrides: matched.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
                                   };
                               }

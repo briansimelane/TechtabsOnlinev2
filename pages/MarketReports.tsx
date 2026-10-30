@@ -880,10 +880,10 @@ const MarketReports: React.FC = () => {
           totalCogs: rawRec.cogs?.total ?? rawRec.industry.totalCogs,
           cogsByProduct: rawRec.cogs?.byProduct ?? rawRec.industry.cogsByProduct,
           grossProfit: rawRec.grossProfit?.total ?? rawRec.industry.grossProfit,
-          otherIncome: rawRec.otherIncome ?? rawRec.industry.otherIncome ?? livePerf?.otherIncome,
-          alpOpportunities: rawRec.alpOpportunities ?? rawRec.industry.alpOpportunities ?? livePerf?.alpOpportunities,
-          netProfit: rawRec.netProfit ?? rawRec.industry.netProfit,
-          equity: rawRec.balanceSheet?.equity ?? rawRec.industry.equity
+          otherIncome: rawRec.industry.otherIncome ?? rawRec.otherIncome ?? livePerf?.otherIncome,
+          alpOpportunities: rawRec.industry.alpOpportunities ?? rawRec.alpOpportunities ?? livePerf?.alpOpportunities,
+          netProfit: rawRec.industry.netProfit ?? rawRec.netProfit,
+          equity: rawRec.industry.equity ?? rawRec.balanceSheet?.equity
         };
       }
       if (rawRec) {
