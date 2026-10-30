@@ -152,18 +152,22 @@ export const listAdministrators = async (): Promise<Administrator[]> => {
   return snapshot.docs.map((docSnap) => docSnap.data() as Administrator);
 };
 
-export const saveTeamState = async (classId: string, team: Team): Promise<void> => {
+export const saveTeamState = async (classId: string, team: Team, touchUpdatedAt: boolean = true): Promise<void> => {
   const ref = doc(db, 'classes', classId, 'teams', team.id);
   const nowIso = new Date().toISOString();
+  const effectiveUpdatedAt = touchUpdatedAt ? nowIso : (team.updatedAt || nowIso);
   let teamToSave: Team = {
     ...team,
-    updatedAt: nowIso
+    updatedAt: effectiveUpdatedAt
   };
 
   try {
     const existingSnap = await getDoc(ref);
     if (existingSnap.exists()) {
       const existingData = existingSnap.data() as Team;
+      if (!touchUpdatedAt && !team.updatedAt && existingData?.updatedAt) {
+        teamToSave.updatedAt = existingData.updatedAt;
+      }
       const existingOverrides = existingData?.draftDecisions?.supplierOverrides;
       if (existingOverrides) {
         const currentOverrides = team.draftDecisions?.supplierOverrides;
@@ -184,7 +188,7 @@ export const saveTeamState = async (classId: string, team: Team): Promise<void> 
 
   const cleanData = sanitizeForFirestore({
     ...teamToSave,
-    updatedAt: nowIso
+    updatedAt: teamToSave.updatedAt
   });
   await setDoc(ref, cleanData, { merge: true });
 };

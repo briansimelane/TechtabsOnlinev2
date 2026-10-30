@@ -424,6 +424,15 @@ const debounce = <F extends (...args: any[]) => any>(fn: F, delay: number) => {
   };
 };
 
+const getTeamTimestampMs = (t?: Partial<Team> | null): number => {
+  const val: any = t?.updatedAt;
+  if (!val) return 0;
+  if (typeof val?.toDate === 'function') return val.toDate().getTime();
+  if (typeof val?.seconds === 'number') return val.seconds * 1000;
+  const ms = new Date(val).getTime();
+  return isNaN(ms) ? 0 : ms;
+};
+
 export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
@@ -469,18 +478,20 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const persistClass = async (updatedClass: SimulationClass) => {
     if (isDemoMode) {
-      const updatedClasses = state.classes.map(c => c.id === updatedClass.id ? updatedClass : c);
-      if (!updatedClasses.find(c => c.id === updatedClass.id)) {
-        updatedClasses.push(updatedClass);
-      }
-      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-      setState(prev => ({ ...prev, classes: updatedClasses }));
+      setState(prev => {
+        const updatedClasses = prev.classes.map(c => c.id === updatedClass.id ? updatedClass : c);
+        if (!updatedClasses.find(c => c.id === updatedClass.id)) {
+          updatedClasses.push(updatedClass);
+        }
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+        return { ...prev, classes: updatedClasses };
+      });
     } else {
       await saveClass(updatedClass);
-      // Save all team documents inside the subcollection in Firestore
+      // Save all team documents inside the subcollection in Firestore without overwriting their individual updatedAt
       if (updatedClass.teams) {
           for (const team of updatedClass.teams) {
-              await saveTeamState(updatedClass.id, team);
+              await saveTeamState(updatedClass.id, team, false);
           }
       }
       setState(prev => ({
@@ -492,40 +503,42 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const persistTeam = async (classId: string, updatedTeam: Team) => {
     const nowIso = new Date().toISOString();
-    const teamWithTimestamp = {
+    const teamWithTimestamp: Team = {
       ...updatedTeam,
-      updatedAt: updatedTeam.updatedAt || nowIso
+      updatedAt: nowIso
     };
 
     if (isDemoMode) {
-      const updatedClasses = state.classes.map(c => {
-        if (c.id === classId) {
-          const existingTeam = c.teams.find(t => t.id === teamWithTimestamp.id);
-          const existingOverrides = existingTeam?.draftDecisions?.supplierOverrides;
-          const mergedTeam = {
-            ...teamWithTimestamp,
-            updatedAt: teamWithTimestamp.updatedAt || existingTeam?.updatedAt || nowIso,
-            draftDecisions: {
-              ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
-              supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
-                ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
-                : existingOverrides
-            }
-          };
+      setState(prev => {
+        const updatedClasses = prev.classes.map(c => {
+          if (c.id === classId) {
+            const existingTeam = c.teams.find(t => t.id === teamWithTimestamp.id);
+            const existingOverrides = existingTeam?.draftDecisions?.supplierOverrides;
+            const mergedTeam: Team = {
+              ...teamWithTimestamp,
+              updatedAt: nowIso,
+              draftDecisions: {
+                ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
+                supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
+                  ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
+                  : existingOverrides
+              }
+            };
 
-          const updatedTeams = c.teams.map(t => t.id === teamWithTimestamp.id ? mergedTeam : t);
-          return { ...c, teams: updatedTeams };
-        }
-        return c;
+            const updatedTeams = c.teams.map(t => t.id === teamWithTimestamp.id ? mergedTeam : t);
+            return { ...c, teams: updatedTeams };
+          }
+          return c;
+        });
+        localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
+        return {
+          ...prev,
+          classes: updatedClasses,
+          currentTeam: prev.currentTeam.id === teamWithTimestamp.id ? teamWithTimestamp : prev.currentTeam
+        };
       });
-      localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-      setState(prev => ({
-        ...prev,
-        classes: updatedClasses,
-        currentTeam: prev.currentTeam.id === teamWithTimestamp.id ? teamWithTimestamp : prev.currentTeam
-      }));
     } else {
-      await saveTeamState(classId, teamWithTimestamp);
+      await saveTeamState(classId, teamWithTimestamp, true);
       try {
         const db = getAppDb();
         const classRef = doc(db, 'classes', classId);
@@ -534,9 +547,9 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
           const classData = classSnap.data() as SimulationClass;
           const existingTeamInClass = (classData.teams || []).find(t => t.id === teamWithTimestamp.id);
           const existingOverrides = existingTeamInClass?.draftDecisions?.supplierOverrides;
-          const mergedTeam = {
+          const mergedTeam: Team = {
             ...teamWithTimestamp,
-            updatedAt: teamWithTimestamp.updatedAt || existingTeamInClass?.updatedAt || nowIso,
+            updatedAt: nowIso,
             draftDecisions: {
               ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
               supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
@@ -545,27 +558,35 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
             }
           };
 
-          const updatedTeams = (classData.teams || []).map(t => t.id === teamWithTimestamp.id ? mergedTeam : t);
+          const stateClass = state.classes.find(c => c.id === classId);
+          const updatedTeams = (classData.teams || []).map(t => {
+            if (t.id === teamWithTimestamp.id) return mergedTeam;
+            const stateTeam = stateClass?.teams?.find(st => st.id === t.id);
+            if (stateTeam && getTeamTimestampMs(stateTeam) > getTeamTimestampMs(t)) {
+              return { ...t, updatedAt: stateTeam.updatedAt };
+            }
+            return t;
+          });
           if (!updatedTeams.find(t => t.id === teamWithTimestamp.id)) {
             updatedTeams.push(mergedTeam);
           }
           const updatedClass = { ...classData, teams: updatedTeams };
           await saveClass(updatedClass);
-          
-          const updatedClasses = state.classes.map(c => c.id === classId ? updatedClass : c);
-          if (!updatedClasses.find(c => c.id === classId)) {
-            updatedClasses.push(updatedClass);
-          }
-          try {
-            localStorage.setItem('techtabs_classes', JSON.stringify(updatedClasses));
-          } catch (e) {
-            console.warn("Failed to write classes to localStorage", e);
-          }
 
           setState(prev => {
-            const nextClasses = prev.classes.map(c => c.id === classId ? updatedClass : c);
-            if (!nextClasses.find(c => c.id === classId)) {
-              nextClasses.push(updatedClass);
+            const nextClasses = prev.classes.map(c => {
+              if (c.id === classId) {
+                const nextTeams = (c.teams || []).some(t => t.id === mergedTeam.id)
+                  ? c.teams.map(t => t.id === mergedTeam.id ? mergedTeam : t)
+                  : [...(c.teams || []), mergedTeam];
+                return { ...c, teams: nextTeams };
+              }
+              return c;
+            });
+            try {
+              localStorage.setItem('techtabs_classes', JSON.stringify(nextClasses));
+            } catch (e) {
+              console.warn("Failed to write classes to localStorage", e);
             }
             return {
               ...prev,
@@ -580,11 +601,14 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
+  const persistTeamRef = useRef(persistTeam);
+  persistTeamRef.current = persistTeam;
+
   const debouncedSaveDraft = React.useMemo(() => {
     return debounce(async (classId: string | null, team: Team) => {
       if (!classId) return;
       try {
-        await persistTeam(classId, team);
+        await persistTeamRef.current(classId, team);
       } catch (err) {
         console.error("Failed to auto-save draft decisions", err);
       }
@@ -686,7 +710,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
               if (!t.isArchived && t.currentPeriod < effectivePeriod) {
                 hasChanges = true;
                 const synced = reconcileTeamPeriod(t, effectivePeriod, cls);
-                void saveTeamState(cls.id, synced).catch(err => console.error("Failed auto-sync team period", err));
+                void saveTeamState(cls.id, synced, false).catch(err => console.error("Failed auto-sync team period", err));
                 return synced;
               }
               return t;
@@ -805,13 +829,21 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                               return exTeam;
                           }
 
+                          const exTs = getTeamTimestampMs(exTeam);
+                          const inTs = getTeamTimestampMs(inTeam);
+                          const exIsNewer = exTs > inTs;
+                          const latestUpdatedAt = exIsNewer ? exTeam.updatedAt : (inTeam.updatedAt || exTeam.updatedAt);
+
                           const isMyOwnTeam = prev.currentRole === 'STUDENT' && prev.currentTeam.id === inTeam.id;
+                          const preferExDecisions = isMyOwnTeam || exIsNewer;
+
                           return {
-                              ...exTeam,
-                              ...inTeam,
+                              ...(exIsNewer ? inTeam : exTeam),
+                              ...(exIsNewer ? exTeam : inTeam),
+                              updatedAt: latestUpdatedAt,
                               ceoName: inTeam.ceoName || exTeam.ceoName,
                               ceoPin: inTeam.ceoPin || exTeam.ceoPin,
-                              draftDecisions: isMyOwnTeam
+                              draftDecisions: preferExDecisions
                                   ? {
                                       ...(inTeam.draftDecisions || {}),
                                       ...(exTeam.draftDecisions || {}),
@@ -867,7 +899,7 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       const targetClass = prev.classes.find(c => c.id === prev.currentClassId);
                       if (targetClass && targetClass.currentPeriod > teamData.currentPeriod && !teamData.isArchived) {
                           teamData = reconcileTeamPeriod(teamData, targetClass.currentPeriod, targetClass);
-                          void saveTeamState(prev.currentClassId!, teamData).catch(err => console.error("Failed auto-sync student team period", err));
+                          void saveTeamState(prev.currentClassId!, teamData, false).catch(err => console.error("Failed auto-sync student team period", err));
                       }
 
                       if (JSON.stringify(prev.currentTeam) === JSON.stringify(teamData)) {
@@ -924,12 +956,18 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                   const effectivePeriod = Math.max(targetClass?.currentPeriod || 1, maxTeamPeriod);
 
                   const reconciledTeams = sortedTeams.map(tData => {
-                      if (targetClass && effectivePeriod > tData.currentPeriod && !tData.isArchived) {
-                          const synced = reconcileTeamPeriod(tData, effectivePeriod, targetClass);
-                          void saveTeamState(prev.currentClassId!, synced).catch(err => console.error("Failed auto-sync team period", err));
+                      const exTeam = targetClass?.teams?.find(t => t.id === tData.id);
+                      const latestUpdatedAt = (exTeam && getTeamTimestampMs(exTeam) > getTeamTimestampMs(tData))
+                          ? exTeam.updatedAt
+                          : (tData.updatedAt || exTeam?.updatedAt);
+                      const mergedTData = latestUpdatedAt ? { ...tData, updatedAt: latestUpdatedAt } : tData;
+
+                      if (targetClass && effectivePeriod > mergedTData.currentPeriod && !mergedTData.isArchived) {
+                          const synced = reconcileTeamPeriod(mergedTData, effectivePeriod, targetClass);
+                          void saveTeamState(prev.currentClassId!, synced, false).catch(err => console.error("Failed auto-sync team period", err));
                           return synced;
                       }
-                      return tData;
+                      return mergedTData;
                   });
 
                   const updatedClasses = prev.classes.map(c => {
@@ -1044,8 +1082,10 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       prev.currentRole !== 'STUDENT' || 
                       (Boolean(prev.currentTeam.ceoPin) && localPin === prev.currentTeam.ceoPin);
 
+      const nowIso = new Date().toISOString();
       const updatedTeam = {
         ...prev.currentTeam,
+        updatedAt: nowIso,
         draftDecisions: updatedDecisions
       };
 
@@ -1053,8 +1093,17 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
          debouncedSaveDraft(prev.currentClassId, updatedTeam);
       }
 
+      const updatedClasses = canEdit && prev.currentClassId
+        ? prev.classes.map(c =>
+            c.id === prev.currentClassId
+              ? { ...c, teams: (c.teams || []).map(t => t.id === updatedTeam.id ? { ...t, updatedAt: nowIso, draftDecisions: updatedDecisions } : t) }
+              : c
+          )
+        : prev.classes;
+
       return {
         ...prev,
+        classes: updatedClasses,
         currentTeam: canEdit ? updatedTeam : prev.currentTeam,
         decisions: canEdit ? updatedDecisions : prev.decisions,
       };
@@ -2771,7 +2820,7 @@ BEHAVIOR RULES:
 
     if (!isDemoMode) {
       await Promise.all(
-        updatedTeams.map(newTeam => saveTeamState(classId, newTeam))
+        updatedTeams.map(newTeam => saveTeamState(classId, newTeam, false))
       );
       await saveClass(updatedClass);
     }
@@ -2807,11 +2856,13 @@ BEHAVIOR RULES:
     const cls = state.classes.find(c => c.id === classId);
     if (!cls) return;
 
+    const nowIso = new Date().toISOString();
     let unlockedTeam: Team | undefined;
     const updatedTeams = cls.teams.map(team => {
       if (team.id === teamId) {
         unlockedTeam = {
           ...team,
+          updatedAt: nowIso,
           status: 'InProgress',
           reopenRequested: false
         };
@@ -2855,11 +2906,13 @@ BEHAVIOR RULES:
     const cls = state.classes.find(c => c.id === classId);
     if (!cls) return;
 
+    const nowIso = new Date().toISOString();
     let submittedTeam: Team | undefined;
     const updatedTeams = cls.teams.map(team => {
       if (team.id === teamId) {
         submittedTeam = {
           ...team,
+          updatedAt: nowIso,
           status: 'Submitted',
           reopenRequested: false
         };
@@ -2971,12 +3024,13 @@ BEHAVIOR RULES:
 
           const updatedTeam: Team = {
             ...team,
+            updatedAt: new Date().toISOString(),
             draftDecisions: updatedDraft
           };
 
           updatedTeamObj = updatedTeam;
 
-          void saveTeamState(classId, updatedTeam).catch(err => 
+          void saveTeamState(classId, updatedTeam, true).catch(err => 
             console.error(`Failed to save team ${updatedTeam.id} in updateTeamNegotiationByFacilitator`, err)
           );
 
@@ -3027,12 +3081,13 @@ BEHAVIOR RULES:
 
           const updatedTeam: Team = {
             ...team,
+            updatedAt: new Date().toISOString(),
             draftDecisions: updatedDraft
           };
 
           updatedTeamObj = updatedTeam;
 
-          void saveTeamState(classId, updatedTeam).catch(err => 
+          void saveTeamState(classId, updatedTeam, true).catch(err => 
             console.error(`Failed to save team ${updatedTeam.id} in updateTeamSupplierOverridesByFacilitator`, err)
           );
 
@@ -3090,12 +3145,13 @@ BEHAVIOR RULES:
 
           const updatedTeam: Team = {
             ...team,
+            updatedAt: new Date().toISOString(),
             draftDecisions: updatedDraft
           };
 
           updatedTeamObj = updatedTeam;
 
-          void saveTeamState(classId, updatedTeam).catch(err =>
+          void saveTeamState(classId, updatedTeam, true).catch(err =>
             console.error(`Failed to save team ${updatedTeam.id} in updateTeamALPOpportunityByFacilitator`, err)
           );
 
