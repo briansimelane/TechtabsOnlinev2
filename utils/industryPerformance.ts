@@ -548,6 +548,20 @@ export function computeIndustryPerformance(
     const unitsProduced = (scaledProd.techbook || 0) + (scaledProd.zroid || 0) + (scaledProd.itab || 0);
     const unitsSold = unitsMap.techbook.actual + unitsMap.zroid.actual + unitsMap.itab.actual;
 
+    const closedRec = period < (t.currentPeriod || 1)
+      ? (t.history?.[period] || (t.history as any)?.[String(period)])
+      : undefined;
+    if (closedRec?.industry && closedRec.industry.totalRevenue > 0) {
+      const resolvedAlp = closedRec.industry.alpOpportunities ?? closedRec.alpOpportunities ?? alpOpportunities;
+      const resolvedOtherIncome = closedRec.industry.otherIncome ?? closedRec.otherIncome ?? otherIncome;
+      return {
+        ...closedRec.industry,
+        teamId: t.id,
+        teamName: t.name,
+        ...(resolvedAlp ? { otherIncome: resolvedOtherIncome, alpOpportunities: resolvedAlp } : {}),
+      };
+    }
+
     return {
       teamId: t.id,
       teamName: t.name,

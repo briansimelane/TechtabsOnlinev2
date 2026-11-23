@@ -571,21 +571,45 @@ export function computeMarketShareBackModel(
     });
 
     // 3. Total score per team (sum over criteria)
-    const totalScoreByTeam = sortedTeams.map((_, tIdx) => {
+    const totalScoreByTeam = sortedTeams.map((t, tIdx) => {
       if (!activeByTeam[tIdx]) return 0;
+      if (period < t.currentPeriod) {
+        const rec = t.history?.[period] || (t.history as any)?.[String(period)];
+        const snapScore = rec?.industry?.totalScore?.[p.id];
+        if (typeof snapScore === 'number' && Number.isFinite(snapScore) && snapScore > 0) {
+          return snapScore;
+        }
+      }
       return criteria.reduce((sum, c) => sum + c.weightedByTeam[tIdx], 0);
     });
 
     // 4. Market Share per team
     const grandTotal = totalScoreByTeam.reduce((sum, s) => sum + s, 0);
-    const marketShareByTeam = sortedTeams.map((_, tIdx) => {
+    const marketShareByTeam = sortedTeams.map((t, tIdx) => {
       if (!activeByTeam[tIdx] || grandTotal === 0) return 0;
+      if (period < t.currentPeriod) {
+        const rec = t.history?.[period] || (t.history as any)?.[String(period)];
+        const snapShare = rec?.industry?.marketShare?.[p.id];
+        if (typeof snapShare === 'number' && Number.isFinite(snapShare) && snapShare > 0) {
+          return snapShare;
+        }
+      }
       return totalScoreByTeam[tIdx] / grandTotal;
     });
 
     // 5. Demand & Units Sold
     const marketDemand = getMarketDemandForPeriod(p.id, period);
-    const demandUnitsByTeam = marketShareByTeam.map(share => share * marketDemand);
+    const demandUnitsByTeam = marketShareByTeam.map((share, idx) => {
+      const t = sortedTeams[idx];
+      if (t && period < t.currentPeriod) {
+        const rec = t.history?.[period] || (t.history as any)?.[String(period)];
+        const snapDemand = rec?.industry?.units?.[p.id]?.demand;
+        if (typeof snapDemand === 'number' && Number.isFinite(snapDemand) && snapDemand > 0) {
+          return snapDemand;
+        }
+      }
+      return share * marketDemand;
+    });
     
     const availableByTeam = sortedTeams.map((t, idx) => {
       if (!activeByTeam[idx]) return 0;
@@ -595,11 +619,10 @@ export function computeMarketShareBackModel(
       // recorded when the period was run (opening + production + purchases).
       if (period < t.currentPeriod) {
         const rec = t.history?.[period] || t.history?.[String(period)];
-        const stored = rec?.market?.availableUnits?.[p.id];
-        if (typeof stored === 'number' && Number.isFinite(stored)) return stored;
-        // Fallback for older records without market.availableUnits
         const snap = rec?.industry?.units?.[p.id]?.available;
         if (typeof snap === 'number' && Number.isFinite(snap)) return snap;
+        const stored = rec?.market?.availableUnits?.[p.id];
+        if (typeof stored === 'number' && Number.isFinite(stored)) return stored;
       }
 
       const dec = getDecisionsForTeamPeriod(t, period);
@@ -613,6 +636,14 @@ export function computeMarketShareBackModel(
 
     const unitsSoldByTeam = demandUnitsByTeam.map((demandVal, idx) => {
       if (!activeByTeam[idx]) return 0;
+      const t = sortedTeams[idx];
+      if (t && period < t.currentPeriod) {
+        const rec = t.history?.[period] || (t.history as any)?.[String(period)];
+        const snapActual = rec?.industry?.units?.[p.id]?.actual;
+        if (typeof snapActual === 'number' && Number.isFinite(snapActual) && snapActual > 0) {
+          return snapActual;
+        }
+      }
       return Math.min(demandVal, availableByTeam[idx]);
     });
 
@@ -666,20 +697,21 @@ export function computeTeamPeriodBalanceSheet(
     const decs = getDecisionsForTeamPeriod(team, p);
     const result = processTurn(currentTeamState, decs, []);
     lastOpeningEquity = currentTeamState.shareholdersEquity;
-    let periodOtherIncome = 0;
     
     // Ensure Net Profit matches computeIndustryPerformance single source of truth exactly
     try {
       const rec = team.history?.[p] || (team.history as any)?.[String(p)];
       const perfList = computeIndustryPerformance(allTeams && allTeams.length > 0 ? allTeams : [team], p, p === 3 ? zenAuction : undefined);
       const teamPerf = (p < team.currentPeriod && rec?.industry) ? rec.industry : perfList.find(item => item.teamId === team.id);
-      if (teamPerf) {
+      if (p < team.currentPeriod && rec?.balanceSheet && rec?.industry && Math.abs((rec.balanceSheet.equity || 0) - (rec.industry.equity || 0)) < 10) {
+        lastNetProfit = rec.industry.netProfit ?? rec.netProfit;
+        lastBs = rec.balanceSheet;
+      } else if (teamPerf) {
         lastNetProfit = teamPerf.netProfit;
-        periodOtherIncome = teamPerf.otherIncome ?? 0;
         // Re-reconcile equity and cash balance with official industry net profit
         const netProfitDiff = lastNetProfit - result.periodRecord.netProfit;
-        const adjustedEquity = result.periodRecord.balanceSheet.equity + netProfitDiff;
-        const adjustedCash = result.periodRecord.balanceSheet.cash + netProfitDiff;
+        const adjustedEquity = teamPerf.equity ?? (result.periodRecord.balanceSheet.equity + netProfitDiff);
+        const adjustedCash = result.periodRecord.balanceSheet.cash + (adjustedEquity - result.periodRecord.balanceSheet.equity);
         lastBs = {
           ...result.periodRecord.balanceSheet,
           equity: adjustedEquity,
@@ -696,13 +728,11 @@ export function computeTeamPeriodBalanceSheet(
       lastNetProfit = result.periodRecord.netProfit;
     }
 
-    currentTeamState = periodOtherIncome !== 0
-      ? {
-          ...result.newTeamState,
-          cashBalance: (result.newTeamState.cashBalance ?? 0) + periodOtherIncome,
-          shareholdersEquity: (result.newTeamState.shareholdersEquity ?? 0) + periodOtherIncome,
-        }
-      : result.newTeamState;
+    currentTeamState = {
+      ...result.newTeamState,
+      cashBalance: lastBs.cash,
+      shareholdersEquity: lastBs.equity,
+    };
   }
 
   return {
