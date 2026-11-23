@@ -613,7 +613,7 @@ const MarketReports: React.FC = () => {
     ];
 
     const getRoleHeadcountBreakdown = (t: Team, role: HRRole) =>
-      getTeamRoleHeadcountForPeriod(t, role, reportPeriod);
+      getTeamRoleHeadcountForPeriod(t, role, reportPeriod, Boolean(currentClass?.isActionLearningProject));
 
     const hrRows: { label: string; values: string[] }[] = [
       {

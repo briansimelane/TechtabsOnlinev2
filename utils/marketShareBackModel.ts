@@ -216,7 +216,15 @@ export function getTeamRoleHeadcountForPeriod(
 
     const dec = getDecisionsForTeamPeriod(team, p);
     const rec = team.history?.[p] || (team.history as any)?.[String(p)];
-    if (!rec?.decisions && !rec?.draftDecisions && p === 1 && rec?.staffCounts?.[role] !== undefined) {
+    const closedPeriodIndustryStaff =
+      p < (team.currentPeriod || 1)
+        ? (rec?.industry?.staffCounts?.[role] ?? rec?.staffCounts?.[role])
+        : undefined;
+
+    if (typeof closedPeriodIndustryStaff === 'number' && Number.isFinite(closedPeriodIndustryStaff)) {
+      closingBeforeAttrition = closedPeriodIndustryStaff;
+      hire = closingBeforeAttrition - opening;
+    } else if (!rec?.decisions && !rec?.draftDecisions && p === 1 && rec?.staffCounts?.[role] !== undefined) {
       closingBeforeAttrition = rec.staffCounts[role];
       hire = closingBeforeAttrition - opening;
     } else {
@@ -233,8 +241,14 @@ export function getTeamRoleHeadcountForPeriod(
       nextOpening = Math.max(0, closingBeforeAttrition - attrition);
     } else {
       additionalAttrition = 0;
-      attrition = rec?.staffAttrition?.[role] ?? baseAttrition;
-      nextOpening = rec?.closingStaffAfterAttrition?.[role] ?? Math.max(0, closingBeforeAttrition - attrition);
+      const storedAttr = rec?.staffAttrition?.[role];
+      const storedNext = rec?.closingStaffAfterAttrition?.[role];
+      const storedConsistent =
+        storedAttr !== undefined &&
+        storedNext !== undefined &&
+        closingBeforeAttrition - storedAttr === storedNext;
+      attrition = storedConsistent ? storedAttr : baseAttrition;
+      nextOpening = storedConsistent ? storedNext : Math.max(0, closingBeforeAttrition - attrition);
     }
   }
 
@@ -251,13 +265,17 @@ export function getTeamRoleHeadcountForPeriod(
   };
 }
 
-export function getTeamOpeningStaffForPeriod(team: Team, targetPeriod = team.currentPeriod): Record<HRRole, number> {
+export function getTeamOpeningStaffForPeriod(
+  team: Team,
+  targetPeriod = team.currentPeriod,
+  isALPOverride?: boolean
+): Record<HRRole, number> {
   return {
-    engineers: getTeamRoleHeadcountForPeriod(team, 'engineers', targetPeriod).opening,
-    technicians: getTeamRoleHeadcountForPeriod(team, 'technicians', targetPeriod).opening,
-    semiSkilled: getTeamRoleHeadcountForPeriod(team, 'semiSkilled', targetPeriod).opening,
-    adminSales: getTeamRoleHeadcountForPeriod(team, 'adminSales', targetPeriod).opening,
-    customerService: getTeamRoleHeadcountForPeriod(team, 'customerService', targetPeriod).opening,
+    engineers: getTeamRoleHeadcountForPeriod(team, 'engineers', targetPeriod, isALPOverride).opening,
+    technicians: getTeamRoleHeadcountForPeriod(team, 'technicians', targetPeriod, isALPOverride).opening,
+    semiSkilled: getTeamRoleHeadcountForPeriod(team, 'semiSkilled', targetPeriod, isALPOverride).opening,
+    adminSales: getTeamRoleHeadcountForPeriod(team, 'adminSales', targetPeriod, isALPOverride).opening,
+    customerService: getTeamRoleHeadcountForPeriod(team, 'customerService', targetPeriod, isALPOverride).opening,
   };
 }
 

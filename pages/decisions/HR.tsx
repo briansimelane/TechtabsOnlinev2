@@ -9,10 +9,15 @@ import { useFlashOnChange } from '../../utils/useFlashOnChange';
 import { getTeamOpeningStaffForPeriod } from '../../utils/marketShareBackModel';
 
 const HR: React.FC = () => {
-  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole } = useSimulation();
+  const { decisions, updateDecisions, currentTeam, lastPeriodKPIs, isReadOnly, currentRole, classes, currentClassId } = useSimulation();
+  const currentClass = classes.find(c => c.id === currentClassId);
   const disabled = isReadOnly && currentRole === 'STUDENT';
   const { hr, operations, marketing } = decisions;
-  const openingStaffCounts = getTeamOpeningStaffForPeriod(currentTeam, currentTeam.currentPeriod);
+  const openingStaffCounts = getTeamOpeningStaffForPeriod(
+    currentTeam,
+    currentTeam.currentPeriod,
+    Boolean(currentClass?.isActionLearningProject)
+  );
 
   const flashHiring = {
       productionLine: useFlashOnChange(hr.hiring.productionLine),
