@@ -283,6 +283,52 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
 
   const activeTransferCosts = zen.transferCosts || ZEN_TRANSFER_COSTS;
 
+  // Local draft state for Facilitator Min Asking Price & Zen Transfer Costs so inputs don't reset on every keystroke
+  const [localReserveInput, setLocalReserveInput] = useState<string>(() => String(zen.reservePrice || ZEN_RESERVE_PRICE));
+  useEffect(() => {
+    setLocalReserveInput(String(zen.reservePrice || ZEN_RESERVE_PRICE));
+  }, [zen.reservePrice]);
+
+  const [localTransferInputs, setLocalTransferInputs] = useState<Record<ProductId, { components: string; finishedGoods: string }>>(() => ({
+    techbook: {
+      components: String(activeTransferCosts.techbook?.components ?? ZEN_TRANSFER_COSTS.techbook.components),
+      finishedGoods: String(activeTransferCosts.techbook?.finishedGoods ?? ZEN_TRANSFER_COSTS.techbook.finishedGoods),
+    },
+    zroid: {
+      components: String(activeTransferCosts.zroid?.components ?? ZEN_TRANSFER_COSTS.zroid.components),
+      finishedGoods: String(activeTransferCosts.zroid?.finishedGoods ?? ZEN_TRANSFER_COSTS.zroid.finishedGoods),
+    },
+    itab: {
+      components: String(activeTransferCosts.itab?.components ?? ZEN_TRANSFER_COSTS.itab.components),
+      finishedGoods: String(activeTransferCosts.itab?.finishedGoods ?? ZEN_TRANSFER_COSTS.itab.finishedGoods),
+    },
+  }));
+
+  useEffect(() => {
+    const tc = zen.transferCosts || ZEN_TRANSFER_COSTS;
+    setLocalTransferInputs({
+      techbook: {
+        components: String(tc.techbook?.components ?? ZEN_TRANSFER_COSTS.techbook.components),
+        finishedGoods: String(tc.techbook?.finishedGoods ?? ZEN_TRANSFER_COSTS.techbook.finishedGoods),
+      },
+      zroid: {
+        components: String(tc.zroid?.components ?? ZEN_TRANSFER_COSTS.zroid.components),
+        finishedGoods: String(tc.zroid?.finishedGoods ?? ZEN_TRANSFER_COSTS.zroid.finishedGoods),
+      },
+      itab: {
+        components: String(tc.itab?.components ?? ZEN_TRANSFER_COSTS.itab.components),
+        finishedGoods: String(tc.itab?.finishedGoods ?? ZEN_TRANSFER_COSTS.itab.finishedGoods),
+      },
+    });
+  }, [
+    zen.transferCosts?.techbook?.components,
+    zen.transferCosts?.techbook?.finishedGoods,
+    zen.transferCosts?.zroid?.components,
+    zen.transferCosts?.zroid?.finishedGoods,
+    zen.transferCosts?.itab?.components,
+    zen.transferCosts?.itab?.finishedGoods,
+  ]);
+
   // Live calculation of Zen Third-Party Sales & Profit from each buyer's Procurement decisions
   const b2bSalesSummary = useMemo(() => {
     let totalExternalUnits = 0;
@@ -433,14 +479,22 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
             <div className="flex items-center gap-2">
               <label className="font-bold text-slate-600">Min Asking Price (R):</label>
               <input
-                type="number"
-                step={5_000_000}
-                value={zen.reservePrice || ZEN_RESERVE_PRICE}
-                onChange={e =>
-                  updateZenAuctionConfig(currentClass.id, {
-                    reservePrice: Math.max(0, Number(e.target.value) || 0)
-                  })
-                }
+                type="text"
+                inputMode="numeric"
+                value={localReserveInput}
+                onChange={e => setLocalReserveInput(e.target.value)}
+                onBlur={() => {
+                  const val = Math.max(0, Number(localReserveInput) || 0);
+                  setLocalReserveInput(String(val));
+                  if (val !== (zen.reservePrice || ZEN_RESERVE_PRICE)) {
+                    updateZenAuctionConfig(currentClass.id, { reservePrice: val });
+                  }
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
                 className="w-36 border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-900 font-bold"
               />
             </div>
@@ -467,44 +521,82 @@ export const ZenAuctionAndB2BPanel: React.FC = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {PRODUCTS.map(p => {
-                const currentCosts = zen.transferCosts?.[p.id] || ZEN_TRANSFER_COSTS[p.id];
+                const draftCosts = localTransferInputs[p.id];
                 return (
                   <div key={p.id} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex items-center justify-between gap-2">
                     <span className="font-bold text-slate-800">{p.name}</span>
                     <div className="flex items-center gap-2">
                       <label className="text-[11px] text-slate-500">Raw:</label>
                       <input
-                        type="number"
-                        value={currentCosts.components}
-                        onChange={e => {
+                        type="text"
+                        inputMode="numeric"
+                        value={draftCosts.components}
+                        onChange={e =>
+                          setLocalTransferInputs(prev => ({
+                            ...prev,
+                            [p.id]: { ...prev[p.id], components: e.target.value }
+                          }))
+                        }
+                        onBlur={() => {
                           const existing = zen.transferCosts || ZEN_TRANSFER_COSTS;
-                          updateZenAuctionConfig(currentClass.id, {
-                            transferCosts: {
-                              ...existing,
-                              [p.id]: {
-                                ...existing[p.id],
-                                components: Math.max(0, Number(e.target.value) || 0)
+                          const val = Math.max(0, Number(draftCosts.components) || 0);
+                          setLocalTransferInputs(prev => ({
+                            ...prev,
+                            [p.id]: { ...prev[p.id], components: String(val) }
+                          }));
+                          if (val !== existing[p.id].components) {
+                            updateZenAuctionConfig(currentClass.id, {
+                              transferCosts: {
+                                ...existing,
+                                [p.id]: {
+                                  ...existing[p.id],
+                                  components: val
+                                }
                               }
-                            }
-                          });
+                            });
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
                         }}
                         className="w-16 border border-slate-300 rounded px-1.5 py-1 font-bold text-slate-900 bg-white"
                       />
                       <label className="text-[11px] text-slate-500">FG:</label>
                       <input
-                        type="number"
-                        value={currentCosts.finishedGoods}
-                        onChange={e => {
+                        type="text"
+                        inputMode="numeric"
+                        value={draftCosts.finishedGoods}
+                        onChange={e =>
+                          setLocalTransferInputs(prev => ({
+                            ...prev,
+                            [p.id]: { ...prev[p.id], finishedGoods: e.target.value }
+                          }))
+                        }
+                        onBlur={() => {
                           const existing = zen.transferCosts || ZEN_TRANSFER_COSTS;
-                          updateZenAuctionConfig(currentClass.id, {
-                            transferCosts: {
-                              ...existing,
-                              [p.id]: {
-                                ...existing[p.id],
-                                finishedGoods: Math.max(0, Number(e.target.value) || 0)
+                          const val = Math.max(0, Number(draftCosts.finishedGoods) || 0);
+                          setLocalTransferInputs(prev => ({
+                            ...prev,
+                            [p.id]: { ...prev[p.id], finishedGoods: String(val) }
+                          }));
+                          if (val !== existing[p.id].finishedGoods) {
+                            updateZenAuctionConfig(currentClass.id, {
+                              transferCosts: {
+                                ...existing,
+                                [p.id]: {
+                                  ...existing[p.id],
+                                  finishedGoods: val
+                                }
                               }
-                            }
-                          });
+                            });
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            (e.target as HTMLInputElement).blur();
+                          }
                         }}
                         className="w-16 border border-slate-300 rounded px-1.5 py-1 font-bold text-slate-900 bg-white"
                       />

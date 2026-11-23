@@ -3,6 +3,7 @@ import { useSimulation } from '../../contexts/SimulationContext';
 import { SUPPLIERS, SUPPLIER_METRICS, COMPONENT_COSTS, FINISHED_GOODS_COSTS, PRODUCTS } from '../../constants';
 import { TeamSupplierOverride, ProductId } from '../../types';
 import { formatCurrency, formatPercent } from '../../utils/numberFormat';
+import { getCumulativeSupplierOverrides, mergeSupplierOverrides } from '../../utils/firestoreHelpers';
 import { 
   Handshake, 
   CheckCircle2, 
@@ -44,12 +45,37 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
     zroid: COMPONENT_COSTS.zroid.Alpha,
     itab: COMPONENT_COSTS.itab.Alpha
   });
+  const [componentInputs, setComponentInputs] = useState<Record<ProductId, string>>({
+    techbook: String(COMPONENT_COSTS.techbook.Alpha),
+    zroid: String(COMPONENT_COSTS.zroid.Alpha),
+    itab: String(COMPONENT_COSTS.itab.Alpha)
+  });
 
   const [finishedGoodsPrices, setFinishedGoodsPrices] = useState<Record<ProductId, number>>({
     techbook: FINISHED_GOODS_COSTS.techbook.Alpha,
     zroid: FINISHED_GOODS_COSTS.zroid.Alpha,
     itab: FINISHED_GOODS_COSTS.itab.Alpha
   });
+  const [finishedGoodsInputs, setFinishedGoodsInputs] = useState<Record<ProductId, string>>({
+    techbook: String(FINISHED_GOODS_COSTS.techbook.Alpha),
+    zroid: String(FINISHED_GOODS_COSTS.zroid.Alpha),
+    itab: String(FINISHED_GOODS_COSTS.itab.Alpha)
+  });
+
+  // Per-(teamId, supplierId) unsaved draft cache so switching suppliers/teams before clicking Save doesn't lose edits
+  const [unsavedDrafts, setUnsavedDrafts] = useState<Record<string, {
+    componentPrices: Record<ProductId, number>;
+    finishedGoodsPrices: Record<ProductId, number>;
+    paymentTerms: number;
+    agreedDiscount: number;
+    quality: number;
+    leadTime: number;
+    service: number;
+    capacity: number;
+    innovation: number;
+    deliveryReliability: number;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED';
+  }>>({});
 
   const [paymentTerms, setPaymentTerms] = useState<number>(45);
   const [agreedDiscount, setAgreedDiscount] = useState<number>(0.05);
@@ -78,24 +104,64 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
   }, [teams, selectedTeamId]);
 
   const selectedTeam = teams.find(t => t.id === selectedTeamId);
-  const existingOverrides: TeamSupplierOverride = selectedTeam?.draftDecisions?.supplierOverrides || {};
+  const existingOverrides: TeamSupplierOverride = (selectedTeam ? getCumulativeSupplierOverrides(selectedTeam, selectedTeam.draftDecisions?.supplierOverrides) : undefined) || {};
 
   // Load active team & supplier values when selection changes
   useEffect(() => {
+    if (!selectedTeamId || !supplierId) return;
+    const draftKey = `${selectedTeamId}::${supplierId}`;
+    const cachedDraft = unsavedDrafts[draftKey];
+    if (cachedDraft) {
+      setComponentPrices(cachedDraft.componentPrices);
+      setComponentInputs({
+        techbook: String(cachedDraft.componentPrices.techbook),
+        zroid: String(cachedDraft.componentPrices.zroid),
+        itab: String(cachedDraft.componentPrices.itab),
+      });
+      setFinishedGoodsPrices(cachedDraft.finishedGoodsPrices);
+      setFinishedGoodsInputs({
+        techbook: String(cachedDraft.finishedGoodsPrices.techbook),
+        zroid: String(cachedDraft.finishedGoodsPrices.zroid),
+        itab: String(cachedDraft.finishedGoodsPrices.itab),
+      });
+      setPaymentTerms(cachedDraft.paymentTerms);
+      setAgreedDiscount(cachedDraft.agreedDiscount);
+      setQuality(cachedDraft.quality);
+      setLeadTime(cachedDraft.leadTime);
+      setService(cachedDraft.service);
+      setCapacity(cachedDraft.capacity);
+      setInnovation(cachedDraft.innovation);
+      setDeliveryReliability(cachedDraft.deliveryReliability);
+      setStatus(cachedDraft.status);
+      return;
+    }
+
     const defaultMetrics = (SUPPLIER_METRICS as any)[supplierId] || { quality: 7, terms: 30, leadTime: 5, service: 7, capacity: 6, innovation: 6 };
     
     // 1. Component Costs
-    setComponentPrices({
+    const nextComp = {
       techbook: existingOverrides.componentCosts?.techbook?.[supplierId] ?? COMPONENT_COSTS.techbook[supplierId] ?? 400,
       zroid: existingOverrides.componentCosts?.zroid?.[supplierId] ?? COMPONENT_COSTS.zroid[supplierId] ?? 350,
       itab: existingOverrides.componentCosts?.itab?.[supplierId] ?? COMPONENT_COSTS.itab[supplierId] ?? 300
+    };
+    setComponentPrices(nextComp);
+    setComponentInputs({
+      techbook: String(nextComp.techbook),
+      zroid: String(nextComp.zroid),
+      itab: String(nextComp.itab),
     });
 
     // 2. Finished Goods Costs
-    setFinishedGoodsPrices({
+    const nextFg = {
       techbook: existingOverrides.finishedGoodsCosts?.techbook?.[supplierId] ?? FINISHED_GOODS_COSTS.techbook[supplierId] ?? 1400,
       zroid: existingOverrides.finishedGoodsCosts?.zroid?.[supplierId] ?? FINISHED_GOODS_COSTS.zroid[supplierId] ?? 1200,
       itab: existingOverrides.finishedGoodsCosts?.itab?.[supplierId] ?? FINISHED_GOODS_COSTS.itab[supplierId] ?? 1000
+    };
+    setFinishedGoodsPrices(nextFg);
+    setFinishedGoodsInputs({
+      techbook: String(nextFg.techbook),
+      zroid: String(nextFg.zroid),
+      itab: String(nextFg.itab),
     });
 
     // 3. Terms, Performance Indicators & Discounts
@@ -110,65 +176,99 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
     setStatus(existingOverrides.status?.[supplierId] ?? 'AGREED');
   }, [selectedTeamId, supplierId]);
 
+  const updateCurrentDraftCache = (patch: Partial<{
+    componentPrices: Record<ProductId, number>;
+    finishedGoodsPrices: Record<ProductId, number>;
+    paymentTerms: number;
+    agreedDiscount: number;
+    quality: number;
+    leadTime: number;
+    service: number;
+    capacity: number;
+    innovation: number;
+    deliveryReliability: number;
+    status: 'NOT_STARTED' | 'IN_PROGRESS' | 'AGREED' | 'FAILED';
+  }>) => {
+    if (!selectedTeamId || !supplierId) return;
+    const draftKey = `${selectedTeamId}::${supplierId}`;
+    setUnsavedDrafts(prev => ({
+      ...prev,
+      [draftKey]: {
+        componentPrices,
+        finishedGoodsPrices,
+        paymentTerms,
+        agreedDiscount,
+        quality,
+        leadTime,
+        service,
+        capacity,
+        innovation,
+        deliveryReliability,
+        status,
+        ...(prev[draftKey] || {}),
+        ...patch
+      }
+    }));
+  };
+
   const handleSaveOverrides = async () => {
     if (!selectedTeamId || !supplierId) return;
 
     try {
       setIsSaving(true);
       
-      const newOverrides: TeamSupplierOverride = {
-        ...existingOverrides,
-        componentCosts: {
-          ...(existingOverrides.componentCosts || {}),
-          techbook: { ...(existingOverrides.componentCosts?.techbook || {}), [supplierId]: componentPrices.techbook },
-          zroid: { ...(existingOverrides.componentCosts?.zroid || {}), [supplierId]: componentPrices.zroid },
-          itab: { ...(existingOverrides.componentCosts?.itab || {}), [supplierId]: componentPrices.itab }
-        },
-        finishedGoodsCosts: {
-          ...(existingOverrides.finishedGoodsCosts || {}),
-          techbook: { ...(existingOverrides.finishedGoodsCosts?.techbook || {}), [supplierId]: finishedGoodsPrices.techbook },
-          zroid: { ...(existingOverrides.finishedGoodsCosts?.zroid || {}), [supplierId]: finishedGoodsPrices.zroid },
-          itab: { ...(existingOverrides.finishedGoodsCosts?.itab || {}), [supplierId]: finishedGoodsPrices.itab }
-        },
-        paymentTerms: {
-          ...(existingOverrides.paymentTerms || {}),
-          [supplierId]: paymentTerms
-        },
-        discounts: {
-          ...(existingOverrides.discounts || {}),
-          [supplierId]: status === 'AGREED' ? agreedDiscount : 0
-        },
-        quality: {
-          ...(existingOverrides.quality || {}),
-          [supplierId]: quality
-        },
-        leadTime: {
-          ...(existingOverrides.leadTime || {}),
-          [supplierId]: leadTime
-        },
-        service: {
-          ...(existingOverrides.service || {}),
-          [supplierId]: service
-        },
-        capacity: {
-          ...(existingOverrides.capacity || {}),
-          [supplierId]: capacity
-        },
-        innovation: {
-          ...(existingOverrides.innovation || {}),
-          [supplierId]: innovation
-        },
-        deliveryReliability: {
-          ...(existingOverrides.deliveryReliability || {}),
-          [supplierId]: deliveryReliability
-        },
-        status: {
-          ...(existingOverrides.status || {}),
-          [supplierId]: status
-        }
-      };
+      let combinedOverrides: TeamSupplierOverride = { ...existingOverrides };
+      for (const sup of SUPPLIERS) {
+        const key = `${selectedTeamId}::${sup}`;
+        const draft = sup === supplierId
+          ? {
+              componentPrices,
+              finishedGoodsPrices,
+              paymentTerms,
+              agreedDiscount,
+              quality,
+              leadTime,
+              service,
+              capacity,
+              innovation,
+              deliveryReliability,
+              status
+            }
+          : unsavedDrafts[key];
 
-      await updateTeamSupplierOverridesByFacilitator(classId, selectedTeamId, newOverrides);
+        if (draft) {
+          combinedOverrides = mergeSupplierOverrides(combinedOverrides, {
+            componentCosts: {
+              techbook: { [sup]: draft.componentPrices.techbook },
+              zroid: { [sup]: draft.componentPrices.zroid },
+              itab: { [sup]: draft.componentPrices.itab }
+            },
+            finishedGoodsCosts: {
+              techbook: { [sup]: draft.finishedGoodsPrices.techbook },
+              zroid: { [sup]: draft.finishedGoodsPrices.zroid },
+              itab: { [sup]: draft.finishedGoodsPrices.itab }
+            },
+            paymentTerms: { [sup]: draft.paymentTerms },
+            discounts: { [sup]: draft.status === 'AGREED' ? draft.agreedDiscount : 0 },
+            quality: { [sup]: draft.quality },
+            leadTime: { [sup]: draft.leadTime },
+            service: { [sup]: draft.service },
+            capacity: { [sup]: draft.capacity },
+            innovation: { [sup]: draft.innovation },
+            deliveryReliability: { [sup]: draft.deliveryReliability },
+            status: { [sup]: draft.status }
+          }) || combinedOverrides;
+        }
+      }
+
+      await updateTeamSupplierOverridesByFacilitator(classId, selectedTeamId, combinedOverrides);
+      setUnsavedDrafts(prev => {
+        const next = { ...prev };
+        for (const sup of SUPPLIERS) {
+          delete next[`${selectedTeamId}::${sup}`];
+        }
+        return next;
+      });
       setSaveSuccess(true);
       setConfirmDetails({
         targetName: selectedTeam?.name || 'Selected Team',
@@ -431,9 +531,27 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">R</span>
                         <input
-                          type="number"
-                          value={componentPrices[p.id]}
-                          onChange={(e) => setComponentPrices({ ...componentPrices, [p.id]: parseFloat(e.target.value) || 0 })}
+                          type="text"
+                          inputMode="decimal"
+                          value={componentInputs[p.id] ?? String(componentPrices[p.id])}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setComponentInputs(prev => ({ ...prev, [p.id]: raw }));
+                            const parsed = parseFloat(raw);
+                            if (!isNaN(parsed)) {
+                              const next = { ...componentPrices, [p.id]: parsed };
+                              setComponentPrices(next);
+                              updateCurrentDraftCache({ componentPrices: next });
+                            }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseFloat(componentInputs[p.id]);
+                            const finalVal = !isNaN(parsed) ? parsed : componentPrices[p.id];
+                            const next = { ...componentPrices, [p.id]: finalVal };
+                            setComponentPrices(next);
+                            setComponentInputs(prev => ({ ...prev, [p.id]: String(finalVal) }));
+                            updateCurrentDraftCache({ componentPrices: next });
+                          }}
                           className="w-full pl-7 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -455,9 +573,27 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       <div className="relative">
                         <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">R</span>
                         <input
-                          type="number"
-                          value={finishedGoodsPrices[p.id]}
-                          onChange={(e) => setFinishedGoodsPrices({ ...finishedGoodsPrices, [p.id]: parseFloat(e.target.value) || 0 })}
+                          type="text"
+                          inputMode="decimal"
+                          value={finishedGoodsInputs[p.id] ?? String(finishedGoodsPrices[p.id])}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setFinishedGoodsInputs(prev => ({ ...prev, [p.id]: raw }));
+                            const parsed = parseFloat(raw);
+                            if (!isNaN(parsed)) {
+                              const next = { ...finishedGoodsPrices, [p.id]: parsed };
+                              setFinishedGoodsPrices(next);
+                              updateCurrentDraftCache({ finishedGoodsPrices: next });
+                            }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseFloat(finishedGoodsInputs[p.id]);
+                            const finalVal = !isNaN(parsed) ? parsed : finishedGoodsPrices[p.id];
+                            const next = { ...finishedGoodsPrices, [p.id]: finalVal };
+                            setFinishedGoodsPrices(next);
+                            setFinishedGoodsInputs(prev => ({ ...prev, [p.id]: String(finalVal) }));
+                            updateCurrentDraftCache({ finishedGoodsPrices: next });
+                          }}
                           className="w-full pl-7 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
@@ -486,7 +622,10 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                         <button
                           key={days}
                           type="button"
-                          onClick={() => setPaymentTerms(days)}
+                          onClick={() => {
+                            setPaymentTerms(days);
+                            updateCurrentDraftCache({ paymentTerms: days });
+                          }}
                           className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
                             paymentTerms === days
                               ? 'bg-indigo-600 text-white border-indigo-600'
@@ -514,7 +653,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="0.30"
                       step="0.01"
                       value={agreedDiscount}
-                      onChange={(e) => setAgreedDiscount(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setAgreedDiscount(val);
+                        updateCurrentDraftCache({ agreedDiscount: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -534,7 +677,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="10"
                       step="0.5"
                       value={quality}
-                      onChange={(e) => setQuality(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setQuality(val);
+                        updateCurrentDraftCache({ quality: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -554,7 +701,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="10"
                       step="0.5"
                       value={leadTime}
-                      onChange={(e) => setLeadTime(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setLeadTime(val);
+                        updateCurrentDraftCache({ leadTime: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -574,7 +725,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="10"
                       step="0.5"
                       value={service}
-                      onChange={(e) => setService(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setService(val);
+                        updateCurrentDraftCache({ service: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -594,7 +749,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="10"
                       step="0.5"
                       value={capacity}
-                      onChange={(e) => setCapacity(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setCapacity(val);
+                        updateCurrentDraftCache({ capacity: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -614,7 +773,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="10"
                       step="0.5"
                       value={innovation}
-                      onChange={(e) => setInnovation(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setInnovation(val);
+                        updateCurrentDraftCache({ innovation: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -634,7 +797,11 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                       max="1.00"
                       step="0.05"
                       value={deliveryReliability}
-                      onChange={(e) => setDeliveryReliability(parseFloat(e.target.value))}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setDeliveryReliability(val);
+                        updateCurrentDraftCache({ deliveryReliability: val });
+                      }}
                       className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                     />
                   </div>
@@ -652,7 +819,10 @@ export const SupplierNegotiationsManager: React.FC<Props> = ({ classId }) => {
                     <button
                       key={st}
                       type="button"
-                      onClick={() => setStatus(st)}
+                      onClick={() => {
+                        setStatus(st);
+                        updateCurrentDraftCache({ status: st });
+                      }}
                       className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all ${
                         status === st
                           ? st === 'AGREED' ? 'bg-emerald-600 text-white border-emerald-600'
