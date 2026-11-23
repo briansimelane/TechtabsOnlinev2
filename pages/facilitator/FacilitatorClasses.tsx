@@ -268,8 +268,13 @@ const FacilitatorClasses: React.FC = () => {
                         displayedClasses.map((simClass) => (
                             <tr key={simClass.id} className={`hover:bg-slate-50 transition-colors ${simClass.isArchived ? 'bg-red-50/20' : ''}`}>
                                 <td className="px-6 py-4">
-                                    <div className="font-bold text-slate-900 flex items-center gap-2">
+                                    <div className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                                         <span>{simClass.name}</span>
+                                        {simClass.isActionLearningProject && (
+                                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase font-bold border border-emerald-200">
+                                                ALP
+                                            </span>
+                                        )}
                                         {simClass.editionId === 'global-markets' && (
                                             <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-200">
                                                 Global Markets

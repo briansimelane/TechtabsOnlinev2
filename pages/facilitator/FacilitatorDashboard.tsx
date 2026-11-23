@@ -74,7 +74,19 @@ const FacilitatorDashboard: React.FC = () => {
                             onClick={() => selectClass(cls.id)}
                             className="flex flex-col items-start p-6 bg-white border border-slate-200 rounded-xl hover:border-blue-500 hover:shadow-md transition-all group text-left relative overflow-hidden shadow-sm"
                         >
-                            <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 mb-1 transition-colors">{cls.name}</h3>
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <h3 className="font-bold text-lg text-slate-800 group-hover:text-blue-600 transition-colors">{cls.name}</h3>
+                                {cls.isActionLearningProject && (
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase font-bold border border-emerald-200">
+                                        ALP
+                                    </span>
+                                )}
+                                {cls.editionId === 'global-markets' && (
+                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-200">
+                                        Global Markets
+                                    </span>
+                                )}
+                            </div>
                             <code className="text-xs text-slate-400 mb-4 bg-slate-50 px-2 py-1 rounded">{cls.id}</code>
                             <div className="w-full mt-auto pt-4 border-t border-slate-100 flex items-center justify-between text-sm text-slate-600">
                                 <span className="flex items-center bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">

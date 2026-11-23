@@ -231,8 +231,13 @@ const GlobalClassManagement: React.FC = () => {
                       {filteredClasses.map((c) => (
                           <tr key={c.id} className={`hover:bg-slate-50 ${c.isArchived ? 'bg-red-50/20' : ''}`}>
                               <td className="px-6 py-4">
-                                  <div className="font-bold text-slate-900 flex items-center gap-2">
+                                  <div className="font-bold text-slate-900 flex items-center gap-2 flex-wrap">
                                       <span>{c.name}</span>
+                                      {c.isActionLearningProject && (
+                                          <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full uppercase font-bold border border-emerald-200">
+                                              ALP
+                                          </span>
+                                      )}
                                       {c.editionId === 'global-markets' && (
                                           <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full uppercase font-bold border border-purple-200">
                                               Global Markets
