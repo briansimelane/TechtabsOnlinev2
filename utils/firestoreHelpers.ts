@@ -8,7 +8,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { getAppDb } from '../firebase';
-import { Facilitator, Role, SimulationClass, Team, Administrator } from '../types';
+import { Facilitator, Role, SimulationClass, Team, Administrator, TeamSupplierOverride } from '../types';
 
 const db = getAppDb();
 
@@ -152,6 +152,62 @@ export const listAdministrators = async (): Promise<Administrator[]> => {
   return snapshot.docs.map((docSnap) => docSnap.data() as Administrator);
 };
 
+export function mergeSupplierOverrides(
+  base?: TeamSupplierOverride,
+  incoming?: TeamSupplierOverride
+): TeamSupplierOverride | undefined {
+  if (!base && !incoming) return undefined;
+  if (!base) return incoming;
+  if (!incoming) return base;
+
+  return {
+    ...base,
+    ...incoming,
+    componentCosts: {
+      ...(base.componentCosts || {}),
+      ...(incoming.componentCosts || {}),
+      techbook: { ...(base.componentCosts?.techbook || {}), ...(incoming.componentCosts?.techbook || {}) },
+      zroid: { ...(base.componentCosts?.zroid || {}), ...(incoming.componentCosts?.zroid || {}) },
+      itab: { ...(base.componentCosts?.itab || {}), ...(incoming.componentCosts?.itab || {}) },
+    },
+    finishedGoodsCosts: {
+      ...(base.finishedGoodsCosts || {}),
+      ...(incoming.finishedGoodsCosts || {}),
+      techbook: { ...(base.finishedGoodsCosts?.techbook || {}), ...(incoming.finishedGoodsCosts?.techbook || {}) },
+      zroid: { ...(base.finishedGoodsCosts?.zroid || {}), ...(incoming.finishedGoodsCosts?.zroid || {}) },
+      itab: { ...(base.finishedGoodsCosts?.itab || {}), ...(incoming.finishedGoodsCosts?.itab || {}) },
+    },
+    paymentTerms: { ...(base.paymentTerms || {}), ...(incoming.paymentTerms || {}) },
+    discounts: { ...(base.discounts || {}), ...(incoming.discounts || {}) },
+    quality: { ...(base.quality || {}), ...(incoming.quality || {}) },
+    deliveryReliability: { ...(base.deliveryReliability || {}), ...(incoming.deliveryReliability || {}) },
+    leadTime: { ...(base.leadTime || {}), ...(incoming.leadTime || {}) },
+    service: { ...(base.service || {}), ...(incoming.service || {}) },
+    capacity: { ...(base.capacity || {}), ...(incoming.capacity || {}) },
+    innovation: { ...(base.innovation || {}), ...(incoming.innovation || {}) },
+    status: { ...(base.status || {}), ...(incoming.status || {}) },
+  };
+}
+
+export function getCumulativeSupplierOverrides(team: Team, latestOverrides?: TeamSupplierOverride): TeamSupplierOverride | undefined {
+  let cumulative: TeamSupplierOverride | undefined = undefined;
+  const maxP = Math.max(team.currentPeriod || 1, 5);
+  for (let p = 1; p <= maxP; p++) {
+    const rec = team.history?.[p] || (team.history as any)?.[String(p)];
+    const histOv = rec?.decisions?.supplierOverrides || rec?.draftDecisions?.supplierOverrides;
+    if (histOv) {
+      cumulative = mergeSupplierOverrides(cumulative, histOv);
+    }
+  }
+  if (team.draftDecisions?.supplierOverrides) {
+    cumulative = mergeSupplierOverrides(cumulative, team.draftDecisions.supplierOverrides);
+  }
+  if (latestOverrides) {
+    cumulative = mergeSupplierOverrides(cumulative, latestOverrides);
+  }
+  return cumulative;
+}
+
 export const saveTeamState = async (classId: string, team: Team, touchUpdatedAt: boolean = true): Promise<void> => {
   const ref = doc(db, 'classes', classId, 'teams', team.id);
   const nowIso = new Date().toISOString();
@@ -168,16 +224,15 @@ export const saveTeamState = async (classId: string, team: Team, touchUpdatedAt:
       if (!touchUpdatedAt && !team.updatedAt && existingData?.updatedAt) {
         teamToSave.updatedAt = existingData.updatedAt;
       }
-      const existingOverrides = existingData?.draftDecisions?.supplierOverrides;
-      if (existingOverrides) {
-        const currentOverrides = team.draftDecisions?.supplierOverrides;
+      const existingOverrides = getCumulativeSupplierOverrides(existingData, existingData?.draftDecisions?.supplierOverrides);
+      const currentOverrides = getCumulativeSupplierOverrides(team, team.draftDecisions?.supplierOverrides);
+      const mergedOverrides = mergeSupplierOverrides(existingOverrides, currentOverrides);
+      if (mergedOverrides && teamToSave.draftDecisions) {
         teamToSave = {
           ...teamToSave,
           draftDecisions: {
-            ...team.draftDecisions,
-            supplierOverrides: currentOverrides 
-              ? { ...existingOverrides, ...currentOverrides }
-              : existingOverrides
+            ...teamToSave.draftDecisions,
+            supplierOverrides: mergedOverrides
           }
         };
       }

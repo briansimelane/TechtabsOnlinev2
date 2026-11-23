@@ -100,11 +100,17 @@ interface SimulationResult {
     periodRecord: PeriodRecord;
 }
 
+export interface CompetitiveMarketOverride {
+    marketShare?: Record<ProductId, number>;
+    units?: Record<ProductId, { marketSize: number; forecast: number; demand: number; available: number; actual: number }>;
+}
+
 export const processTurn = (
     team: Team, 
     decisions: TurnDecisions, 
     events: MarketEvent[] = [],
-    edition?: EditionConfig | null
+    edition?: EditionConfig | null,
+    competitiveMarketOverride?: CompetitiveMarketOverride
 ): SimulationResult => {
     if (edition) {
         return processTurnGlobalMarkets(team, decisions, events, edition);
@@ -260,10 +266,17 @@ export const processTurn = (
         const purchased = Math.max(reqFG, allocFG);
         const available = opening + production + purchased;
 
-        const actualSold = Math.min(demand, available);
+        const compUnits = competitiveMarketOverride?.units?.[p.id];
+        const effectiveShare = competitiveMarketOverride?.marketShare?.[p.id] ?? share;
+        marketShares[p.id] = effectiveShare;
+
+        const effectiveDemand = compUnits ? Math.round(compUnits.demand) : demand;
+        const effectiveAvailable = compUnits ? Math.round(compUnits.available ?? available) : available;
+        const actualSold = compUnits ? Math.round(compUnits.actual ?? Math.min(effectiveDemand, effectiveAvailable)) : Math.min(demand, available);
+
         unitsSold[p.id] = actualSold;
-        productDemands[p.id] = demand;
-        productAvailable[p.id] = available;
+        productDemands[p.id] = effectiveDemand;
+        productAvailable[p.id] = effectiveAvailable;
         revenueByProduct[p.id] = actualSold * decisions.marketing.prices[p.id];
     });
 
@@ -474,10 +487,14 @@ export const processTurn = (
     // Update Inventory Counts
     const newInventory = { ...team.inventory };
     PRODUCTS.forEach(p => {
-        const production = scaledProduction[p.id] || 0;
-        const bought = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
-        const sold = unitsSold[p.id];
-        newInventory[p.id] = Math.max(0, newInventory[p.id] + production + bought - sold);
+        if (competitiveMarketOverride?.units?.[p.id]) {
+            newInventory[p.id] = Math.max(0, (productAvailable[p.id] || 0) - (unitsSold[p.id] || 0));
+        } else {
+            const production = scaledProduction[p.id] || 0;
+            const bought = Object.values(decisions.procurement.supplierAllocation[p.id] || {}).reduce((s: number, v: any) => s + (v.finishedGoods || 0), 0);
+            const sold = unitsSold[p.id];
+            newInventory[p.id] = Math.max(0, newInventory[p.id] + production + bought - sold);
+        }
     });
 
     // Calculate cumulative features for each product

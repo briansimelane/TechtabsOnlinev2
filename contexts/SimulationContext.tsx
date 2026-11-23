@@ -22,7 +22,9 @@ import {
     listFacilitators,
     saveAdministrator,
     deleteAdministratorById,
-    listAdministrators
+    listAdministrators,
+    mergeSupplierOverrides,
+    getCumulativeSupplierOverrides
 } from '../utils/firestoreHelpers';
 
 // Mock User interface
@@ -278,13 +280,21 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
   while (currentTeamState.currentPeriod < targetPeriod) {
     const p = currentTeamState.currentPeriod;
     const existingPeriodRec = currentTeamState.history?.[p] || (currentTeamState.history as any)?.[String(p)];
-    const decs = currentTeamState.draftDecisions || INITIAL_DECISIONS;
-    const result = processTurn(currentTeamState, decs, [], edition);
+    const cumulativeOverrides = getCumulativeSupplierOverrides(currentTeamState, currentTeamState.draftDecisions?.supplierOverrides);
+    const decs: TurnDecisions = {
+      ...(currentTeamState.draftDecisions || INITIAL_DECISIONS),
+      ...(cumulativeOverrides ? { supplierOverrides: cumulativeOverrides } : {})
+    };
     const peerTeams = cls?.teams && cls.teams.length > 0
-      ? cls.teams.map(tm => tm.id === currentTeamState.id ? currentTeamState : tm)
-      : [currentTeamState];
+      ? cls.teams.map(tm => tm.id === currentTeamState.id ? { ...currentTeamState, draftDecisions: decs } : tm)
+      : [{ ...currentTeamState, draftDecisions: decs }];
     const perfList = computeIndustryPerformance(peerTeams, p, cls?.zenAuction);
     const rawTeamPerf = perfList.find(item => item.teamId === currentTeamState.id);
+    const competitiveOverride = rawTeamPerf ? {
+      marketShare: rawTeamPerf.marketShare,
+      units: rawTeamPerf.units
+    } : undefined;
+    const result = processTurn(currentTeamState, decs, [], edition, competitiveOverride);
     const otherIncome = rawTeamPerf?.otherIncome ?? 0;
     const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
     const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
@@ -320,6 +330,7 @@ export function reconcileTeamPeriod(team: Team, targetPeriod: number, cls?: Simu
 
     const carriedDecisions: TurnDecisions = {
       ...decs,
+      ...(cumulativeOverrides ? { supplierOverrides: cumulativeOverrides } : {}),
       marketing: {
         ...decs.marketing,
         ...(decs.marketing?.alpOpportunities ? {
@@ -536,15 +547,17 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         const updatedClasses = prev.classes.map(c => {
           if (c.id === classId) {
             const existingTeam = c.teams.find(t => t.id === teamWithTimestamp.id);
-            const existingOverrides = existingTeam?.draftDecisions?.supplierOverrides;
+            const existingOverrides = getCumulativeSupplierOverrides(existingTeam, existingTeam?.draftDecisions?.supplierOverrides);
+            const mergedOverrides = getCumulativeSupplierOverrides(
+              teamWithTimestamp,
+              mergeSupplierOverrides(existingOverrides, teamWithTimestamp.draftDecisions?.supplierOverrides)
+            );
             const mergedTeam: Team = {
               ...teamWithTimestamp,
               updatedAt: nowIso,
               draftDecisions: {
                 ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
-                supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
-                  ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
-                  : existingOverrides
+                ...(mergedOverrides ? { supplierOverrides: mergedOverrides } : {})
               }
             };
 
@@ -569,15 +582,17 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
         if (classSnap.exists()) {
           const classData = classSnap.data() as SimulationClass;
           const existingTeamInClass = (classData.teams || []).find(t => t.id === teamWithTimestamp.id);
-          const existingOverrides = existingTeamInClass?.draftDecisions?.supplierOverrides;
+          const existingOverrides = getCumulativeSupplierOverrides(existingTeamInClass, existingTeamInClass?.draftDecisions?.supplierOverrides);
+          const mergedOverrides = getCumulativeSupplierOverrides(
+            teamWithTimestamp,
+            mergeSupplierOverrides(existingOverrides, teamWithTimestamp.draftDecisions?.supplierOverrides)
+          );
           const mergedTeam: Team = {
             ...teamWithTimestamp,
             updatedAt: nowIso,
             draftDecisions: {
               ...(teamWithTimestamp.draftDecisions || {} as TurnDecisions),
-              supplierOverrides: teamWithTimestamp.draftDecisions?.supplierOverrides 
-                ? { ...(existingOverrides || {}), ...teamWithTimestamp.draftDecisions.supplierOverrides }
-                : existingOverrides
+              ...(mergedOverrides ? { supplierOverrides: mergedOverrides } : {})
             }
           };
 
@@ -865,12 +880,18 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                                   ? {
                                       ...(inTeam.draftDecisions || {}),
                                       ...(exTeam.draftDecisions || {}),
-                                      supplierOverrides: inTeam.draftDecisions?.supplierOverrides || exTeam.draftDecisions?.supplierOverrides
+                                      supplierOverrides: getCumulativeSupplierOverrides(
+                                        exIsNewer ? exTeam : inTeam,
+                                        mergeSupplierOverrides(inTeam.draftDecisions?.supplierOverrides, exTeam.draftDecisions?.supplierOverrides)
+                                      )
                                   }
                                   : {
                                       ...(exTeam.draftDecisions || {}),
                                       ...(inTeam.draftDecisions || {}),
-                                      supplierOverrides: inTeam.draftDecisions?.supplierOverrides || exTeam.draftDecisions?.supplierOverrides
+                                      supplierOverrides: getCumulativeSupplierOverrides(
+                                        exIsNewer ? exTeam : inTeam,
+                                        mergeSupplierOverrides(exTeam.draftDecisions?.supplierOverrides, inTeam.draftDecisions?.supplierOverrides)
+                                      )
                                   }
                           };
                       });
@@ -928,7 +949,10 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                       const remoteIsNewer = getTeamTimestampMs(teamData) > getTeamTimestampMs(prev.currentTeam);
                       
                       const updatedDecisions = (!canEdit && teamData.draftDecisions) 
-                        ? teamData.draftDecisions 
+                        ? {
+                            ...teamData.draftDecisions,
+                            supplierOverrides: getCumulativeSupplierOverrides(teamData, teamData.draftDecisions.supplierOverrides)
+                          }
                         : (teamData.draftDecisions
                             ? {
                                 ...teamData.draftDecisions,
@@ -939,7 +963,12 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                                         ? teamData.draftDecisions.marketing.alpOpportunities
                                         : (prev.decisions?.marketing?.alpOpportunities || teamData.draftDecisions.marketing?.alpOpportunities)
                                 },
-                                supplierOverrides: teamData.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
+                                supplierOverrides: getCumulativeSupplierOverrides(
+                                  teamData,
+                                  remoteIsNewer
+                                    ? mergeSupplierOverrides(prev.decisions?.supplierOverrides, teamData.draftDecisions.supplierOverrides)
+                                    : mergeSupplierOverrides(teamData.draftDecisions.supplierOverrides, prev.decisions?.supplierOverrides)
+                                )
                               }
                             : prev.decisions);
 
@@ -1012,7 +1041,10 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                           const canEdit = isDemoMode || (Boolean(matched.ceoPin) && localPin === matched.ceoPin);
                           if (matched.draftDecisions) {
                               if (!canEdit) {
-                                  updatedDecisions = matched.draftDecisions;
+                                  updatedDecisions = {
+                                      ...matched.draftDecisions,
+                                      supplierOverrides: getCumulativeSupplierOverrides(matched, matched.draftDecisions.supplierOverrides)
+                                  };
                               } else {
                                   updatedDecisions = {
                                       ...matched.draftDecisions,
@@ -1023,7 +1055,12 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
                                               ? matched.draftDecisions.marketing.alpOpportunities
                                               : (prev.decisions?.marketing?.alpOpportunities || matched.draftDecisions.marketing?.alpOpportunities)
                                       },
-                                      supplierOverrides: matched.draftDecisions.supplierOverrides || prev.decisions?.supplierOverrides
+                                      supplierOverrides: getCumulativeSupplierOverrides(
+                                        matched,
+                                        remoteIsNewer
+                                          ? mergeSupplierOverrides(prev.decisions?.supplierOverrides, matched.draftDecisions.supplierOverrides)
+                                          : mergeSupplierOverrides(matched.draftDecisions.supplierOverrides, prev.decisions?.supplierOverrides)
+                                      )
                                   };
                               }
                           }
@@ -1091,15 +1128,22 @@ export const SimulationProvider: React.FC<{ children: ReactNode }> = ({ children
 
   const updateDecisions = React.useCallback((section: keyof TurnDecisions, data: any) => {
     setState((prev) => {
-      const currentOverrides = prev.currentTeam?.draftDecisions?.supplierOverrides || prev.decisions?.supplierOverrides;
+      const currentOverrides = getCumulativeSupplierOverrides(
+        prev.currentTeam,
+        mergeSupplierOverrides(prev.currentTeam?.draftDecisions?.supplierOverrides, prev.decisions?.supplierOverrides)
+      );
 
       const updatedDecisions = {
         ...prev.decisions,
-        supplierOverrides: currentOverrides,
-        [section]: {
-          ...prev.decisions[section],
-          ...data,
-        },
+        supplierOverrides: section === 'supplierOverrides'
+          ? mergeSupplierOverrides(currentOverrides, data)
+          : currentOverrides,
+        ...(section !== 'supplierOverrides' ? {
+          [section]: {
+            ...prev.decisions[section],
+            ...data,
+          }
+        } : {}),
       };
 
       const localPin = localStorage.getItem('techtabs_ceo_pin');
@@ -2712,17 +2756,36 @@ BEHAVIOR RULES:
 
     setActiveClassIsALP(Boolean(cls.isActionLearningProject));
     const activeEvents = cls.activeEvents?.filter(e => e.activePeriod === cls.currentPeriod) || [];
-    const industryPerfList = computeIndustryPerformance(cls.teams, cls.currentPeriod, cls.zenAuction);
+    const teamsWithCumulativeOverrides = cls.teams.map(team => {
+      const cumOverrides = getCumulativeSupplierOverrides(team, team.draftDecisions?.supplierOverrides);
+      if (!cumOverrides) return team;
+      return {
+        ...team,
+        draftDecisions: {
+          ...(team.draftDecisions || INITIAL_DECISIONS),
+          supplierOverrides: cumOverrides
+        }
+      };
+    });
+    const industryPerfList = computeIndustryPerformance(teamsWithCumulativeOverrides, cls.currentPeriod, cls.zenAuction);
     const perfMap = new Map(industryPerfList.map(p => [p.teamId, p]));
 
-    const updatedTeams = cls.teams.map(team => {
+    const updatedTeams = teamsWithCumulativeOverrides.map(team => {
       if (team.isArchived) {
         return team;
       }
-      const decs = team.draftDecisions || INITIAL_DECISIONS;
+      const cumulativeOverrides = getCumulativeSupplierOverrides(team, team.draftDecisions?.supplierOverrides);
+      const decs: TurnDecisions = {
+        ...(team.draftDecisions || INITIAL_DECISIONS),
+        ...(cumulativeOverrides ? { supplierOverrides: cumulativeOverrides } : {})
+      };
       const edition = getEdition(cls);
-      const result = processTurn(team, decs, activeEvents, edition);
       const rawTeamPerf = perfMap.get(team.id);
+      const competitiveOverride = rawTeamPerf ? {
+        marketShare: rawTeamPerf.marketShare,
+        units: rawTeamPerf.units
+      } : undefined;
+      const result = processTurn(team, decs, activeEvents, edition, competitiveOverride);
       const otherIncome = rawTeamPerf?.otherIncome ?? 0;
       const totRev = result.periodRecord.revenue?.total ?? rawTeamPerf?.totalRevenue ?? 0;
       const totCogs = result.periodRecord.cogs?.total ?? rawTeamPerf?.totalCogs ?? 0;
@@ -2789,6 +2852,7 @@ BEHAVIOR RULES:
 
       const carriedDecisions: TurnDecisions = {
         ...decs,
+        ...(cumulativeOverrides ? { supplierOverrides: cumulativeOverrides } : {}),
         marketing: {
           ...decs.marketing,
           ...(decs.marketing?.alpOpportunities ? {
