@@ -337,17 +337,6 @@ const DecisionsSummary: React.FC = () => {
   const limitedCSAT = prevCSAT + Math.max(-0.09, Math.min(0.09, csatChangeVal));
   const forecastedCSAT = Math.min(0.95, Math.max(0.10, limitedCSAT - avgStockoutPenalty));
 
-  console.log('CSAT DEBUG:', {
-    prevCSAT,
-    weightedCustomerScore,
-    csAgentEffect,
-    targetCSAT,
-    calculatedCSAT,
-    limitedCSAT,
-    avgStockoutPenalty,
-    forecastedCSAT
-  });
-
   const metrics = [
     { 
       label: `Revenue (Y${currentPeriod} Fc)`, 
@@ -415,4 +404,4 @@ const DecisionsSummary: React.FC = () => {
   );
 };
 
-export default DecisionsSummary;
+export default React.memo(DecisionsSummary);

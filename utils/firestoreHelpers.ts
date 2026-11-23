@@ -69,12 +69,16 @@ export const upsertUserProfile = async (profile: UserProfile): Promise<void> => 
   await setDoc(ref, cleanData, { merge: true });
 };
 
-export const saveClass = async (simClass: SimulationClass): Promise<void> => {
+export const saveClass = async (simClass: SimulationClass, includeTeamsInRootDoc: boolean = false): Promise<void> => {
   const ref = doc(db, 'classes', simClass.id);
-  const cleanData = sanitizeForFirestore({
+  const payload: Record<string, any> = {
     ...simClass,
     updatedAt: serverTimestamp()
-  });
+  };
+  if (!includeTeamsInRootDoc) {
+    delete payload.teams;
+  }
+  const cleanData = sanitizeForFirestore(payload);
   await setDoc(ref, cleanData, { merge: true });
 };
 
