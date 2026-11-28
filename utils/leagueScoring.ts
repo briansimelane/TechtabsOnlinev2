@@ -38,31 +38,46 @@ export function getCumFinancialPct(team: any, period: number): number {
   const histMap = team.fullHistory || team.history;
   const rec = histMap?.[period] || histMap?.[String(period)] || (period === team.record?.period ? team.record : undefined);
 
-  const gp = rec?.industry?.gpMargin ?? team.perf?.gpMargin ?? 0;
-  const np = rec?.industry?.npMargin ?? team.perf?.npMargin ?? 0;
+  const penalty = rec?.maxRevenuePenalty ?? rec?.industry?.maxRevenuePenalty ?? team.perf?.maxRevenuePenalty ?? 0;
+  const rawRev = rec?.revenue?.total ?? rec?.industry?.totalRevenue ?? team.perf?.totalRevenue ?? 0;
+  const rev = Math.max(0, rawRev - penalty);
+  const rawGp = rec?.grossProfit?.total ?? rec?.industry?.grossProfit ?? team.perf?.grossProfit ?? 0;
+  const gp = Math.max(0, rawGp - penalty);
+  const gpMargin = rev > 0 ? (gp / rev) * 100 : (rec?.industry?.gpMargin ?? team.perf?.gpMargin ?? 0);
+  const np = rec?.industry?.netProfit ?? rec?.netProfit ?? team.perf?.netProfit ?? 0;
+  const npMargin = rev > 0 ? (np / rev) * 100 : (rec?.industry?.npMargin ?? team.perf?.npMargin ?? 0);
   const roe = rec?.industry?.roe ?? team.perf?.roe ?? 0;
 
-  return gp + np + roe;
+  return gpMargin + npMargin + roe;
 }
 
 export function metricsFromRecord(teamId: string, teamName: string, rec: PeriodRecord): TeamYearMetrics {
+  const penalty = rec?.maxRevenuePenalty ?? (rec as any)?.industry?.maxRevenuePenalty ?? 0;
+
   if (rec?.industry) {
     const p = rec.industry;
+    const rev = Math.max(0, p.totalRevenue - penalty);
+    const gp = Math.max(0, p.grossProfit - penalty);
+    const gpMargin = rev > 0 ? (gp / rev) * 100 : 0;
+    const npMargin = rev > 0 ? (p.netProfit / rev) * 100 : 0;
+
     return {
       teamId: p.teamId,
       teamName: p.teamName,
-      revenue: p.totalRevenue,
-      grossProfit: p.grossProfit,
+      revenue: rev,
+      grossProfit: gp,
       netProfit: p.netProfit,
       equity: p.equity,
-      gpMargin: p.gpMargin,
-      npMargin: p.npMargin,
+      gpMargin,
+      npMargin,
       roe: p.roe
     };
   }
 
-  const revenue = rec?.revenue?.total || 0;
-  const grossProfit = rec?.grossProfit?.total || 0;
+  const rawRev = rec?.revenue?.total || 0;
+  const revenue = Math.max(0, rawRev - penalty);
+  const rawGp = rec?.grossProfit?.total || 0;
+  const grossProfit = Math.max(0, rawGp - penalty);
   const netProfit = rec?.netProfit || 0;
   const equity = rec?.balanceSheet?.equity || 0;
 
@@ -84,17 +99,25 @@ export function metricsFromRecord(teamId: string, teamName: string, rec: PeriodR
 }
 
 export function scoreYearFromPerformance(perfList: TeamIndustryPerformance[], year: number): TeamYearScore[] {
-  const metricsList: TeamYearMetrics[] = perfList.map(p => ({
-    teamId: p.teamId,
-    teamName: p.teamName,
-    revenue: p.totalRevenue,
-    grossProfit: p.grossProfit,
-    netProfit: p.netProfit,
-    equity: p.equity,
-    gpMargin: p.gpMargin,
-    npMargin: p.npMargin,
-    roe: p.roe
-  }));
+  const metricsList: TeamYearMetrics[] = perfList.map(p => {
+    const penalty = p.maxRevenuePenalty ?? 0;
+    const rev = Math.max(0, p.totalRevenue - penalty);
+    const gp = Math.max(0, p.grossProfit - penalty);
+    const gpMargin = rev > 0 ? (gp / rev) * 100 : 0;
+    const npMargin = rev > 0 ? (p.netProfit / rev) * 100 : 0;
+
+    return {
+      teamId: p.teamId,
+      teamName: p.teamName,
+      revenue: rev,
+      grossProfit: gp,
+      netProfit: p.netProfit,
+      equity: p.equity,
+      gpMargin,
+      npMargin,
+      roe: p.roe
+    };
+  });
 
   const nTeams = metricsList.length;
   const maxScore = nTeams > 0 ? nTeams * 3 : 3;

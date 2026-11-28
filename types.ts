@@ -72,6 +72,7 @@ export interface PeriodRecord {
   revenue: { total: number; byProduct: Record<ProductId, number> };
   cogs: { total: number; byProduct: Record<ProductId, number> };
   grossProfit: { total: number; byProduct: Record<ProductId, number> };
+  maxRevenuePenalty?: number;
   opex: {
     marketing: number;
     store: number;

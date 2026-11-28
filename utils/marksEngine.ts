@@ -69,6 +69,9 @@ export interface TeamMarksResult {
   groupNumber: number;              // 1-based position in the scored set
   hasResults: boolean;
   scoringPeriod: number | null;
+  initialRevenue?: number;
+  maxRevenuePenalty?: number;
+  adjustedRevenue?: number;
   values: Record<MarkKpiKey, number>;
   flags: Partial<Record<MarkKpiKey, string>>;   // key -> human-readable reason
   bankBalance: number;
@@ -299,8 +302,10 @@ export function computeClassMarks(
     const h = team.history[period];
     const flags: Partial<Record<MarkKpiKey, string>> = {};
 
-    const revTotal = h.revenue?.total ?? 0;
-    const grossProfitTotal = h.grossProfit?.total ?? 0;
+    const initialRev = h.revenue?.total ?? 0;
+    const penalty = h.maxRevenuePenalty ?? h.industry?.maxRevenuePenalty ?? 0;
+    const revTotal = Math.max(0, initialRev - penalty);
+    const grossProfitTotal = Math.max(0, (h.grossProfit?.total ?? 0) - penalty);
     const netProfit = h.netProfit ?? 0;
     const equity = h.balanceSheet?.equity ?? 0;
 
@@ -335,7 +340,9 @@ export function computeClassMarks(
     for (let p = 1; p <= period; p++) {
       const hp = team.history[p];
       if (hp) {
-        accRevenue += hp.revenue?.total ?? 0;
+        const pRev = hp.revenue?.total ?? 0;
+        const pPen = hp.maxRevenuePenalty ?? hp.industry?.maxRevenuePenalty ?? 0;
+        accRevenue += Math.max(0, pRev - pPen);
         accInnovation += hp.opex?.rd ?? 0;
       }
     }
@@ -358,6 +365,9 @@ export function computeClassMarks(
       groupNumber,
       hasResults: true,
       period,
+      initialRevenue: initialRev,
+      maxRevenuePenalty: penalty,
+      adjustedRevenue: revTotal,
       values: {
         grossProfitPct,
         netProfitPct,
@@ -469,6 +479,9 @@ export function computeClassMarks(
       groupNumber: t.groupNumber,
       hasResults: t.hasResults,
       scoringPeriod: t.period,
+      initialRevenue: (t as any).initialRevenue ?? 0,
+      maxRevenuePenalty: (t as any).maxRevenuePenalty ?? 0,
+      adjustedRevenue: (t as any).adjustedRevenue ?? 0,
       values: t.values,
       flags: t.flags,
       bankBalance: t.bankBalance,

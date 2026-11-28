@@ -943,6 +943,16 @@ const FinancialReports: React.FC = () => {
                                        </td>
                                    </tr>
 
+                                   {/* Max Revenue Penalty */}
+                                   {Boolean((actuals as any)?.maxRevenuePenalty || (forecast as any)?.maxRevenuePenalty) && (
+                                       <tr className="font-semibold text-amber-900 bg-amber-50/60 border-b border-amber-200">
+                                           <td className="py-2 px-6 text-amber-800">Less: Max Revenue Penalty</td>
+                                           <td className="py-2 px-4 text-right text-slate-400">{formatCurrency((forecast as any)?.maxRevenuePenalty || 0)}</td>
+                                           <td className="py-2 px-4 text-right text-amber-700 font-bold">{formatCurrency((actuals as any)?.maxRevenuePenalty || 0)}</td>
+                                           <td className="py-2 px-4 text-right text-slate-400">-</td>
+                                       </tr>
+                                   )}
+
                                    {/* Opex Header */}
                                    <tr className="font-bold bg-slate-50/50">
                                        <td className="py-2 px-4" colSpan={4}>Operating Expenses</td>

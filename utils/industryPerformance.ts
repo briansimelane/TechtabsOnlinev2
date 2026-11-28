@@ -1,5 +1,5 @@
 import { Team, ProductId, HRRole, TrainingLevel, TurnDecisions, ALPOpportunityMarketResult, PeriodALPOpportunities, ZenAuctionState, ZenOpportunityResult, ZenBuyerBreakdown } from '../types';
-import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, COMPONENT_COSTS, FINISHED_GOODS_COSTS, ZEN_TRANSFER_COSTS, ZEN_RESERVE_PRICE } from '../constants';
+import { INITIAL_DECISIONS, STORE_COSTS, SUPPLIER_METRICS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, COMPONENT_COSTS, FINISHED_GOODS_COSTS, ZEN_TRANSFER_COSTS, ZEN_RESERVE_PRICE, MAX_RETAIL_PRICES } from '../constants';
 import { computeMarketShareBackModel, getScaledProduction, getDecisionsForTeamPeriod } from './marketShareBackModel';
 
 export function didTeamEnterBotswanaInPeriod(team: Team, period: number): boolean {
@@ -93,6 +93,7 @@ export interface TeamIndustryPerformance {
   totalCogs: number;
   grossProfit: number;
   gpMargin: number;                    // % — grossProfit / totalRevenue * 100
+  maxRevenuePenalty?: number;
 
   // Operating expenses — the exact seven Industry Performance rows
   opex: {
@@ -356,7 +357,24 @@ export function computeIndustryPerformance(
 
     const totalOpEx = sumOtherExpenses + otherOpex;
 
-    const ebitda = grossProfit - totalOpEx;
+    let maxRevenuePenalty = 0;
+    pKeys.forEach(pId => {
+      const price = dec.marketing?.prices?.[pId] ?? 0;
+      const maxP = MAX_RETAIL_PRICES[pId];
+      if (maxP && price > maxP) {
+        const res = backModelResults.find(r => r.productId === pId);
+        const unitsSold = res ? (res.unitsSoldByTeam[tIdx] || 0) : 0;
+        maxRevenuePenalty += (price - maxP) * unitsSold;
+      }
+    });
+
+    if (period < (t.currentPeriod || 1) && typeof t.history?.[period]?.maxRevenuePenalty === 'number') {
+      maxRevenuePenalty = t.history[period].maxRevenuePenalty;
+    } else if (period < (t.currentPeriod || 1) && typeof t.history?.[period]?.industry?.maxRevenuePenalty === 'number') {
+      maxRevenuePenalty = t.history[period].industry.maxRevenuePenalty;
+    }
+
+    const ebitda = grossProfit - maxRevenuePenalty - totalOpEx;
     const depr = 1535965;
     const forecastedLongTermDebt = Math.max(0, (t.longTermDebt || 50000000) + (dec.finance?.debtChange || 0));
     const startCash = t.cashBalance || 0;
@@ -579,6 +597,7 @@ export function computeIndustryPerformance(
       totalCogs,
       grossProfit,
       gpMargin,
+      ...(maxRevenuePenalty ? { maxRevenuePenalty } : {}),
       opex: {
         marketing: adMkt,
         store: storeCost,

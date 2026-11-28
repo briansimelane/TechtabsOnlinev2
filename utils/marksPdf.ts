@@ -96,6 +96,24 @@ export function generateTeamMarksPdf(
     '-',
   ]);
 
+  if ((teamResult.maxRevenuePenalty ?? 0) > 0) {
+    table1Data.push([
+      'Initial Period Revenue',
+      formatCurrency(teamResult.initialRevenue ?? 0, 0),
+      '-',
+    ]);
+    table1Data.push([
+      'Less: Max Revenue Penalty',
+      formatCurrency(teamResult.maxRevenuePenalty ?? 0, 0),
+      '-',
+    ]);
+    table1Data.push([
+      'Adjusted Period Revenue',
+      formatCurrency(teamResult.adjustedRevenue ?? 0, 0),
+      '-',
+    ]);
+  }
+
   autoTable(doc, {
     startY: currentY,
     margin: { left: margin, right: margin },

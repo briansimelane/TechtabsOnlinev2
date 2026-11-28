@@ -2,7 +2,7 @@
 import { Team, TurnDecisions, ProductId, KPI, MarketEvent, HRRole, PeriodRecord } from '../types';
 import CONFIG from '../resources/config.json';
 import CALC_RULES from '../resources/calculation_rules.json';
-import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, YEAR_0_RECORD, SUPPLIER_METRICS } from '../constants';
+import { PRODUCTS, STORE_COSTS, FINANCE_CONSTANTS, getMarketSize, getActiveClassIsALP, YEAR_0_RECORD, SUPPLIER_METRICS, MAX_RETAIL_PRICES } from '../constants';
 import { capacityExpansionCost } from './capex';
 
 // Helpers to map config json into usable structures
@@ -423,7 +423,18 @@ export const processTurn = (
 
     // 5. Profitability
     const grossProfit = totalRevenue - totalCOGS;
-    const ebitda = grossProfit - totalOpex;
+
+    let maxRevenuePenalty = 0;
+    PRODUCTS.forEach(p => {
+        const price = decisions.marketing?.prices?.[p.id] ?? 0;
+        const maxP = MAX_RETAIL_PRICES[p.id];
+        if (maxP && price > maxP) {
+            const sold = unitsSold[p.id] ?? 0;
+            maxRevenuePenalty += (price - maxP) * sold;
+        }
+    });
+
+    const ebitda = grossProfit - maxRevenuePenalty - totalOpex;
     const depreciation = 1535965;
     const longTermDebtInterest = (team.longTermDebt || 0) * FINANCE_CONSTANTS.interestRate;
     const overdraftInterest = team.cashBalance < 0 ? Math.abs(team.cashBalance) * (FINANCE_CONSTANTS.overdraftInterestRate || 0.15) : 0;
@@ -730,6 +741,7 @@ export const processTurn = (
             zroid: revenueByProduct.zroid - cogsByProduct.zroid,
             itab: revenueByProduct.itab - cogsByProduct.itab
         }},
+        ...(maxRevenuePenalty ? { maxRevenuePenalty } : {}),
         opex: {
             marketing: marketingSpend,
             store: storeRunCost + storeTransCost,

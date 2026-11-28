@@ -590,6 +590,41 @@ export default function GroupMarks() {
                 ))}
               </tr>
 
+              {scoredTeamResults.some(t => (t.maxRevenuePenalty ?? 0) > 0) && (
+                <>
+                  <tr className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-2.5 px-4 sticky left-0 bg-white border-r border-slate-200 font-medium text-slate-700">
+                      Initial Period Revenue
+                    </td>
+                    {scoredTeamResults.map((tRes) => (
+                      <td key={tRes.teamId} className="py-2.5 px-4 text-right border-r border-slate-200 font-mono text-xs">
+                        {tRes.hasResults ? formatCurrency(tRes.initialRevenue ?? 0, 0) : <span className="text-slate-400 italic">No results</span>}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="hover:bg-amber-50/50 transition-colors text-amber-900 bg-amber-50/30">
+                    <td className="py-2.5 px-4 sticky left-0 bg-amber-50/50 border-r border-slate-200 font-semibold text-amber-800">
+                      Max Revenue Penalty
+                    </td>
+                    {scoredTeamResults.map((tRes) => (
+                      <td key={tRes.teamId} className="py-2.5 px-4 text-right border-r border-slate-200 font-mono text-xs font-bold text-amber-700">
+                        {tRes.hasResults ? formatCurrency(tRes.maxRevenuePenalty ?? 0, 0) : <span className="text-slate-400 italic">-</span>}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-2.5 px-4 sticky left-0 bg-white border-r border-slate-200 font-medium text-slate-700">
+                      Adjusted Period Revenue
+                    </td>
+                    {scoredTeamResults.map((tRes) => (
+                      <td key={tRes.teamId} className="py-2.5 px-4 text-right border-r border-slate-200 font-mono text-xs">
+                        {tRes.hasResults ? formatCurrency(tRes.adjustedRevenue ?? 0, 0) : <span className="text-slate-400 italic">No results</span>}
+                      </td>
+                    ))}
+                  </tr>
+                </>
+              )}
+
               {/* Quality Breakdown Drawer (Expandable) */}
               {expandedQualityTeamId && (
                 <tr className="bg-slate-50 border-y border-slate-200">

@@ -7,6 +7,12 @@ export const PRODUCTS: Product[] = [
   { id: 'itab', name: 'iTab', segment: 'Premium' },
 ];
 
+export const MAX_RETAIL_PRICES: Record<ProductId, number> = {
+  techbook: 6000,
+  zroid: 8250,
+  itab: 11850
+};
+
 export const SUPPLIERS = ['Alpha', 'Neepo', 'Zen', 'Cheng'];
 
 export const HR_ROLES: HRRole[] = ['engineers', 'technicians', 'semiSkilled', 'adminSales', 'customerService'];

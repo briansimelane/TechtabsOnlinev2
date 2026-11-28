@@ -880,6 +880,7 @@ const MarketReports: React.FC = () => {
           totalCogs: rawRec.cogs?.total ?? rawRec.industry.totalCogs,
           cogsByProduct: rawRec.cogs?.byProduct ?? rawRec.industry.cogsByProduct,
           grossProfit: rawRec.grossProfit?.total ?? rawRec.industry.grossProfit,
+          maxRevenuePenalty: rawRec.maxRevenuePenalty ?? rawRec.industry.maxRevenuePenalty ?? livePerf?.maxRevenuePenalty ?? 0,
           otherIncome: rawRec.industry.otherIncome ?? rawRec.otherIncome ?? livePerf?.otherIncome,
           alpOpportunities: rawRec.industry.alpOpportunities ?? rawRec.alpOpportunities ?? livePerf?.alpOpportunities,
           netProfit: rawRec.industry.netProfit ?? rawRec.netProfit,
@@ -902,6 +903,7 @@ const MarketReports: React.FC = () => {
           totalCogs: totCogs,
           grossProfit: gp,
           gpMargin: totRev > 0 ? (gp / totRev) * 100 : 0,
+          maxRevenuePenalty: rawRec.maxRevenuePenalty ?? livePerf?.maxRevenuePenalty ?? 0,
           opex: {
             marketing: rawRec.opex?.marketing || 0,
             store: rawRec.opex?.store || 0,
@@ -984,6 +986,7 @@ const MarketReports: React.FC = () => {
       { label: '   - Zroid COGS', values: realTeams.map(t => formatCurrency(getPerf(t)?.cogsByProduct.zroid ?? 0, 0)) },
       { label: '   - iTab COGS', values: realTeams.map(t => formatCurrency(getPerf(t)?.cogsByProduct.itab ?? 0, 0)) },
       { label: 'Total Gross Profit (GP)', values: realTeams.map(t => formatCurrency(getPerf(t)?.grossProfit ?? 0, 0)), bold: true },
+      { label: '   - Max Revenue Penalty', values: realTeams.map(t => formatCurrency(getPerf(t)?.maxRevenuePenalty ?? 0, 0)), bold: true, bg: 'bg-amber-50/50' },
       { label: 'Operating Expenses:', values: realTeams.map(() => ''), bold: true },
       { label: '   - Advertising & Marketing', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.marketing ?? 0, 0)) },
       { label: '   - Store Costs', values: realTeams.map(t => formatCurrency(getPerf(t)?.opex.store ?? 0, 0)) },
